@@ -6,6 +6,7 @@ import {
 import { createCanvasElement, defaultCardData, fantasyBasicCanvas, newEditorId, normalizeEditorAttributes } from './card-canvas-factory';
 
 type ElementPatch = Partial<Pick<CardCanvasElement, 'name' | 'x' | 'y' | 'width' | 'height' | 'rotation' | 'opacity' | 'visible' | 'locked'>>;
+export type CardElementAlignment = 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom';
 const initialData = (): CardEditorDocument => {
   const data = defaultCardData();
   return { data, canvas: fantasyBasicCanvas(data) };
@@ -85,6 +86,34 @@ export class CardEditorStateService {
   patchElement(id: string, patch: ElementPatch): void {
     const element = this.canvas().elements.find(item => item.id === id);
     if (element) this.updateElement({ ...element, ...patch }, false);
+  }
+  alignSelected(alignment: CardElementAlignment): boolean {
+    const element = this.selectedElement();
+    if (this.busy() || this.mode() !== 'design' || !element || !element.visible || element.locked) return false;
+    const radians = element.rotation * Math.PI / 180;
+    const horizontal = element.width * Math.cos(radians);
+    const vertical = -element.height * Math.sin(radians);
+    const downWidth = element.width * Math.sin(radians);
+    const downHeight = element.height * Math.cos(radians);
+    const minX = element.x + Math.min(0, horizontal, vertical, horizontal + vertical);
+    const maxX = element.x + Math.max(0, horizontal, vertical, horizontal + vertical);
+    const minY = element.y + Math.min(0, downWidth, downHeight, downWidth + downHeight);
+    const maxY = element.y + Math.max(0, downWidth, downHeight, downWidth + downHeight);
+    let dx = 0; let dy = 0;
+    switch (alignment) {
+      case 'left': dx = -minX; break;
+      case 'center-x': dx = this.canvas().width / 2 - (minX + maxX) / 2; break;
+      case 'right': dx = this.canvas().width - maxX; break;
+      case 'top': dy = -minY; break;
+      case 'center-y': dy = this.canvas().height / 2 - (minY + maxY) / 2; break;
+      case 'bottom': dy = this.canvas().height - maxY; break;
+      default: return false;
+    }
+    const x = element.x + dx; const y = element.y + dy;
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < -8192 || x > 8192 || y < -8192 || y > 8192) return false;
+    if (Math.abs(dx) < 1e-7 && Math.abs(dy) < 1e-7) return true;
+    this.updateElement({ ...element, x, y }, false);
+    return true;
   }
   remove(id = this.selectedIds()[0]): void {
     if (!id || this.canvas().elements.find(item => item.id === id)?.locked) return;

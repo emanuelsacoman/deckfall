@@ -3,7 +3,7 @@ import { Storage } from '@angular/fire/storage';
 import { CARD_LIMITS, CardArt } from '../../interfaces/Cards/card';
 import { CardCanvasAsset } from '../../interfaces/Cards/card-canvas';
 import { defaultCardData, fantasyBasicCanvas } from '../tools/card-canvas-factory';
-import { CardStorageService } from './card-storage.service';
+import { CARD_STORAGE_OPERATION_RETRY_MS, CardStorageService, storageDownloadErrorMessage } from './card-storage.service';
 
 describe('Limites e caminhos da arte', () => {
   let service: CardStorageService;
@@ -18,6 +18,14 @@ describe('Limites e caminhos da arte', () => {
       .toThrowError('Selecione uma imagem PNG, JPEG ou WebP.');
     expect(() => service.validateImage(new File([], 'art.png', { type: 'image/png' })))
       .toThrowError(/no máximo 5 MiB/);
+  });
+
+  it('limita a janela de novas tentativas do Storage e explica falhas de imagem sem confundir permissão com CORS', () => {
+    expect(TestBed.inject(Storage).maxOperationRetryTime).toBe(CARD_STORAGE_OPERATION_RETRY_MS);
+    expect(storageDownloadErrorMessage({ code: 'storage/retry-limit-exceeded' })).toContain('CORS');
+    expect(storageDownloadErrorMessage({ code: 'storage/unauthorized' })).toContain('permissão administrativa');
+    expect(storageDownloadErrorMessage({ code: 'storage/unauthenticated' })).not.toContain('CORS');
+    expect(storageDownloadErrorMessage({ code: 'storage/object-not-found' })).toContain('não existe mais');
   });
 
   it('mantém a fronteira de tamanho consistente com as Rules', () => {

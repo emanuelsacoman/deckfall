@@ -3,7 +3,7 @@ import { CARD_IMAGE_TYPES } from '../../interfaces/Cards/card';
 import {
   CARD_CANVAS_CONFIG, CardCanvasData, CardCanvasElement, CardEditorDocument, EditorExportOptions, EditorMode
 } from '../../interfaces/Cards/card-canvas';
-import { drawElement, elementText, gradient } from './card-konva-elements';
+import { drawElement, elementText, gradient, hasImageEffects } from './card-konva-elements';
 import { exportCardContent } from './card-export.service';
 
 export interface CardCanvasView {
@@ -84,6 +84,9 @@ export class CardKonvaRenderer {
     this.updateImages(document.canvas);
     this.updateViewport();
     this.drawBackground(document.canvas);
+    const filteredImageCount = document.canvas.elements.filter(element => element.visible && element.opacity > 0
+      && (element.type === 'image' || element.type === 'artwork') && hasImageEffects(element.properties)
+      && this.image(resolvedAssetId(element, document.canvas))).length;
     const ids = new Set(document.canvas.elements.map(element => element.id));
     for (const [id, node] of this.nodes) {
       if (!ids.has(id)) { node.group.destroy(); this.nodes.delete(id); }
@@ -100,9 +103,9 @@ export class CardKonvaRenderer {
       const image = this.image(assetId);
       const derived = element.type === 'bar' || element.type === 'attribute'
         ? document.data.attributes.find(attribute => attribute.key === element.properties.attributeKey) : elementText(element, document.data);
-      const signature = JSON.stringify([element, derived, assetId, image?.src ?? '', view.mode]);
+      const signature = JSON.stringify([element, derived, assetId, image?.src ?? '', view.mode, filteredImageCount]);
       if (node.signature !== signature && this.activeGesture !== element.id) {
-        drawElement(group, element, document.data, image);
+        drawElement(group, element, document.data, image, filteredImageCount);
         node.signature = signature;
       }
       if (this.activeGesture !== element.id) group.setAttrs({ x: element.x, y: element.y,
@@ -300,13 +303,15 @@ export class CardKonvaRenderer {
     for (const id of referenced) {
       if (this.images.has(id)) continue;
       const source = this.urls[id];
+      // Downloads run independently; absence of a Blob URL is a pending asset, not a decode error.
+      if (!source) continue;
       const asset = canvas.assets.find(item => item.id === id);
       const image = new window.Image();
       let finish!: () => void;
       const ready = new Promise<void>(resolve => { finish = resolve; });
       const entry: ImageEntry = { source: source ?? '', image, status: 'loading', pixels: 0, error: '', ready, finish };
       this.images.set(id, entry);
-      if (!source || !source.startsWith('blob:') || !asset || !CARD_IMAGE_TYPES.some(type => type === asset.contentType)) {
+      if (!source.startsWith('blob:') || !asset || !CARD_IMAGE_TYPES.some(type => type === asset.contentType)) {
         this.imageFailure(id, entry, `A imagem ${asset?.fileName ?? id} ainda não está disponível para renderização.`);
         continue;
       }

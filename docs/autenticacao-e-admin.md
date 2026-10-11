@@ -71,10 +71,6 @@ O redirect depende da configuração de `authDomain` e das políticas de armazen
 
 Copie [environment.example.ts](config/environment.example.ts) para os dois environments e preencha somente valores públicos do SDK. Use production false no development. Arquivos reais continuam ignorados; nunca adicionar service accounts, chaves privadas, tokens ou senhas.
 
-`getBlob` pode exigir CORS do bucket, além das Rules. [storage.cors.example.json](config/storage.cors.example.json) permite GET de localhost:4200; revise as origens antes de aplicar externamente. O proprietário pode usar Google Cloud CLI/Cloud Shell depois de conferir o bucket:
+`getBlob` exige CORS do bucket para download direto no navegador, além das Rules. A captura mostrou ausência de `Access-Control-Allow-Origin` para `http://localhost:4200`. No bucket configurado `cardgame-6fdcb.firebasestorage.app`, a consulta inicial confirmou CORS vazio; após autorização explícita, GET para essa origem foi adicionado e confirmado em 11/10/2026. Siga [o guia de CORS](configuracao-cors-storage.md) para estado verificado, backups e futuras alterações. Não substituir uma lista desconhecida pelo [exemplo mínimo](config/storage.cors.example.json), pois isso removeria origens existentes.
 
-```text
-gcloud storage buckets update gs://SEU_BUCKET --cors-file=docs/config/storage.cors.example.json
-```
-
-Esse comando não foi executado nesta tarefa. CORS não concede autorização Firebase. Provedores, domínios, IAM, CORS, banco/bucket e Rules remotas não foram verificados no Console; consulte [riscos](riscos-e-dividas-tecnicas.md).
+CORS não concede autorização Firebase. O editor agora abre os dados antes dos downloads e oferece tentativa manual em falhas; imagens/exportação dependem de acesso aos arquivos. Alterações remotas continuam sendo uma etapa explícita do proprietário conforme o guia. Provedores, domínios, IAM e Rules remotas não foram verificados no Console; consulte [riscos](riscos-e-dividas-tecnicas.md).

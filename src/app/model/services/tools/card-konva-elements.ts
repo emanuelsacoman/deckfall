@@ -4,6 +4,7 @@ import {
 } from '../../interfaces/Cards/card-canvas';
 import { CardDataInput } from '../../interfaces/Cards/card';
 import { renderText } from './card-canvas-factory';
+import { cacheFilteredImage } from './card-filter-cache';
 
 export function gradient(width: number, height: number, angle: number, color: string, color2: string) {
   const radians = angle * Math.PI / 180;
@@ -18,8 +19,12 @@ export function gradient(width: number, height: number, angle: number, color: st
 }
 
 function style(properties: CanvasStyle) {
+  const strokeUnit = Math.max(1, properties.strokeWidth);
   return {
     fill: properties.fill, stroke: properties.stroke, strokeWidth: properties.strokeWidth,
+    dash: properties.borderStyle === 'dashed' ? [4 * strokeUnit, 2 * strokeUnit]
+      : properties.borderStyle === 'dotted' ? [0.001 * strokeUnit, 2 * strokeUnit] : [],
+    ...(properties.borderStyle === 'dotted' ? { lineCap: 'round' as const } : {}),
     shadowColor: properties.shadowColor, shadowBlur: properties.shadowBlur,
     shadowOffsetX: properties.shadowOffsetX, shadowOffsetY: properties.shadowOffsetY,
     listening: false
@@ -81,7 +86,13 @@ export function imageLayout(image: HTMLImageElement, width: number, height: numb
   };
 }
 
-function addImage(group: Konva.Group, element: Extract<CardCanvasElement, { type: 'image' | 'artwork' }>, image?: HTMLImageElement): void {
+export function hasImageEffects(properties: ImageProperties): boolean {
+  return properties.filter !== 'none' || (properties.brightness ?? 0) !== 0 || (properties.contrast ?? 0) !== 0
+    || (properties.saturation ?? 0) !== 0 || (properties.hue ?? 0) !== 0;
+}
+
+function addImage(group: Konva.Group, element: Extract<CardCanvasElement, { type: 'image' | 'artwork' }>,
+  image: HTMLImageElement | undefined, filteredImageCount: number): void {
   const properties = element.properties;
   const width = element.width, height = element.height;
   const radius = Math.min(properties.cornerRadius, width / 2, height / 2);
@@ -95,11 +106,29 @@ function addImage(group: Konva.Group, element: Extract<CardCanvasElement, { type
   mask.add(new Konva.Rect({ width, height, fill: properties.fill, listening: false }));
   if (image) {
     const shape = new Konva.Image({ image, ...imageLayout(image, width, height, properties), listening: false });
+    const filters: Konva.Filter[] = [];
+    const brightness = properties.brightness ?? 0, contrast = properties.contrast ?? 0;
     if (properties.filter !== 'none') {
-      shape.filters([properties.filter === 'grayscale' ? Konva.Filters.Grayscale : Konva.Filters.Sepia]);
-      shape.cache();
+      filters.push(properties.filter === 'grayscale' ? Konva.Filters.Grayscale : Konva.Filters.Sepia);
     }
-    mask.add(shape);
+    if (brightness !== 0) {
+      shape.brightness(brightness); filters.push(Konva.Filters.Brighten);
+    }
+    if (contrast !== 0) {
+      shape.contrast(contrast); filters.push(Konva.Filters.Contrast);
+    }
+    if ((properties.saturation ?? 0) !== 0 || (properties.hue ?? 0) !== 0) {
+      shape.saturation(properties.saturation ?? 0); shape.hue(properties.hue ?? 0); filters.push(Konva.Filters.HSL);
+    }
+    if (filters.length) {
+      shape.filters(filters);
+      shape.setAttr('cardFilterFrame', { width, height });
+      if (element.visible && element.opacity > 0) cacheFilteredImage(shape, { width, height }, 1, filteredImageCount);
+    }
+    const pixels = new Konva.Group({ x: properties.flipX ? width : 0, y: properties.flipY ? height : 0,
+      scaleX: properties.flipX ? -1 : 1, scaleY: properties.flipY ? -1 : 1, listening: false });
+    pixels.add(shape);
+    mask.add(pixels);
   } else {
     mask.add(new Konva.Text({ name: 'editor-placeholder', width, height, align: 'center', verticalAlign: 'middle',
       text: properties.assetId ? 'Imagem indisponível' : 'Adicione uma imagem', fontSize: Math.min(24, width / 10), fill: '#5c6370', listening: false }));
@@ -111,7 +140,8 @@ function addImage(group: Konva.Group, element: Extract<CardCanvasElement, { type
   group.add(border);
 }
 
-export function drawElement(group: Konva.Group, element: CardCanvasElement, data: CardDataInput, image?: HTMLImageElement): void {
+export function drawElement(group: Konva.Group, element: CardCanvasElement, data: CardDataInput,
+  image?: HTMLImageElement, filteredImageCount = 1): void {
   group.destroyChildren();
   group.add(new Konva.Rect({ name: 'element-hit-area', width: element.width, height: element.height, fill: 'transparent' }));
   const properties = element.properties;
@@ -120,6 +150,7 @@ export function drawElement(group: Konva.Group, element: CardCanvasElement, data
       group.add(new Konva.Text({ ...style(element.properties), text: elementText(element, data),
         width: element.width, height: element.height, fontFamily: element.properties.fontFamily,
         fontSize: element.properties.fontSize, fontStyle: element.properties.fontStyle, align: element.properties.align,
+        verticalAlign: element.properties.verticalAlign ?? 'top', textDecoration: element.properties.textDecoration ?? 'none',
         letterSpacing: element.properties.letterSpacing, lineHeight: element.properties.lineHeight, wrap: 'word' }));
       break;
     }
@@ -132,12 +163,13 @@ export function drawElement(group: Konva.Group, element: CardCanvasElement, data
     case 'line':
       group.add(new Konva.Line({ ...shapeStyle(element, element.properties), points: [0, 0, element.width, element.height], lineCap: 'round' }));
       break;
-    case 'image': case 'artwork': addImage(group, element, image); break;
+    case 'image': case 'artwork': addImage(group, element, image, filteredImageCount); break;
     case 'attribute': {
       const attribute = data.attributes.find(item => item.key === element.properties.attributeKey);
       group.add(new Konva.Text({ ...style(properties), fill: attribute?.color ?? properties.fill, text: elementText(element, data),
         width: element.width, height: element.height, fontFamily: element.properties.fontFamily,
-        fontSize: element.properties.fontSize, fontStyle: element.properties.fontStyle, align: element.properties.align, verticalAlign: 'middle' }));
+        fontSize: element.properties.fontSize, fontStyle: element.properties.fontStyle, align: element.properties.align,
+        verticalAlign: element.properties.verticalAlign ?? 'middle', textDecoration: element.properties.textDecoration ?? 'none' }));
       break;
     }
     case 'bar': {

@@ -10,13 +10,18 @@ A implementação local concentra-se no catálogo e no editor administrativo. Lo
 
 O backend remoto depende da conferência do proprietário: provedores Auth, domínios, primeiro administrador, Firestore, Storage, Rules, índices e CORS. Esta entrega não publica Rules nem faz deploy. Jogo, decks, packs, batalhas, inventário, trocas e marketplace continuam para etapas futuras.
 
+O CORS do Storage foi configurado e confirmado para leitura em `http://localhost:4200`, com autorização do proprietário. Para outras origens ou diagnóstico de imagens, siga [a configuração do Storage](docs/configuracao-cors-storage.md), preservando as entradas existentes do bucket.
+
 ## Recursos implementados
 
 - **Editor Konva:** texto, imagens, arte principal, formas, ícones, atributos e barras; seleção, movimento, resize, rotação, bloqueio, visibilidade e camadas.
+- **PNG transparente:** imagens já sem fundo preservam a transparência no editor, no salvamento e na exportação PNG, mostrando as camadas da carta por baixo.
+- **Personalização visual:** espelhar imagens, ajustar brilho/contraste/saturação/matiz e aplicar estilos Original, Vivo, Vintage ou Preto e branco; bordas contínuas/tracejadas/pontilhadas, decoração de texto e alinhamento à carta.
 - **Design, Dados e Preview:** propriedades por tipo, bindings seguros, atributos com limites personalizados, grid, snap, zoom e visualização limpa.
 - **Histórico e exportação:** desfazer/refazer, atalhos e PNG/JPEG em 1×, 2× ou 4×, respeitando dimensões reais e orçamento de pixels.
 - **Cartas e templates:** salvar/reabrir o modelo próprio no Firestore, uploads organizados no Storage, Fantasy Basic editável, salvar/carregar templates e preparar cópias de cartas.
 - **Rascunho local:** salvamento manual de documento e imagens em IndexedDB; importação/exportação de JSON para o modelo estruturado.
+- **Edição com imagens indisponíveis:** a carta abre sem esperar downloads; falhas têm nova tentativa manual e referências dos arquivos próprios podem ser conservadas ao salvar dados/design.
 - **Usuários:** consultar, vincular por UID e editar perfis Firestore e papéis com confirmação. Alterar contato não muda credenciais.
 - **Minha conta:** vincular Google e e-mail/senha ao mesmo usuário, consultar métodos ativos e recuperar senha por e-mail.
 - **Memória operacional:** arquitetura, contratos, fluxos, limites e configuração documentados para futuras sessões e agentes.
@@ -74,7 +79,7 @@ Os testes Angular precisam do Chrome. Os testes de Rules precisam da Firebase CL
 
 Resultados finais e detalhes do ambiente ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Verificações locais não confirmam a configuração nem a publicação do backend remoto.
 
-Validação local: **142 testes Angular, 17 cenários de Security Rules e build de produção aprovados**. OAuth Google e entrega de recuperação de senha reais dependem da configuração do Firebase Console.
+Validação local: **195 testes Angular, 17 cenários de Security Rules e build de produção aprovados**, incluindo edição com downloads bloqueados, pixels transparentes, espelhamento, efeitos, bordas, alinhamento e exportação. OAuth Google e entrega de recuperação de senha reais dependem da configuração do Firebase Console.
 
 ## Documentação e desenvolvimento
 

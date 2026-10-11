@@ -7,9 +7,26 @@ import { CardAssetOwner, CardCanvasAsset, CardCanvasData, PendingCardAsset } fro
 import { validateCardId } from '../tools/card-validation';
 import { isCardCanvasAssetPath, validateCanvasAsset, validateCardCanvas } from '../tools/card-canvas-validation';
 
+export const CARD_STORAGE_OPERATION_RETRY_MS = 15_000;
+
+export function storageDownloadErrorMessage(error: unknown): string {
+  const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null;
+  if (code === 'storage/object-not-found') return 'A imagem não existe mais no Storage. Selecione o arquivo novamente.';
+  if (code === 'storage/unauthorized' || code === 'storage/unauthenticated') {
+    return 'Não foi possível autorizar o download da imagem. Entre novamente e confira a permissão administrativa e as Rules do Storage.';
+  }
+  return 'Não foi possível baixar a imagem. Confira a conexão e a configuração CORS do bucket para o endereço deste site.';
+}
+
 @Injectable({ providedIn: 'root' })
 export class CardStorageService {
   private readonly storage = inject(Storage);
+
+  constructor() {
+    if (!Number.isFinite(this.storage.maxOperationRetryTime) || this.storage.maxOperationRetryTime > CARD_STORAGE_OPERATION_RETRY_MS) {
+      this.storage.maxOperationRetryTime = CARD_STORAGE_OPERATION_RETRY_MS;
+    }
+  }
 
   validateImage(file: File): void {
     if (!CARD_IMAGE_TYPES.some(type => type === file.type)) {
@@ -67,7 +84,11 @@ export class CardStorageService {
   async getAssetBlob(asset: CardCanvasAsset | CardArt): Promise<Blob> {
     if (!asset.storagePath) throw new Error('O asset ainda não foi enviado ao Storage.');
     this.validatePath(asset.storagePath);
-    return getBlob(ref(this.storage, asset.storagePath), CARD_LIMITS.imageBytes);
+    try {
+      return await getBlob(ref(this.storage, asset.storagePath), CARD_LIMITS.imageBytes);
+    } catch (error: unknown) {
+      throw new Error(storageDownloadErrorMessage(error));
+    }
   }
 
   async deleteAsset(asset: CardCanvasAsset | CardArt): Promise<void> {

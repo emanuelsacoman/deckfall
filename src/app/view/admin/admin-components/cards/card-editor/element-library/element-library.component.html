@@ -12,7 +12,7 @@
   <label class="upload-label" for="library-image">Enviar imagem</label>
   <input id="library-image" type="file" [accept]="imageTypes" (change)="upload($event)"
     [disabled]="state.busy() || state.canvas().elements.length >= maxElements" aria-describedby="library-upload-help" />
-  <p id="library-upload-help" class="muted">PNG, JPEG ou WebP · até 5 MiB</p>
+  <p id="library-upload-help" class="muted">PNG, JPEG ou WebP · até 5 MiB. PNGs já transparentes mantêm o fundo transparente.</p>
   @if (imageError()) { <p class="field-error" role="alert">{{ imageError() }}</p> }
   @if (state.canvas().elements.length >= maxElements) {
     <p class="notice" role="status">Limite de {{ maxElements }} elementos atingido.</p>

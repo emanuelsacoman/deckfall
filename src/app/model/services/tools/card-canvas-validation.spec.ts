@@ -1,5 +1,5 @@
 import { CARD_CANVAS_CONFIG, CardCanvasData } from '../../interfaces/Cards/card-canvas';
-import { defaultCardData, fantasyBasicCanvas } from './card-canvas-factory';
+import { createCanvasElement, defaultCardData, fantasyBasicCanvas } from './card-canvas-factory';
 import { validateCardCanvas, validateCardDocumentSize } from './card-canvas-validation';
 
 describe('Modelo próprio do canvas — validação de dados externos', () => {
@@ -58,5 +58,68 @@ describe('Modelo próprio do canvas — validação de dados externos', () => {
     const cyclic: { next?: unknown } = {};
     cyclic.next = cyclic;
     expect(() => validateCardDocumentSize(cyclic)).toThrowError(/serializados/);
+  });
+
+  it('mantém documentos anteriores intactos sem preencher propriedades opcionais de personalização', () => {
+    const value = canvas();
+    const normalized = validateCardCanvas(value);
+    expect(normalized).toEqual(value);
+    for (const element of normalized.elements) {
+      expect('borderStyle' in element.properties).toBeFalse();
+      expect('textDecoration' in element.properties).toBeFalse();
+      expect('verticalAlign' in element.properties).toBeFalse();
+      expect('flipX' in element.properties).toBeFalse();
+      expect('brightness' in element.properties).toBeFalse();
+    }
+  });
+
+  it('conserva estilos de borda, decoração, alinhamento e efeitos opcionais no JSON validado', () => {
+    const value = canvas();
+    const text = createCanvasElement('text', defaultCardData());
+    const attribute = createCanvasElement('attribute', defaultCardData());
+    const image = createCanvasElement('image', defaultCardData());
+    if (text.type !== 'text' || attribute.type !== 'attribute' || image.type !== 'image') throw new Error('Tipos ausentes no fixture.');
+    text.properties = { ...text.properties, borderStyle: 'dashed', textDecoration: 'underline line-through', verticalAlign: 'bottom' };
+    attribute.properties = { ...attribute.properties, borderStyle: 'dotted', textDecoration: 'line-through', verticalAlign: 'top' };
+    image.properties = { ...image.properties, borderStyle: 'solid', flipX: true, flipY: false, brightness: 0.2, contrast: 15, saturation: -0.5, hue: -120 };
+    value.elements = [text, attribute, image];
+    expect(validateCardCanvas(JSON.parse(JSON.stringify(value)))).toEqual(value);
+  });
+
+  it('rejeita valores opcionais presentes com formato inválido em vez de substituí-los por defaults', () => {
+    const value = canvas();
+    const cases = [
+      { preset: 'rect', field: 'borderStyle', invalid: [null, undefined, false, 1, 'double'] },
+      { preset: 'text', field: 'textDecoration', invalid: [null, undefined, false, 1, 'overline'] },
+      { preset: 'attribute', field: 'verticalAlign', invalid: [null, undefined, false, 1, 'center'] },
+      { preset: 'image', field: 'flipX', invalid: [null, undefined, 0, 'true'] },
+      { preset: 'artwork', field: 'flipY', invalid: [null, undefined, 1, 'false'] },
+      { preset: 'image', field: 'brightness', invalid: [null, undefined, false, '0', -1.01, 1.01, NaN, Infinity] },
+      { preset: 'image', field: 'contrast', invalid: [null, undefined, false, '0', -100.01, 100.01, NaN, Infinity] },
+      { preset: 'image', field: 'saturation', invalid: [null, undefined, false, '0', -1.01, 1.01, NaN, Infinity] },
+      { preset: 'image', field: 'hue', invalid: [null, undefined, false, '0', -180.01, 180.01, NaN, Infinity] }
+    ] as const;
+    for (const { preset, field, invalid } of cases) {
+      const element = createCanvasElement(preset, defaultCardData());
+      for (const rejected of invalid) {
+        expect(() => validateCardCanvas({ ...value, elements: [{ ...element, properties: { ...element.properties, [field]: rejected } }] }))
+          .withContext(`${preset}.${field}: ${String(rejected)}`).toThrow();
+      }
+    }
+  });
+
+  it('aceita os extremos de efeitos e impede propriedades de imagem em outros tipos', () => {
+    const value = canvas();
+    const image = createCanvasElement('image', defaultCardData());
+    if (image.type !== 'image') throw new Error('Imagem ausente no fixture.');
+    for (const direction of [-1, 1]) {
+      image.properties = { ...image.properties, brightness: direction, contrast: 100 * direction,
+        saturation: direction, hue: 180 * direction, flipX: false, flipY: true };
+      value.elements = [image];
+      expect(validateCardCanvas(value)).toEqual(value);
+    }
+    const text = createCanvasElement('text', defaultCardData());
+    expect(() => validateCardCanvas({ ...value, elements: [{ ...text, properties: { ...text.properties, flipX: true } }] }))
+      .toThrowError(/Campo desconhecido/);
   });
 });

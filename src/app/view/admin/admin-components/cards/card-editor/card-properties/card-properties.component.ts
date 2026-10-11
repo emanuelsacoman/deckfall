@@ -4,13 +4,20 @@ import {
   AttributeProperties, BarProperties, CARD_CANVAS_CONFIG, CARD_FONTS, CanvasStyle,
   CardBinding, CardCanvasElement, EditorAssetSelection, FontStyle, ImageProperties, ShapeProperties, TextProperties
 } from '../../../../../../model/interfaces/Cards/card-canvas';
-import { CardEditorStateService } from '../../../../../../model/services/tools/card-editor-state.service';
+import { CardEditorStateService, CardElementAlignment } from '../../../../../../model/services/tools/card-editor-state.service';
 import { isCanvasColor } from '../../../../../../model/services/tools/card-canvas-validation';
 import { editorImageError } from '../element-library/element-library.component';
 
 type TextElement = Extract<CardCanvasElement, { type: 'text' | 'icon' }>;
 type ShapeElement = Extract<CardCanvasElement, { type: 'rect' | 'circle' | 'line' }>;
 type ImageElement = Extract<CardCanvasElement, { type: 'image' | 'artwork' }>;
+type ImageLook = 'original' | 'vivid' | 'vintage' | 'monochrome';
+const IMAGE_LOOKS: Record<ImageLook, Pick<ImageProperties, 'filter' | 'brightness' | 'contrast' | 'saturation' | 'hue'>> = {
+  original: { filter: 'none', brightness: 0, contrast: 0, saturation: 0, hue: 0 },
+  vivid: { filter: 'none', brightness: 0.04, contrast: 18, saturation: 0.35, hue: 0 },
+  vintage: { filter: 'sepia', brightness: 0.03, contrast: -12, saturation: -0.3, hue: 0 },
+  monochrome: { filter: 'grayscale', brightness: 0, contrast: 10, saturation: 0, hue: 0 }
+};
 
 @Component({
   selector: 'app-card-properties', standalone: true,
@@ -22,6 +29,14 @@ export class CardPropertiesComponent {
   readonly config = CARD_CANVAS_CONFIG;
   readonly imageTypes = CARD_IMAGE_TYPES.join(',');
   readonly inputError = signal('');
+  readonly imageLooks: readonly { id: ImageLook; label: string }[] = [
+    { id: 'original', label: 'Original' }, { id: 'vivid', label: 'Vivo' },
+    { id: 'vintage', label: 'Vintage' }, { id: 'monochrome', label: 'Preto e branco' }
+  ];
+  readonly alignments: readonly { id: CardElementAlignment; label: string }[] = [
+    { id: 'left', label: 'Esquerda' }, { id: 'center-x', label: 'Centro horizontal' }, { id: 'right', label: 'Direita' },
+    { id: 'top', label: 'Topo' }, { id: 'center-y', label: 'Centro vertical' }, { id: 'bottom', label: 'Base' }
+  ];
   readonly bindings = computed(() => [
     { key: 'name', label: 'Nome da carta' }, { key: 'description', label: 'Descrição' },
     { key: 'rarity', label: 'Raridade' }, { key: 'type', label: 'Tipo' }, { key: 'subtype', label: 'Subtipo' },
@@ -58,6 +73,33 @@ export class CardPropertiesComponent {
   patchImage(patch: Partial<ImageProperties>): void {
     const element = this.imageElement(); if (element && !element.locked && !this.state.busy()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
   }
+  flipImage(axis: 'flipX' | 'flipY'): void {
+    const element = this.imageElement();
+    if (element && !element.locked && !this.state.busy()) {
+      this.state.updateElement({ ...element, properties: { ...element.properties, [axis]: !element.properties[axis] } }, false);
+    }
+  }
+  applyImageLook(look: ImageLook): void {
+    const element = this.imageElement();
+    if (element && !element.locked && !this.state.busy()) {
+      this.inputError.set('');
+      this.state.updateElement({ ...element, properties: { ...element.properties, ...IMAGE_LOOKS[look] } }, false);
+    }
+  }
+  resetImageEffects(): void {
+    const element = this.imageElement();
+    if (element && !element.locked && !this.state.busy()) {
+      this.inputError.set('');
+      this.state.updateElement({ ...element, properties: { ...element.properties, ...IMAGE_LOOKS.original, flipX: false, flipY: false } }, false);
+    }
+  }
+  saturationFactor(value: number): string { return (2 ** value).toLocaleString('pt-BR', { maximumFractionDigits: 2 }); }
+  useTransparentImageBackground(): void {
+    const element = this.imageElement();
+    if (element && !element.locked && !this.state.busy()) {
+      this.state.updateElement({ ...element, properties: { ...element.properties, fill: 'transparent' } }, false);
+    }
+  }
   patchAttribute(patch: Partial<AttributeProperties>): void {
     const element = this.attributeElement(); if (element && !element.locked && !this.state.busy()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
   }
@@ -72,6 +114,11 @@ export class CardPropertiesComponent {
     const element = this.state.selectedElement(); const value = this.number(event, min, max);
     if (element && !element.locked && !this.state.busy() && value !== null) this.state.patchElement(element.id, { [key]: value });
   }
+  alignElement(alignment: CardElementAlignment): void {
+    const element = this.state.selectedElement();
+    if (!element || element.locked || !element.visible || this.state.busy() || this.state.mode() !== 'design') return;
+    this.inputError.set(this.state.alignSelected(alignment) ? '' : 'O alinhamento excede os limites de posição. Reduza o tamanho da camada ou ajuste sua rotação.');
+  }
   styleColor(key: 'fill' | 'stroke' | 'shadowColor', event: Event): void {
     const color = this.color(event); if (color !== null) this.patchStyle({ [key]: color });
   }
@@ -84,7 +131,7 @@ export class CardPropertiesComponent {
   shapeNumber(key: 'cornerRadius' | 'gradientAngle', event: Event, min: number, max: number): void {
     const value = this.number(event, min, max); if (value !== null) this.patchShape({ [key]: value });
   }
-  imageNumber(key: 'zoom' | 'offsetX' | 'offsetY' | 'cornerRadius', event: Event, min: number, max: number): void {
+  imageNumber(key: 'zoom' | 'offsetX' | 'offsetY' | 'cornerRadius' | 'brightness' | 'contrast' | 'saturation' | 'hue', event: Event, min: number, max: number): void {
     const value = this.number(event, min, max); if (value !== null) this.patchImage({ [key]: value });
   }
   attributeNumber(event: Event): void { const value = this.number(event, 6, 256); if (value !== null) this.patchAttribute({ fontSize: value }); }
@@ -99,6 +146,22 @@ export class CardPropertiesComponent {
   setAlign(event: Event): void {
     const align = this.value(event);
     if (align === 'left' || align === 'center' || align === 'right') { this.patchText({ align }); this.patchAttribute({ align }); }
+  }
+  setVerticalAlign(event: Event): void {
+    const verticalAlign = this.value(event);
+    if (verticalAlign === 'top' || verticalAlign === 'middle' || verticalAlign === 'bottom') {
+      this.patchText({ verticalAlign }); this.patchAttribute({ verticalAlign });
+    }
+  }
+  setTextDecoration(event: Event): void {
+    const textDecoration = this.value(event);
+    if (textDecoration === 'none' || textDecoration === 'underline' || textDecoration === 'line-through' || textDecoration === 'underline line-through') {
+      this.patchText({ textDecoration }); this.patchAttribute({ textDecoration });
+    }
+  }
+  setBorderStyle(event: Event): void {
+    const borderStyle = this.value(event);
+    if (borderStyle === 'solid' || borderStyle === 'dashed' || borderStyle === 'dotted') this.patchStyle({ borderStyle });
   }
   setBinding(event: Event): void {
     const value = this.value(event);

@@ -12,11 +12,15 @@ export type EditorMode = 'design' | 'data' | 'preview';
 export type CardElementType = 'text' | 'image' | 'artwork' | 'rect' | 'circle' | 'line' | 'icon' | 'attribute' | 'bar';
 export type CardBinding = 'name' | 'description' | 'rarity' | 'type' | 'subtype' | `attributes.${string}`;
 export type FontStyle = 'normal' | 'bold' | 'italic' | 'bold italic';
+export type BorderStyle = 'solid' | 'dashed' | 'dotted';
+export type TextDecoration = 'none' | 'underline' | 'line-through' | 'underline line-through';
+export type VerticalAlign = 'top' | 'middle' | 'bottom';
 
 export interface CanvasStyle {
   fill: string;
   stroke: string;
   strokeWidth: number;
+  borderStyle?: BorderStyle;
   shadowColor: string;
   shadowBlur: number;
   shadowOffsetX: number;
@@ -31,6 +35,8 @@ export interface TextProperties extends CanvasStyle {
   align: 'left' | 'center' | 'right';
   letterSpacing: number;
   lineHeight: number;
+  textDecoration?: TextDecoration;
+  verticalAlign?: VerticalAlign;
 }
 export interface ShapeProperties extends CanvasStyle {
   cornerRadius: number;
@@ -49,6 +55,12 @@ export interface ImageProperties extends CanvasStyle {
   mask: 'none' | 'rounded' | 'ellipse';
   cornerRadius: number;
   filter: 'none' | 'grayscale' | 'sepia';
+  flipX?: boolean;
+  flipY?: boolean;
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+  hue?: number;
 }
 export interface AttributeProperties extends CanvasStyle {
   attributeKey: string;
@@ -59,6 +71,8 @@ export interface AttributeProperties extends CanvasStyle {
   fontSize: number;
   fontStyle: FontStyle;
   align: 'left' | 'center' | 'right';
+  textDecoration?: TextDecoration;
+  verticalAlign?: VerticalAlign;
 }
 export interface BarProperties extends CanvasStyle {
   attributeKey: string;

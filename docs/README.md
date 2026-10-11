@@ -8,6 +8,7 @@ O [README principal](../README.md) apresenta o Deckfall no GitHub. Para trabalha
 | [Contexto operacional](contexto-operacional-para-ias.md) | Produto, versões, comandos, ambiente e validação |
 | [Arquitetura frontend](arquitetura-frontend.md) | Responsabilidades, componentes, serviços e rotas |
 | [Autenticação e admin](autenticacao-e-admin.md) | Login, cadastro, vínculo Google/senha, recuperação, guards e bootstrap |
+| [CORS do Storage](configuracao-cors-storage.md) | Diagnóstico de imagens bloqueadas, backup e ajuste da origem local |
 | [Modelo Firestore](modelo-dados-firestore.md) | Contratos persistidos e limites das Rules |
 | [Cartas](cartas.md) | Gameplay, arte, assets e CRUD com compensação |
 | [Editor de cartas](editor-de-cartas.md) | Modelo próprio, Konva, painéis, histórico, bindings, templates e exportação |

@@ -27,6 +27,93 @@ describe('Card canvas with real Konva rendering', () => {
 
   afterEach(() => { renderer.destroy(); host.remove(); });
 
+  async function transparentPng(): Promise<Blob> {
+    const source = window.document.createElement('canvas'); source.width = 16; source.height = 16;
+    const context = source.getContext('2d')!;
+    context.fillStyle = '#0000ff'; context.globalAlpha = 0.5; context.fillRect(4, 4, 4, 8);
+    context.globalAlpha = 1; context.fillRect(8, 4, 4, 8);
+    return new Promise<Blob>((resolve, reject) => source.toBlob(blob =>
+      blob ? resolve(blob) : reject(new Error('Could not create PNG fixture')), 'image/png'));
+  }
+
+  async function decodePng(blob: Blob): Promise<HTMLCanvasElement> {
+    const bitmap = await createImageBitmap(blob);
+    const canvas = window.document.createElement('canvas'); canvas.width = bitmap.width; canvas.height = bitmap.height;
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0); bitmap.close();
+    return canvas;
+  }
+
+  function pixel(canvas: HTMLCanvasElement, x: number, y: number): number[] {
+    return Array.from(canvas.getContext('2d')!.getImageData(x, y, 1, 1).data);
+  }
+
+  function liveContent(currentRenderer: CardKonvaRenderer, currentDocument: CardEditorDocument): HTMLCanvasElement {
+    const content = currentRenderer.stage.findOne<Konva.Group>('.card-content')!;
+    return content.toCanvas({ x: content.x(), y: content.y(), width: currentDocument.canvas.width,
+      height: currentDocument.canvas.height, pixelRatio: 1 });
+  }
+
+  it('reveals lower layers through PNG transparency and contain margins for images and artwork', async () => {
+    const file = await transparentPng(), url = URL.createObjectURL(file);
+    try {
+      for (const preset of ['image', 'artwork'] as const) {
+        const below = createCanvasElement('rect', document.data);
+        Object.assign(below, { x: 20, y: 20, width: 64, height: 96 });
+        if (below.type !== 'rect') throw new Error('Expected rectangle');
+        below.properties.fill = '#00ff00'; below.properties.cornerRadius = 0;
+        const image = createCanvasElement(preset, document.data);
+        if (image.type !== 'image' && image.type !== 'artwork') throw new Error('Expected image element');
+        Object.assign(image, { x: 20, y: 20, width: 64, height: 96 });
+        image.properties.assetId = 'transparent'; image.properties.fit = 'contain'; image.properties.mask = 'none';
+        document.canvas.elements = [below, image];
+        document.canvas.assets = [{ id: 'transparent', storagePath: null, fileName: 'transparent.png', contentType: 'image/png', size: file.size }];
+        renderer.render(document, { ...view, zoom: 1, grid: false }, { transparent: url });
+        const exported = await decodePng(await renderer.exportImage({ format: 'png', pixelRatio: 1 }));
+        for (const output of [liveContent(renderer, document), exported]) {
+          expect(pixel(output, 0, 0)).withContext(preset).toEqual([255, 0, 0, 255]);
+          expect(pixel(output, 52, 24)).withContext(`${preset}: contain margin`).toEqual([0, 255, 0, 255]);
+          expect(pixel(output, 26, 42)).withContext(`${preset}: transparent PNG margin`).toEqual([0, 255, 0, 255]);
+          expect(pixel(output, 42, 66)).withContext(`${preset}: half-transparent PNG`).toEqual([0, 127, 128, 255]);
+          expect(pixel(output, 62, 66)).withContext(`${preset}: opaque PNG`).toEqual([0, 0, 255, 255]);
+        }
+      }
+      expect(events.error).not.toHaveBeenCalled();
+    } finally { URL.revokeObjectURL(url); }
+  });
+
+  it('preserves PNG alpha in live rendering and export with image filters and a transparent card background', async () => {
+    const currentRenderer = renderer, currentDocument = document, currentEvents = events;
+    const file = await transparentPng(), url = URL.createObjectURL(file);
+    currentDocument.canvas.background.color = 'transparent';
+    try {
+      for (const preset of ['image', 'artwork'] as const) {
+        const image = createCanvasElement(preset, currentDocument.data);
+        if (image.type !== 'image' && image.type !== 'artwork') throw new Error('Expected image element');
+        Object.assign(image, { x: 20, y: 20, width: 64, height: 64 });
+        image.properties.assetId = 'transparent'; image.properties.fit = 'fill';
+        currentDocument.canvas.elements = [image];
+        currentDocument.canvas.assets = [{ id: 'transparent', storagePath: null, fileName: 'transparent.png', contentType: 'image/png', size: file.size }];
+        for (const { filter, pixelRatio } of [
+          { filter: 'none', pixelRatio: 1 }, { filter: 'grayscale', pixelRatio: 2 }, { filter: 'sepia', pixelRatio: 4 }
+        ] as const) {
+          image.properties.filter = filter;
+          currentRenderer.render(currentDocument, { ...view, zoom: 1, grid: false }, { transparent: url });
+          const output = await decodePng(await currentRenderer.exportImage({ format: 'png', pixelRatio }));
+          expect(output.width).toBe(160 * pixelRatio); expect(output.height).toBe(200 * pixelRatio);
+          expect(pixel(output, 26 * pixelRatio, 50 * pixelRatio)[3]).withContext(`${preset}/${filter}: transparent`).toBe(0);
+          expect(pixel(output, 42 * pixelRatio, 50 * pixelRatio)[3]).withContext(`${preset}/${filter}: semi-transparent`).toBe(128);
+          expect(pixel(output, 62 * pixelRatio, 50 * pixelRatio)[3]).withContext(`${preset}/${filter}: opaque`).toBe(255);
+          expect(pixel(output, 0, 0)).withContext(`${preset}/${filter}: card background`).toEqual([0, 0, 0, 0]);
+          const live = liveContent(currentRenderer, currentDocument);
+          expect(pixel(live, 26, 50)[3]).withContext(`${preset}/${filter}: live transparent`).toBe(0);
+          expect(pixel(live, 42, 50)[3]).withContext(`${preset}/${filter}: live semi-transparent`).toBe(128);
+          expect(pixel(live, 62, 50)[3]).withContext(`${preset}/${filter}: live opaque`).toBe(255);
+        }
+      }
+      expect(currentEvents.error).not.toHaveBeenCalled();
+    } finally { URL.revokeObjectURL(url); }
+  });
+
   it('exports exact document dimensions at different pixel ratios without grid or selection', async () => {
     const element = createCanvasElement('rect', document.data);
     Object.assign(element, { x: 20, y: 20, width: 50, height: 50 });
@@ -94,7 +181,7 @@ describe('Card canvas with real Konva rendering', () => {
     document.canvas.assets = [{ id: 'missing', storagePath: null, fileName: 'missing.png', contentType: 'image/png', size: 10 }];
     renderer.render(document, view, {});
     await expectAsync(renderer.exportImage({ format: 'png', pixelRatio: 1 })).toBeRejected();
-    expect(events.error).toHaveBeenCalled();
+    expect(events.error).not.toHaveBeenCalled();
     document.canvas.elements = []; document.canvas.assets = [];
     document.canvas.width = 2048; document.canvas.height = 2048;
     renderer.render(document, { ...view, zoom: 0.1, grid: false }, {});

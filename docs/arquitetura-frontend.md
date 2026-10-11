@@ -55,6 +55,8 @@ Os cinco painéis usam `CardEditorStateService` e emitem intenções de ação, 
 
 `CardCanvasComponent` conecta o estado ao `CardKonvaRenderer`. O renderer mantém Stage, conteúdo, overlays e grupos por ID; `card-konva-elements.ts` desenha os tipos. Konva representa `CardCanvasData`, sem se tornar a fonte persistida. Estado, nós, arquivos e Firebase permanecem separados.
 
+`card-filter-cache.ts` compartilha limites e recorte de caches de efeitos entre renderer e exportação. A moldura usada pelo cache acompanha clones como atributo Konva somente de runtime; não entra em `CardCanvasData`. Alinhamento e presets alteram o documento pelo serviço de estado, sem writes Firebase por interação.
+
 ## Arquivos relevantes
 
 ```text
@@ -74,6 +76,7 @@ model/services/tools/card-canvas-factory.ts
 model/services/tools/card-canvas-validation.ts
 model/services/tools/card-konva-renderer.ts
 model/services/tools/card-konva-elements.ts
+model/services/tools/card-filter-cache.ts
 model/services/tools/card-export.service.ts
 ```
 

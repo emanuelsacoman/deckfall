@@ -30,6 +30,12 @@ No documento, persistir metadados `id`, `storagePath`, `fileName`, `contentType`
 
 PNG/JPEG/WebP, conteúdo não vazio e até 5 MiB por arquivo; nome original até 255 caracteres. MIME/tamanho são validados, sem serviço backend de inspeção profunda do binário. Downloads autenticados usam Blob e URLs temporárias, revogadas no ciclo de vida. CORS/IAM do bucket podem exigir configuração externa.
 
+As imagens carregam separadamente dos dados na edição. Falhas são lembradas até tentativa manual, troca da origem ou reset do editor. Salvar dados/design conserva as referências de arquivos do próprio namespace, sem exigir download desses arquivos. Novos assets, cópias de outro proprietário e operações com binários completos precisam dos arquivos disponíveis. A janela de retries de operações Storage usada pelo serviço é de até 15 segundos; upload mantém a configuração própria do SDK. Consulte [CORS do Storage](configuracao-cors-storage.md) para o erro de navegador observado em localhost.
+
+O upload preserva os bytes e a transparência do PNG. O editor aplica preenchimento transparente ao enviar PNG para uma camada de imagem/arte principal; essa propriedade acompanha o canvas salvo, sem alterar o contrato dos assets nem as Rules. As áreas transparentes revelam a composição por baixo. Veja [imagens transparentes](editor-de-cartas.md#imagens-png-transparentes).
+
+Espelhamento e ajustes de brilho/contraste/saturação/matiz são propriedades do canvas, aplicadas ao renderizar. Salvar/reabrir uma carta ou template conserva esses ajustes e continua usando o mesmo arquivo original. Não gerar uma cópia raster do asset a cada mudança de slider. Consulte [personalização visual](editor-de-cartas.md#personalização-visual).
+
 ## Criar e salvar
 
 1. Validar dados, canvas e uploads pendentes; gerar o ID.

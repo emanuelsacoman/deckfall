@@ -3,3 +3,8 @@ fieldset { min-width: 0; border: 0; padding: 0; margin: 1rem 0; }legend, h3 { fo
 .field { margin-bottom: .7rem; font-size: .7rem; gap: .3rem; }.field input, .field select, .field textarea { font-size: .75rem; padding: .5rem .55rem; }textarea { min-height: 85px; }.fields-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 .6rem; }
 .element-actions { display: flex; flex-wrap: wrap; gap: .3rem; }button { font-size: .7rem; padding: .35rem .5rem; background: #edf2fa; color: var(--text); }.danger-action { color: var(--danger); }.check-field { display: flex; align-items: center; gap: .4rem; font-size: .7rem; margin: .7rem 0; }.hint, .asset-name { font-size: .7rem; color: var(--text-muted); overflow-wrap: anywhere; }
 details { margin: .8rem 0; border-top: 1px solid var(--border); padding-top: .7rem; }summary { cursor: pointer; font-size: .75rem; font-weight: 600; margin-bottom: .6rem; }.field-error { font-size: .7rem; }
+.alignment-actions, .image-actions { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .8rem; }
+.image-actions [aria-pressed="true"] { background: #dbe8fc; color: var(--primary); border-color: var(--primary); }
+.image-effects .field { margin-top: .75rem; }
+.image-effects output { color: var(--text-muted); font-weight: 400; }
+.image-effects input[type="range"] { padding: .35rem 0; cursor: pointer; accent-color: var(--primary); }

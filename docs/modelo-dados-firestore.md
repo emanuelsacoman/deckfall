@@ -45,6 +45,8 @@ canvas
 
 Elementos possuem ID/nome/tipo, geometria, opacidade, visible/locked e properties tipadas. Tipos atuais: text, icon, rect, circle, line, image, artwork, attribute, bar. A ordem do array determina z-order. Bindings seguros usam campos conhecidos e `attributes.<key>`; conteúdo completo fica em [editor](editor-de-cartas.md).
 
+Personalização acrescenta somente campos opcionais em `properties`: `borderStyle` nos estilos; `textDecoration`/`verticalAlign` em texto/ícone/atributo; `flipX`, `flipY`, `brightness`, `contrast`, `saturation` e `hue` em imagem/artwork. Canvas continua versão 1; a validação preserva a ausência desses campos em documentos antigos e rejeita valores fornecidos fora dos contratos. Defaults de renderização e faixas ficam em [personalização visual](editor-de-cartas.md#personalização-visual). Filtros, pixels em cache e atributos internos Konva não são persistidos.
+
 Limites do cliente: dimensões 160–2048, 64 elementos, 24 assets e documento estruturado até 128 KiB. Fontes/cores/crop/faixas/IDs/referências são validados profundamente antes da persistência/importação. Assets locais podem ter storagePath null; a gravação final pelo serviço exige arquivos materializados no namespace do proprietário.
 
 `firestore.indexes.json` isenta `canvas` de índices de campo único em cards/cardTemplates. O editor não consulta geometria ou propriedades internas. Consultas atuais usam updatedAt; não foram adicionados índices compostos.

@@ -38,7 +38,7 @@ export function createCanvasElement(preset: CardElementPreset, data: CardDataInp
           binding: preset === 'description' ? 'description' : null, fontSize: preset === 'icon' ? 60 : 32 } };
     case 'image': case 'artwork':
       return { ...base, type: preset, name: preset === 'artwork' ? 'Arte principal' : 'Imagem', width: 400, height: 400,
-        properties: { ...defaultCanvasStyle(), assetId: null, binding: preset === 'artwork' ? 'art' : null,
+        properties: { ...defaultCanvasStyle(), fill: 'transparent', assetId: null, binding: preset === 'artwork' ? 'art' : null,
           fit: 'cover', crop: { x: 0, y: 0, width: 1, height: 1 }, zoom: 1, offsetX: 0, offsetY: 0,
           mask: 'rounded', cornerRadius: 16, filter: 'none' } };
     case 'attribute':

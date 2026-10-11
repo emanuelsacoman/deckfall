@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import { CARD_CANVAS_CONFIG, EditorExportOptions } from '../../interfaces/Cards/card-canvas';
+import { cacheFilteredImage, imageFilterFrame } from './card-filter-cache';
 
 export async function exportCardContent(content: Konva.Group, width: number, height: number, options: EditorExportOptions): Promise<Blob> {
   if (width * height * options.pixelRatio ** 2 > CARD_CANVAS_CONFIG.maxExportPixels) {
@@ -12,9 +13,9 @@ export async function exportCardContent(content: Konva.Group, width: number, hei
   output.add(clone);
   try {
     clone.find('.editor-placeholder').forEach(node => node.hide());
-    clone.find('Image').forEach(node => {
-      if (node instanceof Konva.Image && node.filters()?.length) node.cache({ pixelRatio: options.pixelRatio });
-    });
+    const filteredImages = clone.find('Image').filter((node): node is Konva.Image =>
+      node instanceof Konva.Image && !!node.filters()?.length && node.isVisible() && node.getAbsoluteOpacity() > 0);
+    filteredImages.forEach(node => cacheFilteredImage(node, imageFilterFrame(node), options.pixelRatio, filteredImages.length));
     const canvas = output.toCanvas({ x: 0, y: 0, width, height, pixelRatio: options.pixelRatio });
     return await new Promise<Blob>((resolve, reject) => {
       try {

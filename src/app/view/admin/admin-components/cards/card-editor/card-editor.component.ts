@@ -47,6 +47,7 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
   private clipboard: { element: CardCanvasElement; assets: CardCanvasAsset[] } | null = null;
   readonly original = signal<Card | null>(null);
   readonly loading = signal(false);
+  readonly retryingImages = signal(false);
   readonly loadError = signal('');
   readonly error = signal('');
   readonly feedback = signal('');
@@ -62,9 +63,11 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
     effect(() => {
       const canvas = this.state.canvas();
       untracked(() => {
-        void this.assets.ensure(canvas).catch(error => { if (!this.destroyed && this.state.canvas() === canvas) this.error.set(this.message(error)); });
+        void this.assets.ensure(canvas).catch(error => {
+          if (!this.destroyed && this.state.canvas() === canvas && !this.assets.downloadErrors().length) this.error.set(this.message(error));
+        });
       });
-    });
+    }, { allowSignalWrites: true });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -74,7 +77,7 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
   async loadCard(): Promise<void> {
     const version = ++this.version;
     this.assets.reset(); this.localSavedSignature = ''; this.allowLeave = false; this.clipboard = null;
-    this.loading.set(true); this.dataValid.set(true); this.loadError.set(''); this.error.set(''); this.feedback.set(''); this.recoveryId.set(null); this.original.set(null);
+    this.loading.set(true); this.retryingImages.set(false); this.dataValid.set(true); this.loadError.set(''); this.error.set(''); this.feedback.set(''); this.recoveryId.set(null); this.original.set(null);
     const fresh = defaultCardData(); this.state.load({ data: fresh, canvas: fantasyBasicCanvas(fresh) });
     try {
       if (this.mode === 'edit') {
@@ -84,8 +87,7 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
         if (!this.isCurrent(version)) return;
         const document = this.documentFromCard(card);
         this.original.set(card); this.state.load(document); this.assets.markPersisted(document.canvas);
-        try { await this.assets.ensure(document.canvas); }
-        catch (error: unknown) { if (this.isCurrent(version)) this.error.set(this.message(error)); }
+        // The asset effect downloads images independently; the document can be edited immediately.
       } else {
         const navigationState: unknown = this.router.getCurrentNavigation()?.extras.state ?? history.state;
         if (navigationState && typeof navigationState === 'object' && 'loadLocalDraft' in navigationState && navigationState.loadLocalDraft === true) {
@@ -97,6 +99,18 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
     } finally {
       if (this.isCurrent(version)) this.loading.set(false);
     }
+  }
+
+  async retryImages(): Promise<void> {
+    if (this.retryingImages() || this.loading() || this.state.busy()) return;
+    const version = this.version;
+    const canvas = this.state.canvas();
+    this.retryingImages.set(true);
+    this.assets.retryFailed();
+    try { await this.assets.ensure(canvas); }
+    catch (error: unknown) {
+      if (this.isCurrent(version) && this.state.canvas() === canvas && !this.assets.downloadErrors().length) this.error.set(this.message(error));
+    } finally { if (this.isCurrent(version)) this.retryingImages.set(false); }
   }
 
   async handleAction(action: CardEditorAction): Promise<void> {
@@ -126,6 +140,7 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
         const element = next.canvas.elements.find(item => item.id === selection.elementId);
         if (!element || (element.type !== 'image' && element.type !== 'artwork')) throw new Error('Selecione uma camada de imagem para aplicar o arquivo.');
         element.properties.assetId = asset.id;
+        if (selection.file.type === 'image/png') element.properties.fill = 'transparent';
       } else {
         next.canvas.background.assetId = asset.id;
         if (next.canvas.background.kind !== 'texture') next.canvas.background.kind = 'image';
@@ -147,9 +162,18 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
     this.state.busy.set(true);
     try {
       const input = this.validInput();
-      await this.assets.ensure(this.state.canvas());
-      const pending = this.assets.pending(this.state.canvas());
       const original = this.original();
+      let pending = this.assets.pending(this.state.canvas());
+      const needsFile = (): boolean => input.canvas?.assets.some(asset => !pending.some(file => file.id === asset.id)
+        && !(original && asset.storagePath && this.storage.isOwnedAsset({ kind: 'card', id: original.id }, asset.storagePath))) ?? false;
+      if (needsFile()) {
+        try { await this.assets.ensure(this.state.canvas()); }
+        catch (error: unknown) {
+          pending = this.assets.pending(this.state.canvas());
+          if (needsFile()) throw error;
+        }
+        pending = this.assets.pending(this.state.canvas());
+      }
       const result = original ? await this.cards.update(original, input, undefined, pending)
         : await this.cards.create(input, undefined, pending);
       this.warnings.set(result.warnings);

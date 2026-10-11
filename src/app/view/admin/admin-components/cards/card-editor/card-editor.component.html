@@ -15,6 +15,14 @@
 @if (loading()) { <p role="status" class="notice">Carregando editor...</p> } @else if (loadError()) {
   <div class="notice error" role="alert"><p>{{ loadError() }}</p><button type="button" class="secondary" (click)="loadCard()">Tentar carregar novamente</button></div>
 } @else {
+  @if (assets.downloadErrors().length) {
+    <section class="notice error" role="alert" aria-labelledby="image-error-title">
+      <h2 id="image-error-title">A carta abriu, mas algumas imagens não carregaram</h2>
+      <p>Você pode editar os dados e o design. Confira a conexão, as permissões ou a configuração CORS do Storage e tente carregar as imagens novamente.</p>
+      <ul>@for (failure of assets.downloadErrors(); track failure.assetId) { <li>{{ failure.message }}</li> }</ul>
+      <button type="button" class="secondary" (click)="retryImages()" [disabled]="retryingImages() || state.busy()">{{ retryingImages() ? 'Carregando imagens…' : 'Tentar carregar imagens novamente' }}</button>
+    </section>
+  }
   <app-card-toolbar [busy]="state.busy()" [hasSavedCard]="!!original()" [dataValid]="dataValid()" [canSave]="!recoveryId()" (action)="handleAction($event)" (exportRequested)="exportImage($event)" />
   <div class="editor-workspace" [class.preview-mode]="state.mode() === 'preview'" [class.data-mode]="state.mode() === 'data'" [class.editor-busy]="state.busy()" [attr.aria-busy]="state.busy()">
     @if (state.mode() !== 'preview') {

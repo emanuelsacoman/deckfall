@@ -6,7 +6,8 @@ import {
 } from '../../interfaces/Cards/card-canvas';
 
 type Fields = Record<string, unknown>;
-const STYLE_FIELDS = ['fill', 'stroke', 'strokeWidth', 'shadowColor', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY'];
+const STYLE_FIELDS = ['fill', 'stroke', 'strokeWidth', 'borderStyle', 'shadowColor', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY'];
+const TEXT_APPEARANCE_FIELDS = ['textDecoration', 'verticalAlign'];
 const ELEMENT_FIELDS = ['id', 'name', 'type', 'x', 'y', 'width', 'height', 'rotation', 'opacity', 'visible', 'locked', 'properties'];
 const ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 const ATTRIBUTE_PATTERN = /^[a-z][a-z0-9_-]{0,39}$/;
@@ -90,6 +91,7 @@ function style(data: Fields): CanvasStyle {
   return {
     fill: color(data['fill']), stroke: color(data['stroke']), shadowColor: color(data['shadowColor']),
     strokeWidth: finite(data['strokeWidth'], 'espessura da borda', 0, 64),
+    ...(hasField(data, 'borderStyle') ? { borderStyle: choice(data['borderStyle'], ['solid', 'dashed', 'dotted'] as const, 'estilo da borda') } : {}),
     shadowBlur: finite(data['shadowBlur'], 'desfoque da sombra', 0, 100),
     shadowOffsetX: finite(data['shadowOffsetX'], 'sombra X', -100, 100),
     shadowOffsetY: finite(data['shadowOffsetY'], 'sombra Y', -100, 100)
@@ -97,7 +99,7 @@ function style(data: Fields): CanvasStyle {
 }
 
 function validateText(value: unknown): TextProperties {
-  const data = fields(value, 'texto', [...STYLE_FIELDS, 'text', 'binding', 'fontFamily', 'fontSize', 'fontStyle', 'align', 'letterSpacing', 'lineHeight']);
+  const data = fields(value, 'texto', [...STYLE_FIELDS, ...TEXT_APPEARANCE_FIELDS, 'text', 'binding', 'fontFamily', 'fontSize', 'fontStyle', 'align', 'letterSpacing', 'lineHeight']);
   const binding = data['binding'];
   if (binding !== null && (typeof binding !== 'string' ||
       (!['name', 'description', 'rarity', 'type', 'subtype'].includes(binding) && !/^attributes\.[a-z][a-z0-9_-]{0,39}$/.test(binding)))) {
@@ -105,7 +107,7 @@ function validateText(value: unknown): TextProperties {
   }
   return {
     ...style(data), text: text(data['text'], 'texto', 5000), binding: binding as CardBinding | null,
-    ...font(data), letterSpacing: finite(data['letterSpacing'], 'espaçamento das letras', -20, 100),
+    ...font(data), ...textAppearance(data), letterSpacing: finite(data['letterSpacing'], 'espaçamento das letras', -20, 100),
     lineHeight: finite(data['lineHeight'], 'altura de linha', 0.5, 5)
   };
 }
@@ -120,7 +122,7 @@ function validateShape(value: unknown): ShapeProperties {
 }
 
 function validateImage(value: unknown, assetIds: Set<string>): ImageProperties {
-  const data = fields(value, 'imagem', [...STYLE_FIELDS, 'assetId', 'binding', 'fit', 'crop', 'zoom', 'offsetX', 'offsetY', 'mask', 'cornerRadius', 'filter']);
+  const data = fields(value, 'imagem', [...STYLE_FIELDS, 'assetId', 'binding', 'fit', 'crop', 'zoom', 'offsetX', 'offsetY', 'mask', 'cornerRadius', 'filter', 'flipX', 'flipY', 'brightness', 'contrast', 'saturation', 'hue']);
   const crop = fields(data['crop'], 'crop', ['x', 'y', 'width', 'height']);
   const rect = {
     x: finite(crop['x'], 'crop X', 0, 1), y: finite(crop['y'], 'crop Y', 0, 1),
@@ -136,14 +138,20 @@ function validateImage(value: unknown, assetIds: Set<string>): ImageProperties {
     offsetX: finite(data['offsetX'], 'deslocamento da imagem X', -1, 1), offsetY: finite(data['offsetY'], 'deslocamento da imagem Y', -1, 1),
     mask: choice(data['mask'], ['none', 'rounded', 'ellipse'], 'máscara'),
     cornerRadius: finite(data['cornerRadius'], 'raio dos cantos', 0, 4096),
-    filter: choice(data['filter'], ['none', 'grayscale', 'sepia'], 'filtro')
+    filter: choice(data['filter'], ['none', 'grayscale', 'sepia'], 'filtro'),
+    ...(hasField(data, 'flipX') ? { flipX: bool(data['flipX'], 'espelhamento horizontal') } : {}),
+    ...(hasField(data, 'flipY') ? { flipY: bool(data['flipY'], 'espelhamento vertical') } : {}),
+    ...(hasField(data, 'brightness') ? { brightness: finite(data['brightness'], 'brilho da imagem', -1, 1) } : {}),
+    ...(hasField(data, 'contrast') ? { contrast: finite(data['contrast'], 'contraste da imagem', -100, 100) } : {}),
+    ...(hasField(data, 'saturation') ? { saturation: finite(data['saturation'], 'saturação da imagem', -1, 1) } : {}),
+    ...(hasField(data, 'hue') ? { hue: finite(data['hue'], 'matiz da imagem', -180, 180) } : {})
   };
 }
 
 function validateAttribute(value: unknown): AttributeProperties {
-  const data = fields(value, 'atributo visual', [...STYLE_FIELDS, 'attributeKey', 'labelMode', 'suffix', 'showIcon', 'fontFamily', 'fontSize', 'fontStyle', 'align']);
+  const data = fields(value, 'atributo visual', [...STYLE_FIELDS, ...TEXT_APPEARANCE_FIELDS, 'attributeKey', 'labelMode', 'suffix', 'showIcon', 'fontFamily', 'fontSize', 'fontStyle', 'align']);
   return {
-    ...style(data), ...font(data), attributeKey: attributeKey(data['attributeKey']),
+    ...style(data), ...font(data), ...textAppearance(data), attributeKey: attributeKey(data['attributeKey']),
     labelMode: choice(data['labelMode'], ['label-value', 'value', 'label'], 'modo do rótulo'),
     suffix: text(data['suffix'], 'sufixo', 40), showIcon: bool(data['showIcon'], 'ícone')
   };
@@ -174,6 +182,17 @@ function font(data: Fields): Pick<TextProperties, 'fontFamily' | 'fontSize' | 'f
     align: choice(data['align'], ['left', 'center', 'right'], 'alinhamento')
   };
 }
+
+function textAppearance(data: Fields): Pick<TextProperties, 'textDecoration' | 'verticalAlign'> {
+  return {
+    ...(hasField(data, 'textDecoration') ? {
+      textDecoration: choice(data['textDecoration'], ['none', 'underline', 'line-through', 'underline line-through'] as const, 'decoração do texto')
+    } : {}),
+    ...(hasField(data, 'verticalAlign') ? { verticalAlign: choice(data['verticalAlign'], ['top', 'middle', 'bottom'] as const, 'alinhamento vertical') } : {})
+  };
+}
+
+function hasField(data: Fields, key: string): boolean { return Object.prototype.hasOwnProperty.call(data, key); }
 
 function fields(value: unknown, label: string, allowed: string[]): Fields {
   if (typeof value !== 'object' || value === null || Array.isArray(value) ||

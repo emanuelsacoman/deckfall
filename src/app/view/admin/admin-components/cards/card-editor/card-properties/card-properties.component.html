@@ -21,6 +21,12 @@
         <label class="field">Rotação (°)<input type="number" [value]="element.rotation" min="-360" max="360" (input)="baseNumber('rotation', $event, -360, 360)" /></label>
         <label class="field">Opacidade<input type="number" [value]="element.opacity" min="0" max="1" step="0.05" (input)="baseNumber('opacity', $event, 0, 1)" /></label>
       </div>
+      <h3>Alinhar à carta</h3>
+      <div class="alignment-actions" aria-label="Alinhamento da camada">
+        @for (alignment of alignments; track alignment.id) {
+          <button type="button" (click)="alignElement(alignment.id)" [disabled]="!element.visible">{{ alignment.label }}</button>
+        }
+      </div>
       @if (textElement(); as text) {
         <h3>Texto</h3>
         <label class="field">Vínculo com os dados<select [value]="text.properties.binding || ''" (change)="setBinding($event)"><option value="">Texto livre</option>@for (binding of bindings(); track binding.key) { <option [value]="binding.key">{{ binding.label }}</option> }</select></label>
@@ -33,6 +39,10 @@
           <label class="field">Entrelinhas<input type="number" [value]="text.properties.lineHeight" min="0.5" max="5" step="0.1" (input)="textNumber('lineHeight', $event, 0.5, 5)" /></label>
         </div>
         <label class="field">Alinhamento<select [value]="text.properties.align" (change)="setAlign($event)"><option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option></select></label>
+        <div class="fields-grid">
+          <label class="field">Alinhamento vertical<select [value]="text.properties.verticalAlign || 'top'" (change)="setVerticalAlign($event)"><option value="top">Topo</option><option value="middle">Centro</option><option value="bottom">Base</option></select></label>
+          <label class="field">Decoração<select [value]="text.properties.textDecoration || 'none'" (change)="setTextDecoration($event)"><option value="none">Nenhuma</option><option value="underline">Sublinhado</option><option value="line-through">Riscado</option><option value="underline line-through">Sublinhado e riscado</option></select></label>
+        </div>
       }
       @if (shapeElement(); as shape) {
         <h3>Forma</h3>
@@ -46,7 +56,14 @@
       @if (imageElement(); as image) {
         <h3>{{ image.type === 'artwork' ? 'Arte principal' : 'Imagem' }}</h3>
         <p class="asset-name">{{ assetName(image.properties.assetId) }}</p>
-        <label class="field">Enviar / trocar imagem<input type="file" [accept]="imageTypes" (change)="upload($event)" /></label>
+        <label class="field">Enviar / trocar imagem<input type="file" [accept]="imageTypes" (change)="upload($event)" aria-describedby="image-transparency-help" /></label>
+        <p id="image-transparency-help" class="hint">PNG transparente mostra as camadas e o fundo da carta nas áreas sem imagem.</p>
+        <button type="button" (click)="useTransparentImageBackground()" [disabled]="image.properties.fill === 'transparent'">Usar fundo transparente</button>
+        <h3>Espelhamento</h3>
+        <div class="image-actions" aria-label="Espelhar a imagem">
+          <button type="button" (click)="flipImage('flipX')" [attr.aria-pressed]="image.properties.flipX || false">Espelhar horizontal</button>
+          <button type="button" (click)="flipImage('flipY')" [attr.aria-pressed]="image.properties.flipY || false">Espelhar vertical</button>
+        </div>
         <label class="check-field"><input type="checkbox" [checked]="image.properties.binding === 'art'" (change)="setImageBinding($event)" /> Usar a arte principal da carta</label>
         <div class="fields-grid">
           <label class="field">Ajuste<select [value]="image.properties.fit" (change)="setFit($event)"><option value="cover">Cobrir</option><option value="contain">Conter</option><option value="fill">Esticar</option></select></label>
@@ -57,6 +74,16 @@
           <label class="field">Deslocamento Y<input type="number" [value]="image.properties.offsetY" min="-1" max="1" step="0.05" (input)="imageNumber('offsetY', $event, -1, 1)" /></label>
         </div>
         <label class="field">Filtro<select [value]="image.properties.filter" (change)="setFilter($event)"><option value="none">Nenhum</option><option value="grayscale">Escala de cinza</option><option value="sepia">Sépia</option></select></label>
+        <details class="image-effects" open><summary>Efeitos da imagem</summary>
+          <div class="image-actions" aria-label="Estilos rápidos">
+            @for (look of imageLooks; track look.id) { <button type="button" (click)="applyImageLook(look.id)">{{ look.label }}</button> }
+          </div>
+          <label class="field">Brilho <output>{{ ((image.properties.brightness ?? 0) * 100).toFixed(0) }}%</output><input type="range" min="-1" max="1" step="0.01" [value]="image.properties.brightness ?? 0" (input)="imageNumber('brightness', $event, -1, 1)" aria-label="Brilho da imagem" /></label>
+          <label class="field">Contraste <output>{{ image.properties.contrast ?? 0 }}</output><input type="range" min="-100" max="100" step="1" [value]="image.properties.contrast ?? 0" (input)="imageNumber('contrast', $event, -100, 100)" aria-label="Contraste da imagem" /></label>
+          <label class="field">Saturação <output>{{ saturationFactor(image.properties.saturation ?? 0) }}×</output><input type="range" min="-1" max="1" step="0.01" [value]="image.properties.saturation ?? 0" (input)="imageNumber('saturation', $event, -1, 1)" aria-label="Saturação da imagem" /></label>
+          <label class="field">Matiz <output>{{ image.properties.hue ?? 0 }}°</output><input type="range" min="-180" max="180" step="1" [value]="image.properties.hue ?? 0" (input)="imageNumber('hue', $event, -180, 180)" aria-label="Matiz da imagem" /></label>
+          <button type="button" (click)="resetImageEffects()">Restaurar efeitos e espelhamento</button>
+        </details>
         <details><summary>Recorte da imagem (0–1)</summary><div class="fields-grid">
           <label class="field">X<input type="number" [value]="image.properties.crop.x" min="0" max="1" step="0.05" (input)="setCrop('x', $event)" /></label>
           <label class="field">Y<input type="number" [value]="image.properties.crop.y" min="0" max="1" step="0.05" (input)="setCrop('y', $event)" /></label>
@@ -74,6 +101,10 @@
         <div class="fields-grid"><label class="field">Tamanho<input type="number" [value]="attribute.properties.fontSize" min="6" max="256" (input)="attributeNumber($event)" /></label>
           <label class="field">Estilo<select [value]="attribute.properties.fontStyle" (change)="setFontStyle($event)"><option value="normal">Normal</option><option value="bold">Negrito</option><option value="italic">Itálico</option><option value="bold italic">Negrito e itálico</option></select></label></div>
         <label class="field">Alinhamento<select [value]="attribute.properties.align" (change)="setAlign($event)"><option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option></select></label>
+        <div class="fields-grid">
+          <label class="field">Alinhamento vertical<select [value]="attribute.properties.verticalAlign || 'middle'" (change)="setVerticalAlign($event)"><option value="top">Topo</option><option value="middle">Centro</option><option value="bottom">Base</option></select></label>
+          <label class="field">Decoração<select [value]="attribute.properties.textDecoration || 'none'" (change)="setTextDecoration($event)"><option value="none">Nenhuma</option><option value="underline">Sublinhado</option><option value="line-through">Riscado</option><option value="underline line-through">Sublinhado e riscado</option></select></label>
+        </div>
       }
       @if (barElement(); as bar) {
         <h3>Barra de atributo</h3>
@@ -86,10 +117,11 @@
       }
       <h3>Cores e borda</h3>
       <div class="fields-grid">
-        <label class="field">Cor / preenchimento<input [value]="element.properties.fill" placeholder="#ffffff" (input)="styleColor('fill', $event)" /></label>
+        <label class="field">{{ imageElement() ? 'Fundo da imagem (opcional)' : 'Cor / preenchimento' }}<input [value]="element.properties.fill" placeholder="#ffffff" (input)="styleColor('fill', $event)" /></label>
         <label class="field">Cor da borda<input [value]="element.properties.stroke" placeholder="#000000" (input)="styleColor('stroke', $event)" /></label>
       </div>
       <label class="field">Espessura da borda<input type="number" [value]="element.properties.strokeWidth" min="0" max="64" (input)="styleNumber('strokeWidth', $event, 0, 64)" /></label>
+      <label class="field">Estilo da borda<select [value]="element.properties.borderStyle || 'solid'" (change)="setBorderStyle($event)"><option value="solid">Contínua</option><option value="dashed">Tracejada</option><option value="dotted">Pontilhada</option></select></label>
       <details><summary>Sombra</summary>
         <label class="field">Cor<input [value]="element.properties.shadowColor" (input)="styleColor('shadowColor', $event)" /></label>
         <div class="fields-grid">
