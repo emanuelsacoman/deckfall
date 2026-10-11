@@ -25,3 +25,11 @@ Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To u
 ## Further help
 
 To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+## Firebase
+
+Execute `npm run setup` para instalar Firebase 10 e AngularFire 18, compativeis com o Angular deste projeto. O setup preserva os arquivos de environment existentes.
+
+A configuracao do projeto Firebase fica em `src/environments/environment.ts` (producao) e `src/environments/environment.development.ts` (desenvolvimento).
+
+Execute `npm start` para desenvolver e `npm run build` para gerar a aplicacao. O Firebase Hosting usa `dist/card-game/browser`.

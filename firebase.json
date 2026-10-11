@@ -1,0 +1,17 @@
+{
+  "hosting": {
+    "site": "deckfall",
+    "public": "dist/card-game/browser",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
