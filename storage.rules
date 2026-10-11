@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.roleId == 'admin';
+    }
+
+    match /cards/{cardId}/art/{fileName} {
+      // Arte privada nesta fase; consultas Firestore são públicas somente para published.
+      allow read: if isAdmin();
+      allow create: if isAdmin() && resource == null
+        && cardId.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && fileName.matches('^[a-zA-Z0-9_-]+[.](jpg|png|webp)$')
+        && firestore.exists(/databases/(default)/documents/cards/$(cardId))
+        && request.resource.size > 0 && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp'];
+      // Caminhos únicos: uma nova arte nunca sobrescreve a anterior.
+      allow update: if false;
+      // Permite compensar órfãos mesmo quando o documento da carta foi removido.
+      allow delete: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

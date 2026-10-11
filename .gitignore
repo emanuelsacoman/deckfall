@@ -30,11 +30,9 @@
 
 # Pastas de node_modules
 node_modules/
-!node_modules/*
 
 # Pastas de environments
 environments/
-!environments/*
 
 # Arquivos e pastas ocultos
 .*/
@@ -44,3 +42,13 @@ environments/
 .firebase
 *-debug.log
 .runtimeconfig.json
+
+# Credenciais privadas e resultados locais de validação
+.env.*
+*.pem
+*.key
+*service-account*.json
+*serviceAccount*.json
+/coverage
+/out-tsc
+/tmp

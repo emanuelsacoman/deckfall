@@ -1,0 +1,5 @@
+:host { display: block; }
+.card-art { display: block; width: 64px; height: 88px; object-fit: contain; border-radius: .25rem; }
+.art-placeholder { display: block; min-width: 80px; max-width: 130px; font-size: .8rem; }
+.row-actions { flex-wrap: nowrap; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

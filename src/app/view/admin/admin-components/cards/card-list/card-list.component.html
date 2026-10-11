@@ -1,0 +1,73 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Cartas</p>
+    <h1>Todas as cartas</h1>
+    <p class="muted">Gerencie dados, atributos e artes do catálogo.</p>
+  </div>
+  <div class="actions">
+    <button class="button secondary" type="button" (click)="load()" [disabled]="loading() || !!deletingId()">Atualizar</button>
+    <a class="button" routerLink="/admin/cartas/criar">Criar carta</a>
+  </div>
+</header>
+
+@if (feedback()) {
+  <p class="notice success" role="status">{{ feedback() }}</p>
+}
+@for (warning of warnings(); track warning) {
+  <p class="notice" role="alert">{{ warning }}</p>
+}
+@if (error()) {
+  <div class="notice error" role="alert">
+    <p>{{ error() }}</p>
+    <button class="button secondary" type="button" (click)="load()" [disabled]="!!deletingId()">Recarregar lista</button>
+  </div>
+}
+@if (loading()) {
+  <p class="notice" role="status">Carregando cartas...</p>
+} @else if (cards().length > 0) {
+  <div class="panel table-wrap">
+    <table>
+      <caption class="visually-hidden">Cartas do catálogo administrativo</caption>
+      <thead>
+        <tr>
+          <th scope="col">Arte</th>
+          <th scope="col">Nome</th>
+          <th scope="col">Raridade</th>
+          <th scope="col">Status</th>
+          <th scope="col">Atualização</th>
+          <th scope="col">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (card of cards(); track card.id) {
+          <tr>
+            <td>
+              @if (artUrls()[card.id]; as url) {
+                <img class="card-art" [src]="url" [alt]="'Arte de ' + card.name" />
+              } @else {
+                <span class="muted art-placeholder">{{ !card.art ? 'Sem arte' : artFailures().has(card.id) ? 'Arte indisponível' : 'Carregando arte...' }}</span>
+              }
+            </td>
+            <th scope="row">{{ card.name }}</th>
+            <td>{{ rarityLabels[card.rarity] }}</td>
+            <td>{{ statusLabels[card.status] }}</td>
+            <td>{{ (updatedAt(card) | date:'dd/MM/yyyy HH:mm') || 'Aguardando data' }}</td>
+            <td>
+              <div class="actions row-actions">
+                <a class="button secondary" [routerLink]="['/admin/cartas/editar', card.id]" [attr.aria-label]="'Editar ' + card.name">Editar</a>
+                <button class="button danger" type="button" (click)="deleteCard(card)" [disabled]="!!deletingId()"
+                  [attr.aria-label]="'Excluir ' + card.name">{{ deletingId() === card.id ? 'Excluindo...' : 'Excluir' }}</button>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else if (!error()) {
+  <div class="panel">
+    <h2>Nenhuma carta criada</h2>
+    <p class="muted">Crie a primeira carta para começar seu catálogo.</p>
+    <a class="button" routerLink="/admin/cartas/criar">Criar primeira carta</a>
+  </div>
+}

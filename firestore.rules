@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      let profile = request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data : {};
+      return request.auth != null
+        && profile.get('role', '') == 'admin' && profile.get('roleId', '') == 'admin';
+    }
+
+    function validAttribute(attribute) {
+      let key = attribute.key;
+      let label = attribute.label;
+      let value = attribute.value;
+      // O acesso aos três campos também rejeita mapas incompletos; hasOnly veda extras.
+      return attribute.keys().hasOnly(['key', 'label', 'value'])
+        && key is string && key.matches('^[a-z][a-z0-9_-]{0,39}$')
+        && label is string && label.size() > 0 && label.size() <= 60
+        && value is number && value >= 0 && value <= 100;
+    }
+
+    function validAttributeAt(attributes, index) {
+      let size = attributes.size();
+      let attribute = size > index ? attributes[index] : null;
+      return size <= index || validAttribute(attribute);
+    }
+
+    // Rules não possuem loops; oito posições mantêm a validação dentro do orçamento.
+    function validAttributes(attributes) {
+      return attributes is list && attributes.size() <= 8
+        && validAttributeAt(attributes, 0) && validAttributeAt(attributes, 1)
+        && validAttributeAt(attributes, 2) && validAttributeAt(attributes, 3)
+        && validAttributeAt(attributes, 4) && validAttributeAt(attributes, 5)
+        && validAttributeAt(attributes, 6) && validAttributeAt(attributes, 7);
+    }
+
+    function validArt(art, cardId) {
+      return art == null || (art is map
+        && art.keys().hasAll(['storagePath', 'fileName', 'contentType', 'size'])
+        && art.keys().hasOnly(['storagePath', 'fileName', 'contentType', 'size'])
+        && art.storagePath is string
+        && art.storagePath.matches('^cards/' + cardId + '/art/[a-zA-Z0-9_-]+[.](jpg|png|webp)$')
+        && art.fileName is string && art.fileName.size() > 0 && art.fileName.size() <= 255
+        && art.contentType in ['image/jpeg', 'image/png', 'image/webp']
+        && art.size is int && art.size > 0 && art.size <= 5 * 1024 * 1024);
+    }
+
+    function validCard(data, cardId) {
+      return cardId.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && data.keys().hasAll(['name', 'slug', 'description', 'rarity', 'status', 'art', 'attributes', 'setId', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'slug', 'description', 'rarity', 'status', 'art', 'attributes', 'setId', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 120
+        && data.slug is string && data.slug.size() <= 120 && data.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$')
+        && data.description is string && data.description.size() <= 5000
+        && data.rarity in ['common', 'rare', 'epic', 'legendary']
+        && data.status in ['draft', 'published', 'archived']
+        && validArt(data.art, cardId) && validAttributes(data.attributes)
+        && (data.setId == null || (data.setId is string && data.setId.size() > 0 && data.setId.size() <= 128))
+        && data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validUser(data, uid) {
+      return uid.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && data.keys().hasAll(['displayName', 'contactEmail', 'role', 'roleId', 'updatedAt'])
+        && data.keys().hasOnly(['displayName', 'contactEmail', 'role', 'roleId', 'createdAt', 'updatedAt'])
+        && data.displayName is string && data.displayName.size() <= 120
+        && data.contactEmail is string && data.contactEmail.size() <= 254
+        && (data.contactEmail == '' || data.contactEmail.matches('^[^\\s@]+@[^\\s@]+[.][^\\s@]+$'))
+        && data.role in ['admin', 'member'] && data.roleId == data.role
+        && (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp)
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{uid} {
+      allow get: if (request.auth != null && request.auth.uid == uid) || isAdmin();
+      allow list: if isAdmin();
+      // O primeiro administrador continua sendo provisionado pelo Console.
+      allow create: if isAdmin() && validUser(request.resource.data, uid)
+        && request.resource.data.keys().hasAll(['createdAt'])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin() && validUser(request.resource.data, uid)
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && (request.auth.uid != uid || request.resource.data.role == 'admin');
+      allow delete: if false;
+    }
+
+    match /cards/{cardId} {
+      allow get, list: if isAdmin() || resource.data.status == 'published';
+      allow create: if isAdmin() && validCard(request.resource.data, cardId)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin() && validCard(request.resource.data, cardId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

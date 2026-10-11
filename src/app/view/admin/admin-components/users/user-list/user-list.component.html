@@ -1,0 +1,56 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Usuários</p>
+    <h1>Perfis de usuários</h1>
+    <p class="muted">Consulte informações e gerencie o acesso administrativo.</p>
+  </div>
+  <div class="actions">
+    <button class="button secondary" type="button" (click)="load()" [disabled]="loading()">Atualizar</button>
+    <a class="button" routerLink="/admin/usuarios/criar">Vincular perfil por UID</a>
+  </div>
+</header>
+
+<p class="notice">Esta lista mostra os perfis vinculados no Firestore. Contas do Authentication sem perfil não aparecem aqui. Para vincular uma conta existente, copie seu UID no Firebase Console.</p>
+@if (feedback()) {
+  <p class="notice success" role="status">{{ feedback() }}</p>
+}
+@if (error()) {
+  <div class="notice error" role="alert">
+    <p>{{ error() }}</p>
+    <button class="button secondary" type="button" (click)="load()">Tentar novamente</button>
+  </div>
+}
+@if (loading()) {
+  <p class="notice" role="status">Carregando perfis...</p>
+} @else if (users().length > 0) {
+  <div class="panel table-wrap">
+    <table>
+      <caption class="visually-hidden">Perfis de usuários vinculados</caption>
+      <thead>
+        <tr>
+          <th scope="col">Nome</th><th scope="col">E-mail de contato</th><th scope="col">UID</th>
+          <th scope="col">Papel</th><th scope="col">Atualização</th><th scope="col">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (user of users(); track user.uid) {
+          <tr>
+            <th scope="row">{{ user.displayName || 'Nome não informado' }}</th>
+            <td>{{ user.contactEmail || 'Não informado' }}</td>
+            <td class="uid">{{ user.uid }}</td>
+            <td>{{ roleLabel(user) }}</td>
+            <td>{{ (updatedAt(user) | date:'dd/MM/yyyy HH:mm') || 'Não informado' }}</td>
+            <td><a class="button secondary" [routerLink]="['/admin/usuarios/editar', user.uid]"
+              [attr.aria-label]="'Ver informações e editar ' + (user.displayName || user.uid)">Ver e editar</a></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else if (!error()) {
+  <section class="panel">
+    <h2>Nenhum perfil vinculado</h2>
+    <p class="muted">Use o UID de uma conta existente no Authentication para registrar seu perfil de acesso.</p>
+    <a class="button" routerLink="/admin/usuarios/criar">Vincular perfil por UID</a>
+  </section>
+}

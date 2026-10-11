@@ -1,0 +1,68 @@
+import { Timestamp } from '@angular/fire/firestore';
+
+export const CARD_RARITIES = ['common', 'rare', 'epic', 'legendary'] as const;
+export const CARD_STATUSES = ['draft', 'published', 'archived'] as const;
+export type CardRarity = typeof CARD_RARITIES[number];
+export type CardStatus = typeof CARD_STATUSES[number];
+
+export const CARD_RARITY_LABELS: Record<CardRarity, string> = {
+  common: 'Comum', rare: 'Rara', epic: 'Épica', legendary: 'Lendária'
+};
+export const CARD_STATUS_LABELS: Record<CardStatus, string> = {
+  draft: 'Rascunho', published: 'Publicada', archived: 'Arquivada'
+};
+
+export const CARD_LIMITS = {
+  name: 120, description: 5000, attributes: 8, attributeKey: 40,
+  attributeLabel: 60, imageBytes: 5 * 1024 * 1024
+} as const;
+export const CARD_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+
+export interface CardAttribute {
+  key: string;
+  label: string;
+  value: number;
+}
+
+export interface CardArt {
+  storagePath: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+}
+
+export interface CardInput {
+  name: string;
+  description: string;
+  rarity: CardRarity;
+  status: CardStatus;
+  attributes: CardAttribute[];
+  setId: string | null;
+}
+
+export interface Card extends CardInput {
+  id: string;
+  slug: string;
+  art: CardArt | null;
+  createdAt: Timestamp | null;
+  updatedAt: Timestamp | null;
+}
+
+export interface CardSaveResult {
+  id: string;
+  warnings: string[];
+}
+
+export class CardOperationError extends Error {
+  constructor(message: string, readonly cardId?: string) {
+    super(message);
+    this.name = 'CardOperationError';
+  }
+}
+
+export const DEFAULT_CARD_ATTRIBUTES: readonly CardAttribute[] = [
+  { key: 'attack', label: 'Ataque', value: 0 },
+  { key: 'defense', label: 'Defesa', value: 0 },
+  { key: 'speed', label: 'Velocidade', value: 0 },
+  { key: 'magic', label: 'Magia', value: 0 }
+];

@@ -7,6 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-cardgame \"node --test tests/rules/cardgame.rules.test.mjs\"",
     "setup": "node setup-structure.js"
   },
   "private": true,
@@ -29,6 +30,7 @@
     "@angular-devkit/build-angular": "^18.2.21",
     "@angular/cli": "^18.2.21",
     "@angular/compiler-cli": "^18.2.0",
+    "@firebase/rules-unit-testing": "^3.0.4",
     "@types/jasmine": "~5.1.0",
     "jasmine-core": "~5.2.0",
     "karma": "~6.4.0",

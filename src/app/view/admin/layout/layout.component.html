@@ -1,0 +1,22 @@
+<a class="skip-link" href="#admin-content">Ir para o conteúdo</a>
+<div class="admin-shell">
+  <aside class="sidebar" aria-label="Área administrativa">
+    <a class="brand" routerLink="/admin/dashboard"><span class="brand-mark" aria-hidden="true">D</span><span>Deckfall<small>Administração</small></span></a>
+    <nav aria-label="Menu principal">
+      <a routerLink="/admin/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page">Painel</a>
+      <p class="nav-label">Cartas</p>
+      <a routerLink="/admin/cartas/lista" routerLinkActive="active" ariaCurrentWhenActive="page">Todas as cartas</a>
+      <a routerLink="/admin/cartas/criar" routerLinkActive="active" ariaCurrentWhenActive="page">Criar carta</a>
+      <p class="nav-label">Usuários</p>
+      <a routerLink="/admin/usuarios/lista" routerLinkActive="active" ariaCurrentWhenActive="page">Todos os usuários</a>
+      <a routerLink="/admin/usuarios/criar" routerLinkActive="active" ariaCurrentWhenActive="page">Vincular perfil</a>
+    </nav>
+    <div class="sidebar-footer">
+      <a class="button secondary" routerLink="/login">Login (em breve)</a>
+    </div>
+  </aside>
+  <main id="admin-content" class="admin-content" tabindex="-1">
+    <p class="notice">Autenticação em preparação. O acesso aos dados administrativos do Firebase depende dessa próxima etapa.</p>
+    <router-outlet />
+  </main>
+</div>

@@ -1,0 +1,106 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Usuários</p>
+    <h1>{{ mode === 'create' ? 'Vincular perfil de usuário' : 'Informações do usuário' }}</h1>
+    <p class="muted">Administre dados de contato e permissão de acesso.</p>
+  </div>
+  <a class="button secondary" routerLink="/admin/usuarios/lista">Voltar à lista</a>
+</header>
+
+@if (loading()) {
+  <p class="notice" role="status">Carregando perfil...</p>
+} @else if (loadError()) {
+  <div class="notice error" role="alert">
+    <p>{{ loadError() }}</p>
+    <button class="button secondary" type="button" (click)="loadProfile()">Tentar novamente</button>
+    @if (mode === 'edit') {
+      <a class="button secondary" routerLink="/admin/usuarios/criar">Vincular perfil</a>
+    }
+  </div>
+} @else {
+  @if (mode === 'create') {
+    <div class="notice">
+      <p>Crie a conta em Firebase Console → Authentication → Users e copie seu UID abaixo. Este formulário vincula o perfil à conta existente; ele não cria uma conta de login nem verifica se o UID existe no Authentication.</p>
+    </div>
+  }
+  @if (profile(); as existing) {
+    <section class="panel profile-info" aria-labelledby="profile-info-title">
+      <h2 id="profile-info-title">Perfil vinculado</h2>
+      <dl>
+        <div><dt>UID da conta</dt><dd class="uid">{{ existing.uid }}</dd></div>
+        <div><dt>Papel registrado (role / roleId)</dt><dd>{{ existing.role || 'Não informado' }} / {{ existing.roleId || 'Não informado' }}</dd></div>
+        <div><dt>Criado em</dt><dd>{{ (createdAt(existing) | date:'dd/MM/yyyy HH:mm') || 'Não informado' }}</dd></div>
+        <div><dt>Atualizado em</dt><dd>{{ (updatedAt(existing) | date:'dd/MM/yyyy HH:mm') || 'Não informado' }}</dd></div>
+      </dl>
+    </section>
+  }
+  @if (inconsistentRole()) {
+    <p class="notice" role="alert">Os papéis deste perfil estão ausentes, divergentes ou não são reconhecidos. Escolha explicitamente um papel para corrigir o acesso.</p>
+  }
+  @if (saveError()) {
+    <div class="notice error" role="alert">
+      <p>{{ saveError() }}</p>
+      @if (mode === 'edit' && !successMessage()) {
+        <button class="button secondary" type="button" (click)="loadProfile()">Recarregar perfil</button>
+        <p class="muted">Recarregar substitui as alterações do formulário pelos dados salvos.</p>
+      } @else if (failedUid()) {
+        <a class="button secondary" [routerLink]="['/admin/usuarios/editar', failedUid()]">Verificar perfil pelo UID</a>
+      }
+    </div>
+  }
+  @if (successMessage()) {
+    <p class="notice success" role="status">{{ successMessage() }} <a routerLink="/admin/usuarios/lista">Ver usuários</a></p>
+  }
+
+  <form class="panel" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <fieldset [disabled]="saving() || !!successMessage()">
+      <legend class="visually-hidden">Dados e permissão do perfil</legend>
+      <div class="field">
+        <label for="user-uid">UID da conta no Authentication</label>
+        <input id="user-uid" formControlName="uid" [readonly]="mode === 'edit'" [maxlength]="limits.uid" required
+          [attr.aria-invalid]="invalid(form.controls.uid)" aria-describedby="uid-help uid-error" />
+        <p id="uid-help" class="muted">{{ mode === 'edit' ? 'O vínculo com a conta é fixo e não pode ser alterado.' : 'Cole o UID exato da conta existente. Ele identifica o usuário, independentemente do e-mail.' }}</p>
+        @if (invalid(form.controls.uid)) {
+          <p id="uid-error" class="field-error">Informe um UID de até {{ limits.uid }} caracteres com letras, números, _ ou -.</p>
+        }
+      </div>
+      <div class="field">
+        <label for="user-name">Nome (opcional)</label>
+        <input id="user-name" formControlName="displayName" [maxlength]="limits.displayName"
+          [attr.aria-invalid]="invalid(form.controls.displayName)" aria-describedby="name-error" />
+        @if (invalid(form.controls.displayName)) {
+          <p id="name-error" class="field-error">Use até {{ limits.displayName }} caracteres.</p>
+        }
+      </div>
+      <div class="field">
+        <label for="user-contact">E-mail de contato (opcional)</label>
+        <input id="user-contact" type="email" formControlName="contactEmail" [maxlength]="limits.contactEmail"
+          [attr.aria-invalid]="invalid(form.controls.contactEmail)" aria-describedby="contact-help contact-error" />
+        <p id="contact-help" class="muted">Alterar este contato não muda o e-mail nem as credenciais de login.</p>
+        @if (invalid(form.controls.contactEmail)) {
+          <p id="contact-error" class="field-error">Informe um e-mail válido de até {{ limits.contactEmail }} caracteres ou deixe vazio.</p>
+        }
+      </div>
+      <div class="field">
+        <label for="user-role">Papel de acesso</label>
+        <select id="user-role" formControlName="role" required [attr.aria-invalid]="invalid(form.controls.role)" aria-describedby="role-help role-error">
+          <option [ngValue]="null" disabled>Escolha um papel</option>
+          @for (role of roles; track role) {
+            <option [ngValue]="role">{{ roleLabels[role] }}</option>
+          }
+        </select>
+        <p id="role-help" class="muted">Administradores têm permissão para gerenciar dados de cartas e usuários. Membros não têm essa permissão.</p>
+        @if (invalid(form.controls.role)) {
+          <p id="role-error" class="field-error">Escolha um papel válido.</p>
+        }
+      </div>
+      <div class="actions form-actions">
+        <button class="button" type="submit">{{ saving() ? 'Salvando...' : mode === 'create' ? 'Vincular perfil' : 'Salvar alterações' }}</button>
+        <a class="button secondary" routerLink="/admin/usuarios/lista">Cancelar</a>
+      </div>
+    </fieldset>
+    @if (saving()) {
+      <p class="muted" role="status">Salvando o perfil e a permissão. Aguarde a conclusão.</p>
+    }
+  </form>
+}
