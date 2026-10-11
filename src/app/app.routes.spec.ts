@@ -20,7 +20,8 @@ describe('Navegação administrativa e editor', () => {
       { provide: CardTemplateService, useValue: {} },
       { provide: AuthService, useValue: {
         currentUser, isAdmin: computed(() => currentUser()?.role === 'admin' && currentUser()?.roleId === 'admin'),
-        sessionError: signal(null), waitForSession: () => Promise.resolve(currentUser())
+        sessionError: signal(null), googleError: signal(null), redirecting: signal(false), googleLinked: signal(false), passwordLinked: signal(false),
+        waitForSession: () => Promise.resolve(currentUser())
       } }
     ] });
   });

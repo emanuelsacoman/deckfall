@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { CardEditorStateService } from './card-editor-state.service';
-import { resolveCardBinding, renderText } from './card-canvas-factory';
+import { createCanvasElement, resolveCardBinding, renderText } from './card-canvas-factory';
 import { validateCardCanvas } from './card-canvas-validation';
 
 describe('Estado do editor de cartas', () => {
@@ -40,7 +40,9 @@ describe('Estado do editor de cartas', () => {
   });
 
   it('renomear a chave de atributo preserva bindings por identidade', () => {
+    state.setDocument({ ...state.document(), data: { ...state.data(), attributes: state.data().attributes.map(({ id: _id, ...attribute }) => attribute) } });
     const attribute = state.data().attributes[0];
+    expect(attribute.id).toBeDefined();
     state.updateData({ ...state.data(), attributes: state.data().attributes.map(item => item.id === attribute.id ? { ...item, key: 'power', value: 95 } : item) });
     const visual = state.canvas().elements.find(item => item.type === 'attribute');
     expect(visual?.type === 'attribute' && visual.properties.attributeKey).toBe('power');
@@ -54,5 +56,18 @@ describe('Estado do editor de cartas', () => {
     state.reorder(ids.slice(1)); expect(state.canvas().elements.map(item => item.id)).toEqual(ids);
     state.addElement('line'); state.undo(); expect(state.canRedo()).toBeTrue();
     state.addElement('icon'); expect(state.canRedo()).toBeFalse();
+  });
+
+  it('libera assets sem referência ao excluir, preserva compartilhados e restaura no Undo', () => {
+    const image = createCanvasElement('image', state.data());
+    const duplicate = { ...structuredClone(image), id: crypto.randomUUID() };
+    if (image.type === 'image') image.properties.assetId = 'shared-image';
+    if (duplicate.type === 'image') duplicate.properties.assetId = 'shared-image';
+    state.setDocument({ ...state.document(), canvas: { ...state.canvas(), elements: [image, duplicate], assets: [
+      { id: 'shared-image', storagePath: null, fileName: 'a.png', contentType: 'image/png', size: 1 }
+    ] } });
+    state.remove(image.id); expect(state.canvas().assets.length).toBe(1);
+    state.remove(duplicate.id); expect(state.canvas().assets.length).toBe(0);
+    state.undo(); expect(state.canvas().assets[0].id).toBe('shared-image');
   });
 });

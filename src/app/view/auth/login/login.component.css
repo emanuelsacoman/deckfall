@@ -5,6 +5,19 @@
 .brand-mark { display: grid; place-items: center; width: 32px; height: 38px; background: var(--primary); color: white; border-radius: 5px; }
 h1 { font-size: 1.6rem; }
 form { display: grid; gap: 1rem; margin-top: 1.5rem; }
+fieldset { display: grid; gap: 1rem; padding: 0; margin: 0; border: 0; min-width: 0; }
+form h3, form p { margin: 0; }
+.account-email { overflow-wrap: anywhere; font-weight: 600; }
+.account-methods { margin: 1.5rem 0; }
+.account-methods h2 { font-size: 1.1rem; }
+.account-hint { font-size: .85rem; }
+.provider-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .6rem; }
+.provider-list li { display: flex; align-items: center; gap: .65rem; padding: .75rem; border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); }
+.provider-list li.linked { color: var(--text); border-color: #bee0ce; background: #eef9f3; }
+.provider-list small { margin-left: auto; }
+.provider-icon { flex: 0 0 22px; width: 22px; height: 22px; font-size: 1.15rem; font-weight: 750; text-align: center; }
+.panel-link { margin-top: .5rem; }
+button.text-button { color: var(--primary); background: transparent; margin-top: .75rem; text-decoration: underline; }
 .full-width { width: 100%; }
 .secondary.full-width { margin-top: .75rem; }
 .auth-tabs { display: flex; gap: .65rem; margin-top: 1.25rem; }

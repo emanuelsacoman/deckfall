@@ -4,11 +4,18 @@
 </header>
 @if (error()) { <div class="notice error" role="alert">{{ error() }} @if (recoveryId()) { <a [routerLink]="['/admin/cartas/editar', recoveryId()]">Verificar carta {{ recoveryId() }}</a> } @if (mode === 'edit') { <button type="button" class="secondary" (click)="reloadAfterError()" [disabled]="state.busy()">Recarregar carta</button> } <button type="button" class="secondary" (click)="error.set('')">Fechar</button></div> }
 @if (feedback()) { <p class="notice success" role="status">{{ feedback() }}</p> }
+@if (recoveryId()) {
+  <p class="notice" role="status">Confira a operação da carta {{ recoveryId() }} antes de salvar novamente.
+    @if (mode === 'edit') { <button type="button" class="secondary" (click)="reloadAfterError()" [disabled]="state.busy()">Recarregar carta</button> }
+    @else { <a [routerLink]="['/admin/cartas/editar', recoveryId()]">Abrir carta para conferir</a> }
+    Você pode salvar o trabalho como rascunho local enquanto isso.
+  </p>
+}
 @for (warning of warnings(); track warning) { <p class="notice" role="alert">{{ warning }}</p> }
 @if (loading()) { <p role="status" class="notice">Carregando editor...</p> } @else if (loadError()) {
   <div class="notice error" role="alert"><p>{{ loadError() }}</p><button type="button" class="secondary" (click)="loadCard()">Tentar carregar novamente</button></div>
 } @else {
-  <app-card-toolbar [busy]="state.busy()" [hasSavedCard]="!!original()" [dataValid]="dataValid() && !recoveryId()" (action)="handleAction($event)" (exportRequested)="exportImage($event)" />
+  <app-card-toolbar [busy]="state.busy()" [hasSavedCard]="!!original()" [dataValid]="dataValid()" [canSave]="!recoveryId()" (action)="handleAction($event)" (exportRequested)="exportImage($event)" />
   <div class="editor-workspace" [class.preview-mode]="state.mode() === 'preview'" [class.data-mode]="state.mode() === 'data'" [class.editor-busy]="state.busy()" [attr.aria-busy]="state.busy()">
     @if (state.mode() !== 'preview') {
       <aside class="editor-left" aria-label="Elementos e camadas">

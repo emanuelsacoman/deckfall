@@ -5,7 +5,7 @@ import { cardEditorLeaveGuard } from './model/guards/card-editor-leave.guard';
 export const routes: Routes = [
   {
     path: 'login',
-    title: 'Entrar e registrar | Deckfall',
+    title: 'Conta e acesso | Deckfall',
     loadComponent: () => import('./view/auth/login/login.component').then((m) => m.LoginComponent),
   },
   {

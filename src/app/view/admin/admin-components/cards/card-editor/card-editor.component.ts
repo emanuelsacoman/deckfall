@@ -1,4 +1,4 @@
-import { Component, HostListener, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, inject, signal } from '@angular/core';
+import { Component, HostListener, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Card, CardDataInput, CardInput, CardOperationError } from '../../../../../model/interfaces/Cards/card';
@@ -58,6 +58,15 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
   readonly templateError = signal('');
   templateName = '';
 
+  constructor() {
+    effect(() => {
+      const canvas = this.state.canvas();
+      untracked(() => {
+        void this.assets.ensure(canvas).catch(error => { if (!this.destroyed && this.state.canvas() === canvas) this.error.set(this.message(error)); });
+      });
+    });
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['mode'] || changes['cardId']) void this.loadCard();
   }
@@ -65,7 +74,8 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
   async loadCard(): Promise<void> {
     const version = ++this.version;
     this.assets.reset(); this.localSavedSignature = ''; this.allowLeave = false; this.clipboard = null;
-    this.loading.set(true); this.loadError.set(''); this.error.set(''); this.feedback.set(''); this.recoveryId.set(null); this.original.set(null);
+    this.loading.set(true); this.dataValid.set(true); this.loadError.set(''); this.error.set(''); this.feedback.set(''); this.recoveryId.set(null); this.original.set(null);
+    const fresh = defaultCardData(); this.state.load({ data: fresh, canvas: fantasyBasicCanvas(fresh) });
     try {
       if (this.mode === 'edit') {
         if (!this.cardId) throw new Error('O endereço não contém o ID da carta.');
@@ -74,10 +84,9 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
         if (!this.isCurrent(version)) return;
         const document = this.documentFromCard(card);
         this.original.set(card); this.state.load(document); this.assets.markPersisted(document.canvas);
-        await this.assets.ensure(document.canvas);
+        try { await this.assets.ensure(document.canvas); }
+        catch (error: unknown) { if (this.isCurrent(version)) this.error.set(this.message(error)); }
       } else {
-        const data = defaultCardData();
-        this.state.load({ data, canvas: fantasyBasicCanvas(data) });
         const navigationState: unknown = this.router.getCurrentNavigation()?.extras.state ?? history.state;
         if (navigationState && typeof navigationState === 'object' && 'loadLocalDraft' in navigationState && navigationState.loadLocalDraft === true) {
           await this.loadLocal(false);
@@ -109,10 +118,8 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
   async selectAsset(selection: EditorAssetSelection): Promise<void> {
     try {
       this.storage.validateImage(selection.file);
-      if (this.state.canvas().assets.length >= CARD_CANVAS_CONFIG.maxAssets) throw new Error('O limite de imagens da carta foi atingido.');
       const asset: CardCanvasAsset = { id: newEditorId(), storagePath: null, fileName: selection.file.name,
         contentType: selection.file.type, size: selection.file.size };
-      this.assets.register(asset, selection.file);
       const next = structuredClone(this.state.document());
       next.canvas.assets.push(asset);
       if (selection.elementId) {
@@ -129,6 +136,8 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
         if ((element.type === 'image' || element.type === 'artwork') && element.properties.assetId) references.add(element.properties.assetId);
       }
       next.canvas.assets = next.canvas.assets.filter(item => references.has(item.id));
+      if (next.canvas.assets.length > CARD_CANVAS_CONFIG.maxAssets) throw new Error('O limite de imagens da carta foi atingido.');
+      this.assets.register(asset, selection.file);
       this.state.setDocument(next); this.error.set('');
     } catch (error: unknown) { this.error.set(this.message(error)); }
   }
@@ -184,8 +193,8 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
       const data: CardDataInput = { ...this.state.data(), templateId: template?.id ?? null,
         attributes: template ? normalizeEditorAttributes(template.attributes) : this.state.data().attributes };
       const canvas = template ? structuredClone(template.canvas) : fantasyBasicCanvas(data);
-      await this.assets.ensure(canvas);
       this.state.setDocument({ data, canvas }); this.state.select(null); this.state.requestFit(); this.modal.set(null);
+      await this.assets.ensure(canvas);
     } catch (error: unknown) { this.templateError.set(this.message(error)); }
     finally { this.state.busy.set(false); }
   }
@@ -298,7 +307,7 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
     if (!this.state.busy() && window.confirm('Recarregar a carta salva e substituir as alterações locais?')) void this.loadCard();
   }
   private localKey(): string { return this.original()?.id ?? 'new'; }
-  private hasUnsavedChanges(): boolean { return this.state.dirty() && JSON.stringify(this.state.document()) !== this.localSavedSignature; }
+  private hasUnsavedChanges(): boolean { return !this.dataValid() || (this.state.dirty() && JSON.stringify(this.state.document()) !== this.localSavedSignature); }
   private isCurrent(version: number): boolean { return !this.destroyed && version === this.version; }
   private validInput(): CardInput {
     if (!this.dataValid()) throw new Error('Revise os campos de dados da carta antes de salvar.');

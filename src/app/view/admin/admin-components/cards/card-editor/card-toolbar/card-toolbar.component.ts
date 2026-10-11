@@ -10,6 +10,7 @@ export class CardToolbarComponent {
   readonly state = inject(CardEditorStateService);
   readonly zooms = CARD_ZOOMS;
   @Input() busy = false;
+  @Input() canSave = true;
   @Input() hasSavedCard = false;
   @Input() dataValid = true;
   @Output() readonly action = new EventEmitter<CardEditorAction>();

@@ -54,6 +54,10 @@ Em Design, fora de inputs/textareas/selects e modais: Delete remove, Ctrl/Cmd+D 
 
 Arquivos de imagens são mantidos em cache durante a sessão para permitir undo após mudanças ou salvamentos. Uma versão antiga recuperada por undo pode precisar reenviar o binário ao salvar, caso sua referência anterior tenha sido limpa.
 
+O cache diferencia ID e origem do arquivo. Assim aplicar um template com o mesmo ID e outro caminho não reutiliza uma imagem antiga; respostas de downloads anteriores não substituem a origem atual. Versões anteriores permanecem disponíveis para Undo dentro do orçamento de memória.
+
+Excluir um elemento remove do documento assets sem outras referências, preservando arquivos compartilhados por elementos restantes. O histórico e o cache permitem restaurá-los por Undo; uma substituição de imagem verifica o limite depois de remover referências antigas, permitindo trocar arquivos mesmo no limite de assets.
+
 ## Salvamento, templates e duplicação
 
 Salvar é explícito. `CardService` persiste dados e canvas; `CardStorageService` envia arquivos para o proprietário correto. Falhas retornam mensagens, IDs recuperáveis e caminhos para conferir. Consulte [cartas](cartas.md) para a ordem transacional e compensações.

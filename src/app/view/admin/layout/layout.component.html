@@ -14,6 +14,7 @@
     </nav>
     <div class="sidebar-footer">
       <p class="muted">{{ auth.currentUser()?.email }}</p>
+      <a class="button secondary" routerLink="/login">Minha conta</a>
       <button class="button secondary" type="button" (click)="logout()" [disabled]="signingOut()">{{ signingOut() ? 'Saindo…' : 'Encerrar sessão' }}</button>
     </div>
   </aside>

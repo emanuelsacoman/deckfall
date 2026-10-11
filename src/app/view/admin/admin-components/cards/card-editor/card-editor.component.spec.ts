@@ -88,4 +88,15 @@ describe('Editor — criação, reabertura e uploads', () => {
     expect(input.attributes).toEqual(fixture.componentInstance.state.data().attributes);
     fixture.destroy();
   });
+
+  it('não cria outra carta quando o documento solicitado para edição não existe', async () => {
+    const fixture = TestBed.createComponent(CardEditorComponent);
+    fixture.componentRef.setInput('mode', 'edit'); fixture.componentRef.setInput('cardId', 'missing');
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(fixture.componentInstance.loadError()).toContain('não encontrada');
+    await fixture.componentInstance.save();
+    expect(cards.create).not.toHaveBeenCalled();
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-card-canvas')).toBeNull();
+    fixture.destroy();
+  });
 });

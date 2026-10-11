@@ -10,16 +10,12 @@ service cloud.firestore {
     }
 
     function validAttribute(attribute) {
-      let key = attribute.key;
-      let label = attribute.label;
       let value = attribute.value;
       let minimum = attribute.get('min', 0);
       let maximum = attribute.get('max', 100);
-      // matches e comparações numéricas já rejeitam tipos incorretos e campos ausentes.
-      // Metadados visuais/IDs/chaves extras são validados profundamente pelo cliente.
-      return key.matches('^[a-z][a-z0-9_-]{0,39}$')
-        && label is string && label.size() > 0 && label.size() <= 60
-        && minimum >= -1000000 && maximum <= 1000000 && minimum < maximum
+      // Limites numéricos são garantidos no servidor. Chaves, rótulos, IDs e
+      // metadados visuais são validados pelo cliente antes de qualquer gravação.
+      return minimum >= -1000000 && maximum <= 1000000 && minimum < maximum
         && value is number && value >= minimum && value <= maximum;
     }
 
@@ -60,9 +56,9 @@ service cloud.firestore {
     function validCard(data, cardId) {
       return cardId.matches('^[a-zA-Z0-9_-]{1,128}$')
         && data.keys().hasOnly(['name', 'slug', 'description', 'rarity', 'status', 'art', 'attributes', 'setId', 'type', 'subtype', 'templateId', 'canvas', 'createdAt', 'updatedAt'])
-        && data.name is string && data.name.size() > 0 && data.name.size() <= 120
-        && data.slug is string && data.slug.size() <= 120 && data.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$')
-        && data.description is string && data.description.size() <= 5000
+        && data.name is string && data.name.size() > 0
+        && data.slug is string
+        && data.description is string
         && data.rarity in ['common', 'rare', 'epic', 'legendary']
         && data.status in ['draft', 'published', 'archived']
         && validArt(data.art, cardId) && validAttributes(data.attributes)

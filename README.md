@@ -18,7 +18,10 @@ O backend remoto depende da conferência do proprietário: provedores Auth, dom�
 - **Cartas e templates:** salvar/reabrir o modelo próprio no Firestore, uploads organizados no Storage, Fantasy Basic editável, salvar/carregar templates e preparar cópias de cartas.
 - **Rascunho local:** salvamento manual de documento e imagens em IndexedDB; importação/exportação de JSON para o modelo estruturado.
 - **Usuários:** consultar, vincular por UID e editar perfis Firestore e papéis com confirmação. Alterar contato não muda credenciais.
+- **Minha conta:** vincular Google e e-mail/senha ao mesmo usuário, consultar métodos ativos e recuperar senha por e-mail.
 - **Memória operacional:** arquitetura, contratos, fluxos, limites e configuração documentados para futuras sessões e agentes.
+
+O acesso Google tenta popup e continua por redirecionamento quando o navegador o bloqueia. Em **Minha conta**, quem entrou por e-mail/senha pode vincular Google; quem entrou com Google pode adicionar uma senha após confirmar sua identidade. Os dois métodos preservam UID e perfil. **Esqueci minha senha** envia o link de recuperação pelo Firebase. Veja [o fluxo de autenticação](docs/autenticacao-e-admin.md).
 
 O editor usa um modelo versionado próprio. Konva representa esse estado; `stage.toJSON()` não é o banco de dados. Design e gameplay permanecem separados, sem impor um único layout de carta.
 
@@ -26,7 +29,7 @@ O editor usa um modelo versionado próprio. Konva representa esse estado; `stage
 
 Guards protegem o painel; Firestore e Storage Rules protegem os dados. Metadados de cartas `published` podem ser lidos publicamente; artes e templates permanecem privados. Cadastro público cria somente o próprio perfil de membro, sem autopromoção.
 
-A gestão lista **perfis em `users/{uid}`**, não todas as contas Authentication. O primeiro admin é configurado no Console; outros papéis podem ser administrados pelo painel. Não há exclusão de contas, mudança de senhas ou backend Admin SDK. Veja [autenticação e admin](docs/autenticacao-e-admin.md).
+A gestão lista **perfis em `users/{uid}`**, não todas as contas Authentication. O primeiro admin é configurado no Console; outros papéis podem ser administrados pelo painel. Cada titular vincula seus métodos e solicita a recuperação da própria senha; o painel não altera credenciais de terceiros nem exclui contas. Não há backend Admin SDK. Veja [autenticação e admin](docs/autenticacao-e-admin.md).
 
 ## Stack e organização
 
@@ -70,6 +73,8 @@ git diff --check
 Os testes Angular precisam do Chrome. Os testes de Rules precisam da Firebase CLI e Java compatíveis; nesta máquina, CLI 15.9.0 e Java 21 são usados para essa validação. `test:rules` executa Firestore/Storage no projeto isolado `demo-cardgame`.
 
 Resultados finais e detalhes do ambiente ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Verificações locais não confirmam a configuração nem a publicação do backend remoto.
+
+Validação local: **142 testes Angular, 17 cenários de Security Rules e build de produção aprovados**. OAuth Google e entrega de recuperação de senha reais dependem da configuração do Firebase Console.
 
 ## Documentação e desenvolvimento
 

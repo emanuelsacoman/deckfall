@@ -1,6 +1,7 @@
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { AuthIdentity, MemberProfileSeed, UserAccessProfile } from '../../interfaces/Auth/auth-session';
 import { AUTH_SESSION_CLIENT, AuthService, AuthSessionClient } from './auth.service';
+import { AuthenticatedGoogleError } from './google-auth-flow';
 
 describe('AuthService session and member provisioning', () => {
   const alice: AuthIdentity = { uid: 'alice', email: 'alice@example.test', displayName: 'Alice' };
@@ -16,7 +17,7 @@ describe('AuthService session and member provisioning', () => {
   beforeEach(() => {
     profiles = [];
     client = jasmine.createSpyObj<AuthSessionClient>('client', [
-      'observeAuth', 'observeProfile', 'ensureProfile', 'login', 'register', 'loginWithGoogle', 'logout'
+      'observeAuth', 'observeProfile', 'ensureProfile', 'login', 'register', 'loginWithGoogle', 'addPassword', 'sendPasswordReset', 'redirectResult', 'logout'
     ]);
     client.observeAuth.and.callFake((next, error) => {
       authNext = next; authError = error;
@@ -31,6 +32,9 @@ describe('AuthService session and member provisioning', () => {
     client.login.and.resolveTo(alice);
     client.register.and.resolveTo(alice);
     client.loginWithGoogle.and.resolveTo(alice);
+    client.addPassword.and.resolveTo({ ...alice, providerIds: ['google.com', 'password'] });
+    client.sendPasswordReset.and.resolveTo();
+    client.redirectResult.and.resolveTo(null);
     client.logout.and.resolveTo();
     TestBed.configureTestingModule({ providers: [{ provide: AUTH_SESSION_CLIENT, useValue: client }] });
   });
@@ -177,5 +181,141 @@ describe('AuthService session and member provisioning', () => {
     authNext(alice); profiles[0].next(admin);
     expect(service.currentUser()).toBeNull();
     expect(service.isAdmin()).toBeFalse();
+  });
+
+  it('recovers a redirect identity without duplicating profile provisioning', async () => {
+    client.redirectResult.and.resolveTo({ ...alice, providerIds: ['google.com'] });
+    const service = TestBed.inject(AuthService);
+    authNext(alice); await flush();
+    expect(client.ensureProfile).toHaveBeenCalledTimes(1);
+    profiles[0].next(admin); await flush();
+    expect(service.currentUser()?.uid).toBe('alice');
+    expect(service.googleLinked()).toBeTrue();
+    expect(service.isAdmin()).toBeTrue();
+  });
+
+  it('retains the live admin session when Google linking is cancelled', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext(alice); await flush(); profiles[0].next(admin);
+    client.loginWithGoogle.and.rejectWith({ code: 'auth/popup-closed-by-user' });
+    await expectAsync(service.loginWithGoogle()).toBeRejectedWithError('O acesso com Google foi cancelado.');
+    expect(service.currentUser()?.uid).toBe('alice'); expect(service.isAdmin()).toBeTrue();
+    expect(profiles[0].stop).not.toHaveBeenCalled();
+    profiles[0].next(member); expect(service.isAdmin()).toBeFalse();
+  });
+
+  it('updates linked provider information while preserving the existing UID and profile', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext(alice); await flush(); profiles[0].next(admin);
+    client.loginWithGoogle.and.resolveTo({ ...alice, providerIds: ['password', 'google.com'] });
+    await service.loginWithGoogle();
+    expect(service.currentUser()?.uid).toBe('alice'); expect(service.googleLinked()).toBeTrue();
+    expect(service.isAdmin()).toBeTrue(); expect(client.ensureProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves a successfully authenticated password account when credential linking fails', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext(null);
+    client.login.and.rejectWith(new AuthenticatedGoogleError('auth/credential-already-in-use', alice));
+    const pending = service.login('alice@example.test', 'secret');
+    await flush(); profiles[0].next(member);
+    await expectAsync(pending).toBeRejectedWithError(/outra conta/);
+    expect(service.currentUser()?.uid).toBe('alice'); expect(service.isAdmin()).toBeFalse();
+  });
+
+  it('reports redirect errors separately from the observed permission state', async () => {
+    client.redirectResult.and.rejectWith({ code: 'auth/account-exists-with-different-credential' });
+    const service = TestBed.inject(AuthService);
+    authNext(alice); await flush(); profiles[0].next(admin);
+    expect(service.googleError()).toContain('outro método');
+    expect(service.currentUser()?.uid).toBe('alice'); expect(service.isAdmin()).toBeTrue();
+  });
+
+  it('links a password while preserving the existing UID, admin role and profile listener', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext({ ...alice, providerIds: ['google.com'] }); await flush(); profiles[0].next(admin);
+    expect(service.passwordLinked()).toBeFalse();
+    await service.addPassword('secret');
+    expect(client.addPassword).toHaveBeenCalledOnceWith('secret');
+    expect(service.currentUser()?.uid).toBe('alice'); expect(service.isAdmin()).toBeTrue();
+    expect(service.passwordLinked()).toBeTrue(); expect(service.googleLinked()).toBeTrue();
+    expect(client.ensureProfile).toHaveBeenCalledTimes(1); expect(profiles[0].stop).not.toHaveBeenCalled();
+    profiles[0].next(member); expect(service.isAdmin()).toBeFalse();
+  });
+
+  it('retains the current session when adding a password fails or Google reauthentication is cancelled', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext({ ...alice, providerIds: ['google.com'] }); await flush(); profiles[0].next(admin);
+    for (const code of ['auth/popup-closed-by-user', 'auth/email-already-in-use', 'auth/credential-already-in-use', 'auth/requires-recent-login']) {
+      client.addPassword.and.rejectWith({ code });
+      await expectAsync(service.addPassword('secret')).toBeRejected();
+      expect(service.currentUser()?.uid).toBe('alice'); expect(service.isAdmin()).toBeTrue();
+      expect(service.passwordLinked()).toBeFalse();
+    }
+    expect(profiles[0].stop).not.toHaveBeenCalled();
+  });
+
+  it('marks redirecting during password reauthentication without claiming the password is linked', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext({ ...alice, providerIds: ['google.com'] }); await flush(); profiles[0].next(member);
+    client.addPassword.and.resolveTo(null);
+    await service.addPassword('secret');
+    expect(service.redirecting()).toBeTrue(); expect(service.passwordLinked()).toBeFalse();
+    expect(service.currentUser()?.uid).toBe('alice'); expect(profiles[0].stop).not.toHaveBeenCalled();
+  });
+
+  it('reports project password policy failures while keeping the signed Google account', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext({ ...alice, providerIds: ['google.com'] }); await flush(); profiles[0].next(member);
+    for (const code of ['auth/weak-password', 'auth/password-does-not-meet-requirements']) {
+      client.addPassword.and.rejectWith({ code });
+      await expectAsync(service.addPassword('secret')).toBeRejectedWithError(/política de senhas/);
+      expect(service.currentUser()?.uid).toBe('alice'); expect(service.passwordLinked()).toBeFalse();
+    }
+  });
+
+  it('rejects a missing session and a short password before requesting credential linking', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext(null);
+    await expectAsync(service.addPassword('secret')).toBeRejectedWithError(/Entre com Google/);
+    await expectAsync(service.addPassword('short')).toBeRejectedWithError('A senha deve ter pelo menos 6 caracteres.');
+    expect(client.addPassword).not.toHaveBeenCalled();
+  });
+
+  it('sends password reset to the normalized email without changing the authenticated session', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext(alice); await flush(); profiles[0].next(admin);
+    const before = service.currentUser();
+    await service.sendPasswordReset(' alice@example.test ');
+    expect(client.sendPasswordReset).toHaveBeenCalledOnceWith('alice@example.test');
+    expect(service.currentUser()).toBe(before); expect(service.isAdmin()).toBeTrue();
+    expect(client.ensureProfile).toHaveBeenCalledTimes(1); expect(profiles[0].stop).not.toHaveBeenCalled();
+  });
+
+  it('returns the same reset outcome for an absent account without enumerating users', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext(null);
+    client.sendPasswordReset.and.rejectWith({ code: 'auth/user-not-found' });
+    await expectAsync(service.sendPasswordReset('absent@example.test')).toBeResolved();
+    expect(service.currentUser()).toBeNull(); expect(service.sessionError()).toBeNull();
+    expect(client.ensureProfile).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid email syntax before requesting reset and reports actionable Firebase failures', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext(null);
+    for (const email of ['', 'invalid', 'alice@', 'alice @example.test']) {
+      await expectAsync(service.sendPasswordReset(email)).toBeRejectedWithError('Informe um e-mail válido.');
+    }
+    expect(client.sendPasswordReset).not.toHaveBeenCalled();
+    for (const [code, expected] of [
+      ['auth/invalid-email', 'Informe um e-mail válido.'],
+      ['auth/too-many-requests', 'Muitas tentativas. Aguarde um pouco e tente novamente.'],
+      ['auth/network-request-failed', 'Não foi possível conectar. Confira sua conexão.']
+    ]) {
+      client.sendPasswordReset.and.rejectWith({ code });
+      await expectAsync(service.sendPasswordReset('alice@example.test')).toBeRejectedWithError(expected);
+    }
+    expect(service.currentUser()).toBeNull(); expect(service.sessionError()).toBeNull();
   });
 });

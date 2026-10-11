@@ -4,6 +4,7 @@ export interface AuthIdentity {
   uid: string;
   email: string | null;
   displayName: string | null;
+  providerIds?: string[];
 }
 
 export interface UserAccessProfile {

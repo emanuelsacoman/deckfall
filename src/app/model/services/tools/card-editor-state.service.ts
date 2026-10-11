@@ -88,7 +88,14 @@ export class CardEditorStateService {
   }
   remove(id = this.selectedIds()[0]): void {
     if (!id || this.canvas().elements.find(item => item.id === id)?.locked) return;
-    this.commit({ ...this.document(), canvas: { ...this.canvas(), elements: this.canvas().elements.filter(item => item.id !== id) } });
+    const elements = this.canvas().elements.filter(item => item.id !== id);
+    const references = new Set<string>();
+    if (this.canvas().background.assetId) references.add(this.canvas().background.assetId!);
+    for (const element of elements) {
+      if ((element.type === 'image' || element.type === 'artwork') && element.properties.assetId) references.add(element.properties.assetId);
+    }
+    this.commit({ ...this.document(), canvas: { ...this.canvas(), elements,
+      assets: this.canvas().assets.filter(asset => references.has(asset.id)) } });
     this.select(null);
   }
   duplicate(id = this.selectedIds()[0]): void {
@@ -120,7 +127,9 @@ export class CardEditorStateService {
     const target = direction === 'top' ? ids.length : direction === 'bottom' ? 0 : direction === 'up' ? Math.min(ids.length, index + 1) : Math.max(0, index - 1);
     ids.splice(target, 0, id); this.reorder(ids);
   }
-  setDocument(document: CardEditorDocument): void { this.commit(document); }
+  setDocument(document: CardEditorDocument): void {
+    this.commit({ ...document, data: { ...document.data, attributes: normalizeEditorAttributes(document.data.attributes) } });
+  }
   undo(): void {
     const previous = this.past().at(-1); if (!previous) return;
     this.future.update(items => [...items, structuredClone(this.document())]);

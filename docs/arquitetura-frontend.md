@@ -15,7 +15,7 @@ Componentes não acessam Firestore diretamente. `AuthService` resolve sessão/pe
 
 ## Rotas e layout
 
-Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`, que oferece entrar, registrar e Google.
+Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`, que oferece entrar, registrar, Google e recuperação de senha. Com sessão ativa, a mesma rota apresenta Minha conta, métodos vinculados e adição de Google/senha ao mesmo UID.
 
 | Rota | Tela |
 | --- | --- |
@@ -30,7 +30,7 @@ Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`,
 | `/admin/usuarios/criar` | Vínculo por UID de conta existente |
 | `/admin/usuarios/editar/:uid` | Consulta e edição do perfil |
 
-O shell administrativo possui guard no pai e nos filhos, observa revogação de acesso e oferece logout. O menu inclui Painel, Todas as cartas, Criar carta, Todos os usuários e Vincular perfil. Criação/edição de cartas usam wrappers pequenos; `cardEditorLeaveGuard` consulta alterações pendentes antes da saída. A raiz contém o router outlet; `app.config.ts` fornece App, Auth, Firestore e Storage.
+O shell administrativo possui guard no pai e nos filhos, observa revogação de acesso e oferece logout. O menu inclui Painel, Todas as cartas, Criar carta, Todos os usuários, Vincular perfil e o atalho Minha conta. Criação/edição de cartas usam wrappers pequenos; `cardEditorLeaveGuard` consulta alterações pendentes antes da saída. A raiz contém o router outlet; `app.config.ts` fornece App, Auth, Firestore e Storage.
 
 ## Editor compartilhado
 
@@ -63,6 +63,7 @@ model/interfaces/Cards/{card,card-canvas,card-template}.ts
 model/interfaces/Users/user-profile.ts
 model/guards/{auth,card-editor-leave}.guard.ts
 model/services/fire/{auth,card-storage}.service.ts
+model/services/fire/{google-auth-flow,password-auth-flow}.ts
 model/services/cruds/cards/{card,card-template}.service.ts
 model/services/cruds/cards/card-persistence.ts
 model/services/cruds/users/user.service.ts

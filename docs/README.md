@@ -7,7 +7,7 @@ O [README principal](../README.md) apresenta o Deckfall no GitHub. Para trabalha
 | [Apresentação e manutenção do README](apresentacao-readme.md) | Regra permanente de apresentação fiel ao código |
 | [Contexto operacional](contexto-operacional-para-ias.md) | Produto, versões, comandos, ambiente e validação |
 | [Arquitetura frontend](arquitetura-frontend.md) | Responsabilidades, componentes, serviços e rotas |
-| [Autenticação e admin](autenticacao-e-admin.md) | Login, cadastro, Google, guards, papéis e bootstrap |
+| [Autenticação e admin](autenticacao-e-admin.md) | Login, cadastro, vínculo Google/senha, recuperação, guards e bootstrap |
 | [Modelo Firestore](modelo-dados-firestore.md) | Contratos persistidos e limites das Rules |
 | [Cartas](cartas.md) | Gameplay, arte, assets e CRUD com compensação |
 | [Editor de cartas](editor-de-cartas.md) | Modelo próprio, Konva, painéis, histórico, bindings, templates e exportação |

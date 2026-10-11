@@ -4,6 +4,7 @@
 
 - O SDK possui configuração local e os environments são ignorados. O Console remoto não foi consultado: não afirmar que Auth, Firestore, Storage, primeiro admin ou Rules estão configurados ou ausentes. Conferir [bootstrap](autenticacao-e-admin.md).
 - Email/Password e Google precisam estar habilitados, com domínios autorizados e configuração do provedor. Google usa popup; o navegador pode bloqueá-lo ou o usuário cancelá-lo. Não foi executado login real no projeto remoto nesta entrega.
+- Vínculo de senha/Google e entrega de e-mail de recuperação foram validados com clientes substituíveis em testes, sem conta ou caixa postal real. Remetente/templates, política de senhas e página de conclusão dependem do Console. Em fallback de reautenticação, o titular deve informar a nova senha novamente após voltar; ela não é persistida.
 - Rules e índices foram atualizados localmente, sem publicação ou deploy. Seu estado remoto continua desconhecido. Testes de emuladores não comprovam IAM, provedores ou permissões de produção.
 - Downloads autenticados podem exigir CORS e a integração IAM Storage → Firestore. O exemplo em docs/config é preparação; nenhuma alteração remota foi aplicada.
 - Um clone precisa preencher environments com valores públicos do Web App. Nunca adicionar service accounts ou credenciais administrativas.
@@ -37,7 +38,7 @@ Assets de outro proprietário são copiados pelo serviço antes da gravação fi
 
 As listas administrativas carregam coleções completas. Paginação será necessária com maior volume. Slug não garante unicidade global. Arte permanece privada mesmo quando a carta está published; um catálogo público precisa decidir distribuição/revogação de imagens.
 
-A lista de usuários mostra perfis Firestore, não todas as contas Authentication. Vincular por UID não confirma que a conta existe; gestão de credenciais ou sincronização completa exigirá backend/Admin SDK.
+A lista de usuários mostra perfis Firestore, não todas as contas Authentication. Vincular por UID não confirma que a conta existe; gestão de credenciais de terceiros ou sincronização completa exigirá backend/Admin SDK. O titular já pode vincular seus próprios métodos e solicitar recuperação de senha em Minha conta.
 
 Rules bloqueiam próprio rebaixamento, mas o formulário atual de perfis não identifica o usuário corrente. Não há garantia global de último admin em solicitações concorrentes; recuperação pode ser feita pelo Console. Cadastro da conta Auth e criação do perfil não são atômicos: falha do perfil pode exigir novo login após configurar Rules.
 

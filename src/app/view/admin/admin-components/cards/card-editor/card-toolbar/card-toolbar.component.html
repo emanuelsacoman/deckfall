@@ -44,6 +44,6 @@
         <button class="export-button" type="button" (click)="export()" [disabled]="busy || !dataValid">Exportar imagem</button>
       </div>
     </details>
-    <button class="save-button" type="button" (click)="action.emit('save')" [disabled]="busy || !dataValid">{{ busy ? 'Aguarde...' : 'Salvar' }}</button>
+    <button class="save-button" type="button" (click)="action.emit('save')" [disabled]="busy || !dataValid || !canSave">{{ busy ? 'Aguarde...' : 'Salvar' }}</button>
   </div>
 </div>

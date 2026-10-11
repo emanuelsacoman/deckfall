@@ -10,6 +10,12 @@ O SDK cliente não lista todas as contas Auth. O fluxo de autenticação provisi
 
 Referência oficial dessa distinção: [gerenciamento de usuários com Admin SDK](https://firebase.google.com/docs/auth/admin/manage-users).
 
+## Métodos de acesso do titular
+
+Cada usuário autenticado pode abrir `/login` como **Minha conta** para consultar seus provedores Auth e vincular Google a uma conta com senha, ou adicionar senha a uma conta Google após reautenticação. Ambos usam o mesmo UID e perfil; não há cadastro duplicado ou alteração de cargo. O menu admin possui um atalho para essa tela. **Esqueci minha senha** permite recuperação por e-mail sem estar autenticado.
+
+Os provedores exibidos vêm da identidade Auth corrente, não do perfil Firestore. O administrador continua gerenciando somente perfil/contato/cargo dos outros usuários. Vincular credenciais é uma ação do titular, sem armazenar senhas/tokens no documento. Consulte [autenticação](autenticacao-e-admin.md) para fallback, reautenticação e recuperação.
+
 ## Contrato e acesso
 
 `UserProfile` contém UID de leitura, `displayName`, `contactEmail`, `role`, `roleId`, `createdAt` e `updatedAt`. Nome e contato podem estar vazios, permitindo completar o bootstrap mínimo. Metadados/datas ausentes em documentos antigos são apresentados como não informados. `contactEmail` é contato administrativo; alterá-lo não muda o e-mail usado no login.

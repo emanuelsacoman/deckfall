@@ -1,5 +1,7 @@
 # Modelo Firestore
 
+As Rules privilegiam autorização, status, timestamps, quantidade/faixas numéricas dos atributos e envelope do canvas, mantendo o limite de avaliação do Firestore. Limites de textos, chaves/rótulos/IDs de atributos, metadados visuais e propriedades profundas são verificados pelos validators do cliente antes de gravar ou reconstruir o editor; não são uma promessa de validação exaustiva pelo servidor.
+
 Contratos ficam em `model/interfaces`. IDs pertencem ao caminho e são acrescentados na leitura; não precisam ser duplicados no documento. Timestamps persistidos são de servidor. Não armazenar File, Blob, Base64, URLs de download, nós Konva, listeners ou histórico no Firestore.
 
 ## `users/{uid}`
