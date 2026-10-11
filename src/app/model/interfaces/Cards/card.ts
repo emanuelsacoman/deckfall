@@ -1,4 +1,5 @@
 import { Timestamp } from '@angular/fire/firestore';
+import type { CardCanvasData } from './card-canvas';
 
 export const CARD_RARITIES = ['common', 'rare', 'epic', 'legendary'] as const;
 export const CARD_STATUSES = ['draft', 'published', 'archived'] as const;
@@ -19,9 +20,14 @@ export const CARD_LIMITS = {
 export const CARD_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 
 export interface CardAttribute {
+  id?: string;
   key: string;
   label: string;
   value: number;
+  min?: number;
+  max?: number;
+  icon?: string;
+  color?: string;
 }
 
 export interface CardArt {
@@ -31,13 +37,20 @@ export interface CardArt {
   size: number;
 }
 
-export interface CardInput {
+export interface CardDataInput {
   name: string;
   description: string;
   rarity: CardRarity;
   status: CardStatus;
   attributes: CardAttribute[];
   setId: string | null;
+  type?: string | null;
+  subtype?: string | null;
+  templateId?: string | null;
+}
+
+export interface CardInput extends CardDataInput {
+  canvas?: CardCanvasData;
 }
 
 export interface Card extends CardInput {

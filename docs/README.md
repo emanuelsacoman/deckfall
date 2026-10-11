@@ -1,18 +1,19 @@
 # Memória operacional
 
-O [README principal](../README.md) apresenta o Deckfall para quem chega pelo GitHub. Para trabalhar no projeto, comece pelo [AGENTS.md](../AGENTS.md) e abra somente os documentos ligados à tarefa.
+O [README principal](../README.md) apresenta o Deckfall no GitHub. Para trabalhar no projeto, comece pelo [AGENTS.md](../AGENTS.md) e abra somente os documentos relacionados à tarefa.
 
 | Documento | Conteúdo |
 | --- | --- |
-| [Apresentação e manutenção do README](apresentacao-readme.md) | Regra permanente para apresentar o projeto no GitHub e acompanhar mudanças |
-| [Contexto operacional](contexto-operacional-para-ias.md) | Produto, reconhecimento, versões, comandos e limites |
-| [Arquitetura frontend](arquitetura-frontend.md) | Responsabilidades, estrutura e rotas |
-| [Autenticação e admin](autenticacao-e-admin.md) | Placeholder atual, permissões das Rules e preparação futura do primeiro administrador |
-| [Modelo Firestore](modelo-dados-firestore.md) | Contratos e campos persistidos |
-| [Cartas](cartas.md) | Formulário, CRUD e Storage |
-| [Usuários](usuarios.md) | Telas/perfis, vínculo por UID, edição de dados e cargos sujeitos às Rules |
-| [Riscos e dívidas](riscos-e-dividas-tecnicas.md) | Pendências verificadas e limitações |
+| [Apresentação e manutenção do README](apresentacao-readme.md) | Regra permanente de apresentação fiel ao código |
+| [Contexto operacional](contexto-operacional-para-ias.md) | Produto, versões, comandos, ambiente e validação |
+| [Arquitetura frontend](arquitetura-frontend.md) | Responsabilidades, componentes, serviços e rotas |
+| [Autenticação e admin](autenticacao-e-admin.md) | Login, cadastro, Google, guards, papéis e bootstrap |
+| [Modelo Firestore](modelo-dados-firestore.md) | Contratos persistidos e limites das Rules |
+| [Cartas](cartas.md) | Gameplay, arte, assets e CRUD com compensação |
+| [Editor de cartas](editor-de-cartas.md) | Modelo próprio, Konva, painéis, histórico, bindings, templates e exportação |
+| [Usuários](usuarios.md) | Perfis Firestore, vínculo por UID e edição de papéis |
+| [Riscos e dívidas](riscos-e-dividas-tecnicas.md) | Pendências externas e limites da implementação |
 
-Os documentos foram iniciados após reconhecimento em 11/10/2026 e descrevem esta fundação. Consulte o código quando houver divergência; os resultados de validação ficam no contexto operacional.
+A aplicação atual usa Firebase Authentication e guards administrativos. Cadastro por e-mail/senha ou Google prepara somente um membro; admin exige `role` e `roleId` iguais a `admin`. O editor persiste dados e canvas próprios, com arquivos separados no Storage.
 
-Estado atual: admin acessível sem login e `/login` somente placeholder. Autenticação, sessão e guards foram adiados a pedido do proprietário. Os serviços continuam usando Firebase real e as Rules de administrador foram preservadas; abrir a interface não libera as operações protegidas.
+Consulte código, Rules e tipos quando houver divergência. Atualize documentos e README no mesmo trabalho. Testes locais não confirmam configuração remota nem publicação de Rules; nenhum deploy foi realizado nesta entrega.

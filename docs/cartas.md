@@ -2,31 +2,64 @@
 
 > A imagem renderizada da carta é somente uma representação visual. A fonte de verdade da carta são seus dados estruturados.
 
-O domínio `Card` prepara filtros, batalhas, decks, efeitos, packs, inventário e marketplace futuros sem implementar esses sistemas agora.
+Cartas servem como base para filtros, decks, batalhas, efeitos, packs, inventário e marketplace futuros. Esses sistemas de jogo não são implementados agora. O design é genérico e separado do gameplay; detalhes de Konva e painéis ficam em [editor de cartas](editor-de-cartas.md).
 
-## Contrato
+## Contrato atual e compatibilidade
 
-`Card` contém ID de leitura, nome/slug/descrição, raridade/status tipados, arte anulável, atributos extensíveis, associação `setId` anulável e timestamps. `CardAttribute` contém chave técnica, rótulo e número 0–100. Padrões do formulário: Ataque, Defesa, Velocidade e Magia; chaves customizadas são permitidas.
+`Card` reúne ID de leitura, nome/slug/descrição, raridade/status, arte anulável, atributos, `setId`, timestamps e os campos opcionais `type`, `subtype`, `templateId` e `canvas`. `CardDataInput` contém os dados lógicos; `CardInput` acrescenta o canvas. `CardCanvasData` versão 1 guarda fundo, dimensões, elementos e assets próprios.
 
-Raridades `common`, `rare`, `epic`, `legendary`; status `draft`, `published`, `archived`. Constantes centralizam os valores. Reactive Forms valida nome, escolhas, atributos e arquivo. Coleção: `cards`; dados da arte ficam no documento, binário no Storage em `cards/{cardId}/art/{nomeUnico}`.
+Raridades: `common`, `rare`, `epic`, `legendary`. Status: `draft`, `published`, `archived`; o status existente `archived` foi preservado. Constantes e rótulos ficam no contrato, sem espalhar strings mágicas.
 
-## Fluxos implementados
+`CardAttribute` tem chave, rótulo e valor; ID estável, min/max, ícone e cor são opcionais para compatibilidade. Defaults continuam Ataque, Defesa, Velocidade e Magia, com faixa 0–100. O editor permite remover/adicionar/reordenar/renomear até oito atributos e configurar limites dentro de ±1.000.000, com mínimo estritamente menor que máximo e valor finito dentro da faixa. Chaves únicas seguem `^[a-z][a-z0-9_-]{0,39}$`.
 
-- Criar: validar, gerar ID e persistir `draft` com `art:null`, enviar arte em caminho UUID e finalizar metadados/status em transação. Sem arte, uma gravação com status escolhido basta. Falha retorna `CardOperationError` com ID para verificar/editar o documento. Se a primeira gravação não foi confirmada, a mensagem instrui conferir o ID antes de repetir; não presume que o documento existe.
-- Editar: carregar documento, reutilizar formulário, enviar nova arte em caminho único, gravar dados/metadados em transação e só então limpar arte antiga. Transação compara `updatedAt` e caminho anterior e recusa sobrescrever mudança de outra sessão.
-- Compensar: antes de apagar um upload, consultar a carta no servidor. Se ainda aponta para o arquivo, preservá-lo; se não é possível confirmar o estado, preservá-lo e informar o caminho. Assim uma confirmação de gravação perdida não provoca exclusão da arte válida. Cleanup malsucedido produz mensagem/aviso com caminho para conferir e remover manualmente.
-- Excluir: pedir confirmação, conferir versão, apagar a arte associada (arquivo inexistente é aceito), conferir versão novamente em transação e excluir documento. Se apagar a arte falhar, o documento permanece para nova tentativa. Se excluir documento falhar após a remoção da arte, a mensagem informa que a arte já foi removida e orienta recarregar/concluir a exclusão ou reenviá-la. Só o arquivo associado é apagado; arquivos de operações interrompidas exigem a revisão descrita abaixo.
+Cartas antigas sem canvas são carregadas com composição Fantasy Basic e, quando existir, asset derivado da arte legada. A adaptação e IDs faltantes acontecem no estado local, sem write automático. Salvar explicitamente grava o novo modelo. `setId` é preservado mesmo sem UI de sets.
 
-`CardService` bloqueia operações simultâneas para o mesmo ID na instância local. Não há bloqueio global entre abas. O formulário preserva `setId` na edição mesmo sem expor gerenciamento de sets. Sucesso e avisos seguem para a lista; falha de criação fornece link de recuperação para o ID e falha de edição permite recarregar. A lista mostra arte, nome, raridade, status, atualização e ações. Imagens carregam com até quatro downloads simultâneos e URLs Blob são revogadas ao recarregar, excluir ou destruir a tela.
+## Firestore e arquivos
 
-Até oito atributos podem ser removidos/adicionados, incluindo decimais entre 0 e 100. Chaves únicas começam com letra minúscula e aceitam letras minúsculas, números, `_` e `-`. O limite inicial foi escolhido após testes reais identificarem que 16 posições ultrapassavam o orçamento de expressões das Rules; oito com arte passam em criação e edição. Ampliar esse limite requer reavaliar o esquema/Rules e repetir os testes.
+Coleção principal: `cards/{cardId}`. Slug deriva do nome e não promete unicidade global. Timestamps são de servidor; `createdAt` não muda na edição. O serviço lê do servidor e compara `updatedAt` em transação para evitar sobrescrever outra versão.
 
-PNG/JPEG/WebP, até 5 MiB; sem SVG nesta fase. Storage lê apenas admin. Usar bytes autenticados e URL Blob temporária evita persistir/expor URLs bearer com token; revogar URLs no ciclo de vida. Bucket remoto pode exigir CORS para leitura via browser.
+Binários ficam no Storage:
 
-Metadados: `storagePath`, nome original até 255 caracteres, `contentType` e tamanho em bytes. Não se usa o nome original como caminho do objeto. Upload novo nunca sobrescreve objeto existente. A validação é de MIME declarado e tamanho, sem processamento/inspeção profunda do conteúdo binário nesta fase.
+```text
+cards/{cardId}/assets/{uuid}.png|jpg|webp
+cards/{cardId}/art/{uuid}.png|jpg|webp       # arte legada compatível
+templates/{templateId}/assets/{uuid}.png|jpg|webp
+```
 
-## Segurança e crescimento
+No documento, persistir metadados `id`, `storagePath`, `fileName`, `contentType` e `size`, sem Base64 ou URLs bearer. A arte principal também mantém `art` com caminho/nome/MIME/tamanho para compatibilidade da lista. Paths novos são únicos e não sobrescrevem arquivos existentes.
 
-A navegação administrativa está aberta nesta fase simplificada; login e guards serão implementados futuramente. Firestore/Storage Rules continuam controlando dados e exigindo admin para operações administrativas. Sem integração de autenticação, listar todo o catálogo, gravar cartas e acessar artes depende dessa etapa futura; abrir o painel não concede permissão Firebase. Apenas `published` é publicamente legível no Firestore; arte continua privada e exige decisão futura antes de catálogo público. Nenhuma regra permite autopromoção de usuário.
+PNG/JPEG/WebP, conteúdo não vazio e até 5 MiB por arquivo; nome original até 255 caracteres. MIME/tamanho são validados, sem serviço backend de inspeção profunda do binário. Downloads autenticados usam Blob e URLs temporárias, revogadas no ciclo de vida. CORS/IAM do bucket podem exigir configuração externa.
 
-Firestore e Storage não compartilham transação: compensação explícita e mensagens recuperáveis são necessárias; interrupção abrupta e concorrência na exclusão estão documentadas em [riscos e dívidas](riscos-e-dividas-tecnicas.md). Sets, templates, novas raridades e atributos podem ampliar o domínio em trabalhos futuros. Sem abstrações ou coleções vazias antecipadas.
+## Criar e salvar
+
+1. Validar dados, canvas e uploads pendentes; gerar o ID.
+2. Se houver imagens, gravar documento inicial `draft`, `art:null` e canvas sem assets/elementos. Isso permite o upload ao namespace de um proprietário existente. Sem imagens, a gravação pode concluir com o status escolhido.
+3. Materializar assets no namespace da carta. Arquivos de outro proprietário são copiados; arquivos novos usam UUID.
+4. Finalizar dados/canvas/arte em transação, comparando a versão e recebendo `updatedAt` de servidor.
+5. Conferir referências antes de limpar arquivos não utilizados. Avisos mostram caminhos que precisam de revisão.
+
+O editor relê a carta salva, atualiza o estado persistido e preserva histórico. Criação bem-sucedida abre a rota de edição do novo ID. Se a confirmação ou releitura falhar, o ID é mostrado e novas criações são bloqueadas até verificar o documento, evitando duplicação silenciosa.
+
+## Editar e compensar
+
+Uploads novos acontecem antes de atualizar o documento. A transação recusa documentos excluídos ou alterados em outra sessão; somente após confirmar os novos metadados é possível limpar arte/asset anterior não referenciado.
+
+Toda compensação consulta o documento no servidor. Se o arquivo ainda é referenciado, não pertence ao namespace esperado ou o estado não pôde ser confirmado, preservá-lo e informar o caminho. Isso evita apagar uma arte válida quando uma confirmação de gravação foi perdida. Falhas retornam `CardOperationError` com ID; recarregue antes de repetir.
+
+Operações simultâneas de update/delete são bloqueadas por ID na instância local do serviço. Não há lock global entre abas. Arquivos permanecem em cache na sessão do editor para undo; restaurar um design antigo pode exigir novo upload no próximo salvamento.
+
+## Excluir
+
+A lista e o editor pedem confirmação. O serviço primeiro exclui o documento em transação, após conferir `updatedAt`. Depois consulta o estado e limpa somente arquivos registrados daquele proprietário que deixaram de ser referenciados; arquivo inexistente é aceito.
+
+Se a exclusão do documento não for confirmada, os arquivos são preservados e a mensagem orienta conferir o ID. Se o documento foi excluído e cleanup falhou, a operação informa explicitamente a limpeza pendente e seus caminhos. Não há transação atômica entre Firestore e Storage nem reconciliação automática após fechar o navegador.
+
+## Templates, lista e segurança
+
+`cardTemplates` guarda designs e atributos iniciais separados das cartas. Criar/copiar templates materializa arquivos próprios em `templates/{id}/assets`; aplicar um template à carta não cria dependência permanente dos arquivos de outro proprietário depois do salvamento. A UI oferece salvar e carregar templates; o serviço possui CRUD adicional para evolução futura da gestão.
+
+A lista mostra arte, nome, raridade, status, atualização e ações. Downloads têm até quatro operações simultâneas e Blob URLs são revogadas em reload/delete/destroy. Cartas sem imagem continuam válidas.
+
+Guards exigem sessão administrativa para o editor; Firestore/Storage Rules exigem admin nas operações protegidas. Apenas metadados de `published` são publicamente legíveis; arte e templates continuam privados. O cliente valida profundamente o modelo; as Rules controlam autorização, campos/envelope e limites específicos, sem prometer validação completa do canvas no servidor.
+
+Veja [modelo Firestore](modelo-dados-firestore.md), [autenticação](autenticacao-e-admin.md) e [riscos](riscos-e-dividas-tecnicas.md). Não houve deploy nesta entrega.

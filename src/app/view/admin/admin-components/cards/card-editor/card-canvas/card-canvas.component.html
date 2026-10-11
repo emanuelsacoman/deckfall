@@ -1,0 +1,7 @@
+<section class="canvas-panel" aria-label="Prévia visual da carta">
+  <div class="canvas-status"><span>{{ state.canvas().width }} × {{ state.canvas().height }} px</span><span>{{ (state.zoom() * 100).toFixed(0) }}%</span></div>
+  <div #viewport class="canvas-viewport" role="img" aria-label="Carta no editor visual. Selecione um elemento ou use o painel de camadas para editar."></div>
+  @if (state.mode() === 'design') {
+    <p class="canvas-help">Clique para selecionar · Arraste para mover · Use as alças para redimensionar e rotacionar · Role a área para navegar (Shift + rolagem horizontal) · Ctrl + rolagem para zoom</p>
+  }
+</section>

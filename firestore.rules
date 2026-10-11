@@ -13,50 +13,69 @@ service cloud.firestore {
       let key = attribute.key;
       let label = attribute.label;
       let value = attribute.value;
-      // O acesso aos três campos também rejeita mapas incompletos; hasOnly veda extras.
-      return attribute.keys().hasOnly(['key', 'label', 'value'])
-        && key is string && key.matches('^[a-z][a-z0-9_-]{0,39}$')
+      let minimum = attribute.get('min', 0);
+      let maximum = attribute.get('max', 100);
+      // matches e comparações numéricas já rejeitam tipos incorretos e campos ausentes.
+      // Metadados visuais/IDs/chaves extras são validados profundamente pelo cliente.
+      return key.matches('^[a-z][a-z0-9_-]{0,39}$')
         && label is string && label.size() > 0 && label.size() <= 60
-        && value is number && value >= 0 && value <= 100;
-    }
-
-    function validAttributeAt(attributes, index) {
-      let size = attributes.size();
-      let attribute = size > index ? attributes[index] : null;
-      return size <= index || validAttribute(attribute);
+        && minimum >= -1000000 && maximum <= 1000000 && minimum < maximum
+        && value is number && value >= minimum && value <= maximum;
     }
 
     // Rules não possuem loops; oito posições mantêm a validação dentro do orçamento.
     function validAttributes(attributes) {
-      return attributes is list && attributes.size() <= 8
-        && validAttributeAt(attributes, 0) && validAttributeAt(attributes, 1)
-        && validAttributeAt(attributes, 2) && validAttributeAt(attributes, 3)
-        && validAttributeAt(attributes, 4) && validAttributeAt(attributes, 5)
-        && validAttributeAt(attributes, 6) && validAttributeAt(attributes, 7);
+      let size = attributes.size();
+      return attributes is list && size <= 8
+        && (size < 1 || validAttribute(attributes[0])) && (size < 2 || validAttribute(attributes[1]))
+        && (size < 3 || validAttribute(attributes[2])) && (size < 4 || validAttribute(attributes[3]))
+        && (size < 5 || validAttribute(attributes[4])) && (size < 6 || validAttribute(attributes[5]))
+        && (size < 7 || validAttribute(attributes[6])) && (size < 8 || validAttribute(attributes[7]));
     }
 
     function validArt(art, cardId) {
-      return art == null || (art is map
-        && art.keys().hasAll(['storagePath', 'fileName', 'contentType', 'size'])
-        && art.keys().hasOnly(['storagePath', 'fileName', 'contentType', 'size'])
+      return art == null || (art.keys().hasOnly(['storagePath', 'fileName', 'contentType', 'size'])
         && art.storagePath is string
-        && art.storagePath.matches('^cards/' + cardId + '/art/[a-zA-Z0-9_-]+[.](jpg|png|webp)$')
+        && art.storagePath.matches('^cards/' + cardId + '/(art|assets)/[a-zA-Z0-9_-]+[.](jpg|png|webp)$')
         && art.fileName is string && art.fileName.size() > 0 && art.fileName.size() <= 255
         && art.contentType in ['image/jpeg', 'image/png', 'image/webp']
         && art.size is int && art.size > 0 && art.size <= 5 * 1024 * 1024);
     }
 
+    // O conteúdo profundo é validado pelo cliente tipado; Rules limitam o envelope.
+    function validCanvas(canvas) {
+      let width = canvas.width;
+      let height = canvas.height;
+      let elements = canvas.elements;
+      let assets = canvas.assets;
+      return canvas is map
+        && canvas.version == 1
+        && width is number && width >= 160 && width <= 2048
+        && height is number && height >= 160 && height <= 2048
+        && canvas.background is map
+        && elements is list && elements.size() <= 64
+        && assets is list && assets.size() <= 24;
+    }
+
     function validCard(data, cardId) {
       return cardId.matches('^[a-zA-Z0-9_-]{1,128}$')
-        && data.keys().hasAll(['name', 'slug', 'description', 'rarity', 'status', 'art', 'attributes', 'setId', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['name', 'slug', 'description', 'rarity', 'status', 'art', 'attributes', 'setId', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'slug', 'description', 'rarity', 'status', 'art', 'attributes', 'setId', 'type', 'subtype', 'templateId', 'canvas', 'createdAt', 'updatedAt'])
         && data.name is string && data.name.size() > 0 && data.name.size() <= 120
         && data.slug is string && data.slug.size() <= 120 && data.slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$')
         && data.description is string && data.description.size() <= 5000
         && data.rarity in ['common', 'rare', 'epic', 'legendary']
         && data.status in ['draft', 'published', 'archived']
         && validArt(data.art, cardId) && validAttributes(data.attributes)
+        && (!data.keys().hasAny(['canvas']) || validCanvas(data.canvas))
         && (data.setId == null || (data.setId is string && data.setId.size() > 0 && data.setId.size() <= 128))
+        && data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validTemplate(data, templateId) {
+      return templateId.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && data.keys().hasOnly(['name', 'canvas', 'attributes', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 120
+        && validCanvas(data.canvas) && validAttributes(data.attributes)
         && data.createdAt is timestamp && data.updatedAt is timestamp;
     }
 
@@ -75,8 +94,11 @@ service cloud.firestore {
     match /users/{uid} {
       allow get: if (request.auth != null && request.auth.uid == uid) || isAdmin();
       allow list: if isAdmin();
-      // O primeiro administrador continua sendo provisionado pelo Console.
-      allow create: if isAdmin() && validUser(request.resource.data, uid)
+      // Cadastro público só cria o próprio perfil member; primeiro admin via Console.
+      allow create: if (isAdmin() || (request.auth != null && request.auth.uid == uid
+          && request.resource.data.role == 'member' && request.resource.data.roleId == 'member'
+          && request.auth.token.email is string && request.resource.data.contactEmail == request.auth.token.email))
+        && validUser(request.resource.data, uid)
         && request.resource.data.keys().hasAll(['createdAt'])
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
@@ -95,6 +117,15 @@ service cloud.firestore {
       allow update: if isAdmin() && validCard(request.resource.data, cardId)
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
+
+    match /cardTemplates/{templateId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && validTemplate(request.resource.data, templateId)
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin() && validTemplate(request.resource.data, templateId)
+        && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.updatedAt == request.time;
       allow delete: if isAdmin();
     }
 

@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { Storage } from '@angular/fire/storage';
 import { CARD_LIMITS, CardArt } from '../../interfaces/Cards/card';
+import { CardCanvasAsset } from '../../interfaces/Cards/card-canvas';
+import { defaultCardData, fantasyBasicCanvas } from '../tools/card-canvas-factory';
 import { CardStorageService } from './card-storage.service';
 
 describe('Limites e caminhos da arte', () => {
@@ -41,5 +43,48 @@ describe('Limites e caminhos da arte', () => {
     };
     await expectAsync(service.getArtUrl(art)).toBeRejectedWithError('Caminho da arte inválido.');
     await expectAsync(service.deleteArt(art)).toBeRejectedWithError('Caminho da arte inválido.');
+  });
+
+  it('separa assets de cartas e templates e reconhece arte antiga do próprio proprietário', () => {
+    const file = new File(['image'], 'a.png', { type: 'image/png' });
+    const card = service.prepareAsset({ kind: 'card', id: 'card-one' }, 'asset-one', file);
+    const template = service.prepareAsset({ kind: 'template', id: 'template-one' }, 'asset-one', file);
+    expect(card.storagePath).toMatch(/^cards\/card-one\/assets\//);
+    expect(template.storagePath).toMatch(/^templates\/template-one\/assets\//);
+    expect(service.isOwnedAsset({ kind: 'card', id: 'card-one' }, card.storagePath!)).toBeTrue();
+    expect(service.isOwnedAsset({ kind: 'card', id: 'card-one' }, template.storagePath!)).toBeFalse();
+    expect(service.isOwnedAsset({ kind: 'card', id: 'card-one' }, 'cards/card-one/art/old.png')).toBeTrue();
+  });
+
+  it('copia bytes para o novo proprietário sem criar referência compartilhada ou mudar o ID', async () => {
+    const canvas = fantasyBasicCanvas(defaultCardData());
+    const source: CardCanvasAsset = { id: 'source-asset', storagePath: 'cards/source/assets/a.png', fileName: 'a.png', contentType: 'image/png', size: 3 };
+    canvas.assets = [source];
+    const read = spyOn(service, 'getAssetBlob').and.resolveTo(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }));
+    const upload = spyOn(service, 'uploadAsset').and.resolveTo();
+    const attempted: CardCanvasAsset[] = [];
+    const copied = await service.materializeAssets({ kind: 'template', id: 'target' }, canvas, [], attempted);
+    expect(read).toHaveBeenCalledWith(source);
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(copied.assets[0].id).toBe(source.id);
+    expect(copied.assets[0].storagePath).toMatch(/^templates\/target\/assets\//);
+    expect(source.storagePath).toBe('cards/source/assets/a.png');
+    expect(attempted).toEqual(copied.assets);
+  });
+
+  it('reutiliza arquivo próprio e registra tentativa antes de uma falha de upload para compensação', async () => {
+    const canvas = fantasyBasicCanvas(defaultCardData());
+    canvas.assets = [{ id: 'own', storagePath: 'cards/current/art/a.png', fileName: 'a.png', contentType: 'image/png', size: 3 }];
+    const upload = spyOn(service, 'uploadAsset').and.rejectWith(new Error('network'));
+    const attempted: CardCanvasAsset[] = [];
+    const unchanged = await service.materializeAssets({ kind: 'card', id: 'current' }, canvas, [], attempted);
+    expect(unchanged.assets).toEqual(canvas.assets);
+    expect(upload).not.toHaveBeenCalled();
+    const file = new File([new Uint8Array([1, 2, 3])], 'new.png', { type: 'image/png' });
+    await expectAsync(service.materializeAssets({ kind: 'card', id: 'current' }, canvas, [{ id: 'own', file }], attempted))
+      .toBeRejectedWithError('network');
+    expect(attempted.length).toBe(1);
+    expect(attempted[0].storagePath).toMatch(/^cards\/current\/assets\//);
+    expect(attempted[0].storagePath).not.toEqual(canvas.assets[0].storagePath);
   });
 });

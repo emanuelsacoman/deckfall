@@ -68,4 +68,27 @@ describe('Validação do domínio Cards', () => {
     card.setId = '   ';
     expect(() => validateCardInput(card)).toThrowError(/identificador da coleção/);
   });
+
+  it('evolui atributos com limites customizados sem alterar os defaults de cartas antigas', () => {
+    const card = input();
+    card.attributes = [{ id: 'health', key: 'health', label: 'Vida', value: 250, min: 0, max: 1000, icon: '♥', color: '#ff0000' }];
+    expect(validateCardInput(card).attributes).toEqual(card.attributes);
+    card.attributes[0].value = 1001;
+    expect(() => validateCardInput(card)).toThrowError(/deve estar entre 0 e 1000/);
+    card.attributes[0].value = 250;
+    card.attributes[0].min = 1000;
+    expect(() => validateCardInput(card)).toThrowError(/mínimo.*menor/);
+  });
+
+  it('rejeita bounds não finitos, campos estranhos e IDs repetidos de atributos', () => {
+    const card = input();
+    card.attributes[0].max = Number.POSITIVE_INFINITY;
+    expect(() => validateCardInput(card)).toThrowError(/limites dos atributos/);
+    expect(() => validateCardInput({ ...input(), secret: 'extra' })).toThrowError(/Campo desconhecido/);
+    card.attributes = [
+      { id: 'same', key: 'attack', label: 'Ataque', value: 1 },
+      { id: 'same', key: 'defense', label: 'Defesa', value: 1 }
+    ];
+    expect(() => validateCardInput(card)).toThrowError('IDs de atributo repetidos.');
+  });
 });

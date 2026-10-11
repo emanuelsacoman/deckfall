@@ -22,6 +22,30 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    match /cards/{cardId}/assets/{fileName} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && resource == null
+        && cardId.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && fileName.matches('^[a-zA-Z0-9_-]+[.](jpg|png|webp)$')
+        && firestore.exists(/databases/(default)/documents/cards/$(cardId))
+        && request.resource.size > 0 && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp'];
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /templates/{templateId}/assets/{fileName} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && resource == null
+        && templateId.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && fileName.matches('^[a-zA-Z0-9_-]+[.](jpg|png|webp)$')
+        && firestore.exists(/databases/(default)/documents/cardTemplates/$(templateId))
+        && request.resource.size > 0 && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp'];
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

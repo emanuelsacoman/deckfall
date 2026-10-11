@@ -1,0 +1,49 @@
+<div class="editor-toolbar" role="toolbar" aria-label="Ferramentas do editor">
+  <div class="toolbar-group modes" role="group" aria-label="Modo do editor">
+    <button type="button" [class.active]="state.mode() === 'design'" [attr.aria-pressed]="state.mode() === 'design'" (click)="state.setMode('design')">Design</button>
+    <button type="button" [class.active]="state.mode() === 'data'" [attr.aria-pressed]="state.mode() === 'data'" (click)="state.setMode('data')">Dados</button>
+    <button type="button" [class.active]="state.mode() === 'preview'" [attr.aria-pressed]="state.mode() === 'preview'" (click)="state.setMode('preview')">Preview</button>
+  </div>
+  <div class="toolbar-group">
+    <button class="icon-button" type="button" (click)="state.undo()" [disabled]="busy || !state.canUndo()" aria-label="Desfazer" title="Desfazer · Ctrl+Z">↶</button>
+    <button class="icon-button" type="button" (click)="state.redo()" [disabled]="busy || !state.canRedo()" aria-label="Refazer" title="Refazer · Ctrl+Shift+Z">↷</button>
+    <select aria-label="Zoom do preview" [value]="state.zoom()" (change)="changeZoom($event)">
+      @if (customZoom()) { <option [value]="state.zoom()">{{ zoomLabel(state.zoom()) }}</option> }
+      @for (zoom of zooms; track zoom) { <option [value]="zoom">{{ zoomLabel(zoom) }}</option> }
+    </select>
+    <button type="button" class="compact" (click)="state.requestFit()">Ajustar</button>
+  </div>
+  @if (state.mode() !== 'preview') {
+    <div class="toolbar-group toggles">
+      <label><input type="checkbox" [checked]="state.grid()" (change)="toggleGrid($event)" /> Grid</label>
+      <label><input type="checkbox" [checked]="state.snap()" (change)="toggleSnap($event)" /> Snap</label>
+    </div>
+  }
+  <span class="save-status" role="status">{{ busy ? 'Processando...' : state.dirty() ? 'Alterações não salvas' : 'Sem alterações pendentes' }}</span>
+  <div class="toolbar-group persistence">
+    <details class="menu">
+      <summary>Mais ações</summary>
+      <div class="menu-content">
+        <button type="button" (click)="action.emit('save-template')" [disabled]="busy || !dataValid">Salvar como template</button>
+        <button type="button" (click)="action.emit('load-template')" [disabled]="busy">Usar template</button>
+        <button type="button" (click)="action.emit('duplicate-card')" [disabled]="busy || !dataValid">Duplicar carta</button>
+        <button type="button" (click)="action.emit('save-local')" [disabled]="busy || !dataValid">Salvar rascunho local</button>
+        <button type="button" (click)="action.emit('load-local')" [disabled]="busy">Abrir rascunho local</button>
+        <button type="button" (click)="action.emit('download-json')" [disabled]="busy || !dataValid">Baixar projeto JSON</button>
+        <button type="button" (click)="action.emit('import-json')" [disabled]="busy">Importar projeto JSON</button>
+        <button class="danger-action" type="button" (click)="action.emit('delete-card')" [disabled]="busy || !hasSavedCard">Excluir carta</button>
+      </div>
+    </details>
+    <details class="menu">
+      <summary>Exportar</summary>
+      <div class="menu-content export-menu">
+        <label for="export-format">Formato</label>
+        <select id="export-format" [value]="format" (change)="changeFormat($event)"><option value="png">PNG</option><option value="jpeg">JPEG</option></select>
+        <label for="export-ratio">Resolução</label>
+        <select id="export-ratio" [value]="pixelRatio" (change)="changeRatio($event)"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select>
+        <button class="export-button" type="button" (click)="export()" [disabled]="busy || !dataValid">Exportar imagem</button>
+      </div>
+    </details>
+    <button class="save-button" type="button" (click)="action.emit('save')" [disabled]="busy || !dataValid">{{ busy ? 'Aguarde...' : 'Salvar' }}</button>
+  </div>
+</div>

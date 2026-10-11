@@ -1,0 +1,7 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    { "collectionGroup": "cards", "fieldPath": "canvas", "indexes": [] },
+    { "collectionGroup": "cardTemplates", "fieldPath": "canvas", "indexes": [] }
+  ]
+}

@@ -1,0 +1,45 @@
+<section aria-labelledby="data-title">
+  <header><h2 id="data-title">Dados da carta</h2><p>Gameplay e conteúdo, independentes do layout.</p></header>
+  <form [formGroup]="form" novalidate><fieldset [disabled]="state.busy()"><legend class="visually-hidden">Informações da carta</legend>
+    <label class="field">Nome<input formControlName="name" [maxlength]="limits.name" [attr.aria-invalid]="invalid(form.controls.name)" /></label>
+    @if (invalid(form.controls.name)) { <p class="field-error">Informe um nome de até {{ limits.name }} caracteres.</p> }
+    <label class="field">Descrição<textarea formControlName="description" rows="4" [maxlength]="limits.description"></textarea></label>
+    <div class="fields-grid">
+      <label class="field">Raridade<select formControlName="rarity">@for (rarity of rarities; track rarity) { <option [value]="rarity">{{ rarityLabels[rarity] }}</option> }</select></label>
+      <label class="field">Status<select formControlName="status">@for (status of statuses; track status) { <option [value]="status">{{ statusLabels[status] }}</option> }</select></label>
+      <label class="field">Tipo (opcional)<input formControlName="type" maxlength="80" /></label>
+      <label class="field">Subtipo (opcional)<input formControlName="subtype" maxlength="80" /></label>
+    </div>
+    <h3>Atributos <span>{{ attributes.length }}/{{ limits.attributes }}</span></h3>
+    <p class="hint">Defina valores, limites e aparência de cada atributo. Os elementos vinculados acompanham as alterações válidas.</p>
+    <div formArrayName="attributes">
+      @for (attribute of attributes.controls; track attribute.controls.id.value; let index = $index; let first = $first; let last = $last) {
+        <section class="attribute" [formGroupName]="index" [attr.aria-label]="'Atributo ' + (attribute.controls.label.value || (index + 1))">
+          <div class="attribute-heading"><strong>{{ attribute.controls.label.value || 'Novo atributo' }}</strong><div>
+            <button type="button" (click)="moveAttribute(index, -1)" [disabled]="first" aria-label="Mover atributo para cima">↑</button>
+            <button type="button" (click)="moveAttribute(index, 1)" [disabled]="last" aria-label="Mover atributo para baixo">↓</button>
+            <button type="button" class="remove" (click)="removeAttribute(index)" aria-label="Remover atributo">×</button>
+          </div></div>
+          <div class="fields-grid">
+            <label class="field">Chave<input formControlName="key" [maxlength]="limits.attributeKey" [attr.aria-invalid]="invalid(attribute.controls.key)" /></label>
+            <label class="field">Rótulo<input formControlName="label" [maxlength]="limits.attributeLabel" [attr.aria-invalid]="invalid(attribute.controls.label)" /></label>
+          </div>
+          @if (invalid(attribute.controls.key)) { <p class="field-error">Chave única: letra minúscula, seguida de letras minúsculas, números, _ ou -.</p> }
+          @if (invalid(attribute.controls.label)) { <p class="field-error">Informe um rótulo de até {{ limits.attributeLabel }} caracteres.</p> }
+          <div class="number-grid">
+            <label class="field">Valor<input type="number" step="any" formControlName="value" min="-1000000" max="1000000" /></label>
+            <label class="field">Mínimo<input type="number" step="any" formControlName="min" min="-1000000" max="1000000" /></label>
+            <label class="field">Máximo<input type="number" step="any" formControlName="max" min="-1000000" max="1000000" /></label>
+          </div>
+          @if ((attribute.hasError('range') || attribute.controls.value.invalid || attribute.controls.min.invalid || attribute.controls.max.invalid) && (attribute.dirty || attribute.touched)) { <p class="field-error">O mínimo deve ser menor que o máximo; o valor precisa estar dentro do intervalo. Use números entre −1.000.000 e 1.000.000.</p> }
+          <details><summary>Ícone e cor</summary><div class="fields-grid">
+            <label class="field">Ícone / símbolo<input formControlName="icon" maxlength="32" /></label>
+            <label class="field">Cor (opcional)<input formControlName="color" placeholder="#ffcc00" [attr.aria-invalid]="invalid(attribute.controls.color)" /></label>
+          </div>@if (invalid(attribute.controls.color)) { <p class="field-error">Use uma cor hexadecimal, RGB ou deixe vazio.</p> }</details>
+        </section>
+      }
+    </div>
+    @if (attributes.hasError('duplicateKeys')) { <p class="field-error" role="alert">Cada atributo precisa de uma chave diferente.</p> }
+    <button class="add-attribute" type="button" (click)="addAttribute()" [disabled]="attributes.length >= limits.attributes">+ Adicionar atributo</button>
+  </fieldset></form>
+</section>

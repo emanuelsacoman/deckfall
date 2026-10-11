@@ -1,3 +1,4 @@
+@if (auth.isAdmin()) {
 <a class="skip-link" href="#admin-content">Ir para o conteúdo</a>
 <div class="admin-shell">
   <aside class="sidebar" aria-label="Área administrativa">
@@ -12,11 +13,14 @@
       <a routerLink="/admin/usuarios/criar" routerLinkActive="active" ariaCurrentWhenActive="page">Vincular perfil</a>
     </nav>
     <div class="sidebar-footer">
-      <a class="button secondary" routerLink="/login">Login (em breve)</a>
+      <p class="muted">{{ auth.currentUser()?.email }}</p>
+      <button class="button secondary" type="button" (click)="logout()" [disabled]="signingOut()">{{ signingOut() ? 'Saindo…' : 'Encerrar sessão' }}</button>
     </div>
   </aside>
   <main id="admin-content" class="admin-content" tabindex="-1">
-    <p class="notice">Autenticação em preparação. O acesso aos dados administrativos do Firebase depende dessa próxima etapa.</p>
     <router-outlet />
   </main>
 </div>
+} @else {
+  <main class="admin-content"><p class="notice" role="status">Verificando acesso…</p></main>
+}

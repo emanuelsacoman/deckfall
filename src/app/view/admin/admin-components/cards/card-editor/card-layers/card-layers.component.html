@@ -1,0 +1,24 @@
+<section aria-labelledby="layers-title">
+  <header><h2 id="layers-title">Camadas <span>{{ layers().length }}</span></h2><p>Frente acima · arraste para reorganizar</p></header>
+  <fieldset class="layer-list" [disabled]="state.busy()"><legend class="visually-hidden">Camadas da carta</legend>
+    @for (layer of layers(); track layer.id; let first = $first; let last = $last) {
+      <div class="layer" [class.selected]="state.selectedIds().includes(layer.id)" [class.drop-target]="dragTarget() === layer.id"
+        [draggable]="!state.busy()" (dragstart)="dragStart(layer.id, $event)" (dragover)="dragOver(layer.id, $event)"
+        (drop)="drop(layer.id, $event)" (dragend)="endDrag()">
+        <button class="layer-select" type="button" (click)="state.select(layer.id)" [attr.aria-pressed]="state.selectedIds().includes(layer.id)">
+          <span class="drag-handle" aria-hidden="true">⠿</span><span class="layer-name">{{ layer.name || layer.type }}<small>{{ layer.type }}</small></span>
+        </button>
+        <div class="layer-controls">
+          <button type="button" (click)="state.toggleVisible(layer.id)" [attr.aria-label]="(layer.visible ? 'Esconder ' : 'Mostrar ') + layer.name" [title]="layer.visible ? 'Esconder' : 'Mostrar'">{{ layer.visible ? '◉' : '○' }}</button>
+          <button type="button" (click)="state.toggleLocked(layer.id)" [attr.aria-label]="(layer.locked ? 'Desbloquear ' : 'Bloquear ') + layer.name" [title]="layer.locked ? 'Desbloquear' : 'Bloquear'">{{ layer.locked ? '🔒' : '◇' }}</button>
+          <button type="button" (click)="state.moveLayer(layer.id, 'up')" [disabled]="first" [attr.aria-label]="'Trazer ' + layer.name + ' para frente'" title="Trazer para frente">↑</button>
+          <button type="button" (click)="state.moveLayer(layer.id, 'down')" [disabled]="last" [attr.aria-label]="'Enviar ' + layer.name + ' para trás'" title="Enviar para trás">↓</button>
+          <button type="button" (click)="state.duplicate(layer.id)" [attr.aria-label]="'Duplicar ' + layer.name" title="Duplicar">⧉</button>
+          <button class="remove" type="button" (click)="state.remove(layer.id)" [disabled]="layer.locked" [attr.aria-label]="'Excluir ' + layer.name" title="Excluir">×</button>
+        </div>
+      </div>
+    } @empty {
+      <p class="empty">Adicione um elemento para começar.</p>
+    }
+  </fieldset>
+</section>

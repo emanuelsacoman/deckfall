@@ -1,40 +1,79 @@
 # Arquitetura frontend
 
-Esta fundação usa Angular 18 standalone, `inject()`, Reactive Forms e signals para estado visual. Firebase modular, sem compat. A autenticação foi adiada a pedido do proprietário: não há serviço de sessão nem guards ativos nesta versão.
+Angular 18 standalone, `inject()`, Reactive Forms, signals e RxJS quando necessário. Firebase modular, sem compat. O projeto mantém CSS; o editor não reorganiza a base nem migra frameworks.
 
 ```text
 view = apresentação/orquestração
 model/interfaces = contratos
 model/services/cruds = domínio/persistência
-model/services/fire = infraestrutura Firebase/Storage
-model/services/tools = utilitários reutilizáveis
+model/services/fire = infraestrutura Firebase/Auth/Storage
+model/services/tools = estado, validação e utilitários reutilizáveis
+model/guards = autorização de navegação e proteção de saída
 ```
 
-Componentes não acessam Firestore diretamente. Persistência e compensação de cartas são responsabilidade de `CardService`; arquivos de `CardStorageService`; perfis de `UserService`. `model/guards` e infraestrutura Auth poderão ser acrescentados quando a autenticação for implementada.
+Componentes não acessam Firestore diretamente. `AuthService` resolve sessão/perfil; `CardService`, `CardTemplateService` e `UserService` persistem seus domínios. `CardStorageService` organiza arquivos e materializa uploads/cópias. Guard não substitui Rules.
 
 ## Rotas e layout
 
-`/admin` redireciona para `/admin/dashboard`; `/admin/cartas` redireciona para `/admin/cartas/lista`; `/admin/cartas/criar`; `/admin/cartas/editar/:id`. Usuários: `/admin/usuarios` redireciona para `/admin/usuarios/lista`; `/admin/usuarios/criar` vincula perfil; `/admin/usuarios/editar/:uid` consulta/edita. Telas usam `loadComponent` e shell próprio sem guards. A raiz abre `/admin/dashboard`.
+Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`, que oferece entrar, registrar e Google.
 
-`/login` é somente um placeholder com mensagem e link para o painel. Não contém formulário, inputs, chamadas Auth, estado de sessão, login ou logout. A navegação administrativa está aberta; as permissões de dados continuam sendo responsabilidade das Rules, que exigem administrador nas operações protegidas.
+| Rota | Tela |
+| --- | --- |
+| `/admin` | Redireciona para `/admin/dashboard` |
+| `/admin/dashboard` | Atalhos administrativos |
+| `/admin/cartas` | Redireciona para `/admin/cartas/lista` |
+| `/admin/cartas/lista` | Catálogo e ações |
+| `/admin/cartas/criar` | Editor de nova carta |
+| `/admin/cartas/editar/:id` | Editor com documento carregado |
+| `/admin/usuarios` | Redireciona para `/admin/usuarios/lista` |
+| `/admin/usuarios/lista` | Perfis Firestore |
+| `/admin/usuarios/criar` | Vínculo por UID de conta existente |
+| `/admin/usuarios/editar/:uid` | Consulta e edição do perfil |
 
-O menu contém Painel, Todas as cartas, Criar carta, Todos os usuários e Vincular perfil. Novas áreas serão acrescentadas quando implementadas. Criação e edição de cada domínio compartilham seu formulário; wrappers de rota apenas escolhem modo/id. Listas tratam carregamento, vazio e falha. Cartas pedem confirmação de exclusão; usuários pedem confirmação ao atribuir/mudar cargo.
+O shell administrativo possui guard no pai e nos filhos, observa revogação de acesso e oferece logout. O menu inclui Painel, Todas as cartas, Criar carta, Todos os usuários e Vincular perfil. Criação/edição de cartas usam wrappers pequenos; `cardEditorLeaveGuard` consulta alterações pendentes antes da saída. A raiz contém o router outlet; `app.config.ts` fornece App, Auth, Firestore e Storage.
+
+## Editor compartilhado
+
+`CardEditorComponent` orquestra carregamento, salvamento, assets, rascunhos, templates, importação e exportação. Estado/assets são fornecidos no próprio editor; outra instância não compartilha seleção ou histórico.
 
 ```text
-src/app/model/
-  interfaces/Cards/card.ts
-  interfaces/Users/user-profile.ts
-  services/fire/card-storage.service.ts
-  services/cruds/cards/card.service.ts
-  services/cruds/users/user.service.ts
-  services/tools/card-validation.ts
-  services/tools/user-validation.ts
-src/app/view/
-  auth/login/
-  admin/layout/
-  admin/admin-components/dashboard/
-  admin/admin-components/cards/{card-list,card-create,card-edit,card-form}/
-  admin/admin-components/users/{user-list,user-create,user-edit,user-form}/
+cards/
+  card-list/
+  card-create/
+  card-edit/
+  card-editor/
+    card-editor.component
+    card-canvas/
+    card-toolbar/
+    element-library/
+    card-layers/
+    card-properties/
+    card-data/
 ```
 
-O componente raiz contém apenas o router outlet. `app.config.ts` fornece Firebase App/Firestore/Storage, sem `provideAuth`. Não há chamadas de rede no painel só para mostrar contadores; ele apresenta atalhos reais. As listas são carregadas sob demanda e podem ser recarregadas, sem listener permanente de toda a coleção. Sem autenticação no frontend, um backend que aplique as Rules deste repositório rejeita a listagem administrativa, gravações e acesso privado às artes.
+Os cinco painéis usam `CardEditorStateService` e emitem intenções de ação, arquivo ou validade. Eles não persistem nem manipulam nós Konva. `CardDataComponent` permanece montado ao trocar de modo, preservando campos ainda inválidos; o estado recebe os últimos dados válidos.
+
+`CardCanvasComponent` conecta o estado ao `CardKonvaRenderer`. O renderer mantém Stage, conteúdo, overlays e grupos por ID; `card-konva-elements.ts` desenha os tipos. Konva representa `CardCanvasData`, sem se tornar a fonte persistida. Estado, nós, arquivos e Firebase permanecem separados.
+
+## Arquivos relevantes
+
+```text
+model/interfaces/Auth/auth-session.ts
+model/interfaces/Cards/{card,card-canvas,card-template}.ts
+model/interfaces/Users/user-profile.ts
+model/guards/{auth,card-editor-leave}.guard.ts
+model/services/fire/{auth,card-storage}.service.ts
+model/services/cruds/cards/{card,card-template}.service.ts
+model/services/cruds/cards/card-persistence.ts
+model/services/cruds/users/user.service.ts
+model/services/tools/card-editor-state.service.ts
+model/services/tools/card-editor-assets.service.ts
+model/services/tools/card-local-draft.service.ts
+model/services/tools/card-canvas-factory.ts
+model/services/tools/card-canvas-validation.ts
+model/services/tools/card-konva-renderer.ts
+model/services/tools/card-konva-elements.ts
+model/services/tools/card-export.service.ts
+```
+
+Listas carregam sob demanda e permitem retry, sem listener permanente da coleção inteira. Auth observa a conta e seu perfil. O dashboard não consulta dados apenas para preencher contadores. Leia [editor](editor-de-cartas.md), [cartas](cartas.md) e [autenticação](autenticacao-e-admin.md) antes de alterar esses fluxos.

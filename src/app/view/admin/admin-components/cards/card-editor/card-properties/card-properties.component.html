@@ -1,0 +1,121 @@
+<section aria-labelledby="properties-title">
+  <header><h2 id="properties-title">{{ state.selectedElement() ? 'Propriedades' : 'Carta e fundo' }}</h2><p>{{ state.selectedElement()?.name || 'Selecione um elemento para editá-lo.' }}</p></header>
+  @if (inputError()) { <p class="field-error" role="alert">{{ inputError() }}</p> }
+  @if (state.selectedElement(); as element) {
+    <div class="element-actions">
+      <button type="button" (click)="state.toggleLocked(element.id)" [disabled]="state.busy()">{{ element.locked ? 'Desbloquear' : 'Bloquear' }}</button>
+      <button type="button" (click)="state.toggleVisible(element.id)" [disabled]="state.busy()">{{ element.visible ? 'Esconder' : 'Mostrar' }}</button>
+      <button type="button" (click)="state.duplicate(element.id)" [disabled]="state.busy()">Duplicar</button>
+      <button type="button" (click)="state.moveLayer(element.id, 'top')" [disabled]="state.busy()">Trazer ao topo</button>
+      <button type="button" (click)="state.moveLayer(element.id, 'bottom')" [disabled]="state.busy()">Enviar ao fundo</button>
+      <button type="button" class="danger-action" (click)="state.remove(element.id)" [disabled]="element.locked || state.busy()">Excluir</button>
+    </div>
+    <fieldset [disabled]="element.locked || state.busy()">
+      <legend>Posição e tamanho</legend>
+      <label class="field">Nome da camada<input [value]="element.name" maxlength="120" (input)="baseName($event)" /></label>
+      <div class="fields-grid">
+        <label class="field">X<input type="number" [value]="element.x" min="-8192" max="8192" (input)="baseNumber('x', $event, -8192, 8192)" /></label>
+        <label class="field">Y<input type="number" [value]="element.y" min="-8192" max="8192" (input)="baseNumber('y', $event, -8192, 8192)" /></label>
+        <label class="field">Largura<input type="number" [value]="element.width" min="8" max="8192" (input)="baseNumber('width', $event, 8, 8192)" /></label>
+        <label class="field">Altura<input type="number" [value]="element.height" min="8" max="8192" (input)="baseNumber('height', $event, 8, 8192)" /></label>
+        <label class="field">Rotação (°)<input type="number" [value]="element.rotation" min="-360" max="360" (input)="baseNumber('rotation', $event, -360, 360)" /></label>
+        <label class="field">Opacidade<input type="number" [value]="element.opacity" min="0" max="1" step="0.05" (input)="baseNumber('opacity', $event, 0, 1)" /></label>
+      </div>
+      @if (textElement(); as text) {
+        <h3>Texto</h3>
+        <label class="field">Vínculo com os dados<select [value]="text.properties.binding || ''" (change)="setBinding($event)"><option value="">Texto livre</option>@for (binding of bindings(); track binding.key) { <option [value]="binding.key">{{ binding.label }}</option> }</select></label>
+        <label class="field">Conteúdo<textarea rows="3" [value]="text.properties.text" maxlength="5000" [disabled]="!!text.properties.binding" (input)="patchText({text: value($event)})"></textarea></label>
+        <label class="field">Fonte<select [value]="text.properties.fontFamily" (change)="patchText({fontFamily: value($event)})">@for (font of fonts; track font) { <option [value]="font">{{ font }}</option> }</select></label>
+        <div class="fields-grid">
+          <label class="field">Tamanho<input type="number" [value]="text.properties.fontSize" min="6" max="256" (input)="textNumber('fontSize', $event, 6, 256)" /></label>
+          <label class="field">Estilo<select [value]="text.properties.fontStyle" (change)="setFontStyle($event)"><option value="normal">Normal</option><option value="bold">Negrito</option><option value="italic">Itálico</option><option value="bold italic">Negrito e itálico</option></select></label>
+          <label class="field">Espaçamento<input type="number" [value]="text.properties.letterSpacing" min="-20" max="100" step="0.5" (input)="textNumber('letterSpacing', $event, -20, 100)" /></label>
+          <label class="field">Entrelinhas<input type="number" [value]="text.properties.lineHeight" min="0.5" max="5" step="0.1" (input)="textNumber('lineHeight', $event, 0.5, 5)" /></label>
+        </div>
+        <label class="field">Alinhamento<select [value]="text.properties.align" (change)="setAlign($event)"><option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option></select></label>
+      }
+      @if (shapeElement(); as shape) {
+        <h3>Forma</h3>
+        <label class="field">Preenchimento<select [value]="shape.properties.fillMode" (change)="setFillMode($event)"><option value="solid">Cor sólida</option><option value="gradient">Gradiente</option></select></label>
+        @if (shape.properties.fillMode === 'gradient') {
+          <label class="field">Segunda cor<input [value]="shape.properties.gradientColor" (input)="extraColor('gradientColor', $event)" /></label>
+          <label class="field">Ângulo do gradiente<input type="number" [value]="shape.properties.gradientAngle" min="-360" max="360" (input)="shapeNumber('gradientAngle', $event, -360, 360)" /></label>
+        }
+        <label class="field">Raio dos cantos<input type="number" [value]="shape.properties.cornerRadius" min="0" max="4096" (input)="shapeNumber('cornerRadius', $event, 0, 4096)" /></label>
+      }
+      @if (imageElement(); as image) {
+        <h3>{{ image.type === 'artwork' ? 'Arte principal' : 'Imagem' }}</h3>
+        <p class="asset-name">{{ assetName(image.properties.assetId) }}</p>
+        <label class="field">Enviar / trocar imagem<input type="file" [accept]="imageTypes" (change)="upload($event)" /></label>
+        <label class="check-field"><input type="checkbox" [checked]="image.properties.binding === 'art'" (change)="setImageBinding($event)" /> Usar a arte principal da carta</label>
+        <div class="fields-grid">
+          <label class="field">Ajuste<select [value]="image.properties.fit" (change)="setFit($event)"><option value="cover">Cobrir</option><option value="contain">Conter</option><option value="fill">Esticar</option></select></label>
+          <label class="field">Máscara<select [value]="image.properties.mask" (change)="setMask($event)"><option value="none">Nenhuma</option><option value="rounded">Cantos arredondados</option><option value="ellipse">Elipse</option></select></label>
+          <label class="field">Zoom da imagem<input type="number" [value]="image.properties.zoom" min="0.1" max="10" step="0.1" (input)="imageNumber('zoom', $event, 0.1, 10)" /></label>
+          <label class="field">Raio dos cantos<input type="number" [value]="image.properties.cornerRadius" min="0" max="4096" (input)="imageNumber('cornerRadius', $event, 0, 4096)" /></label>
+          <label class="field">Deslocamento X<input type="number" [value]="image.properties.offsetX" min="-1" max="1" step="0.05" (input)="imageNumber('offsetX', $event, -1, 1)" /></label>
+          <label class="field">Deslocamento Y<input type="number" [value]="image.properties.offsetY" min="-1" max="1" step="0.05" (input)="imageNumber('offsetY', $event, -1, 1)" /></label>
+        </div>
+        <label class="field">Filtro<select [value]="image.properties.filter" (change)="setFilter($event)"><option value="none">Nenhum</option><option value="grayscale">Escala de cinza</option><option value="sepia">Sépia</option></select></label>
+        <details><summary>Recorte da imagem (0–1)</summary><div class="fields-grid">
+          <label class="field">X<input type="number" [value]="image.properties.crop.x" min="0" max="1" step="0.05" (input)="setCrop('x', $event)" /></label>
+          <label class="field">Y<input type="number" [value]="image.properties.crop.y" min="0" max="1" step="0.05" (input)="setCrop('y', $event)" /></label>
+          <label class="field">Largura<input type="number" [value]="image.properties.crop.width" min="0.001" max="1" step="0.05" (input)="setCrop('width', $event)" /></label>
+          <label class="field">Altura<input type="number" [value]="image.properties.crop.height" min="0.001" max="1" step="0.05" (input)="setCrop('height', $event)" /></label>
+        </div></details>
+      }
+      @if (attributeElement(); as attribute) {
+        <h3>Atributo de jogo</h3>
+        <label class="field">Atributo<select [value]="attribute.properties.attributeKey" (change)="patchAttribute({attributeKey: value($event)})">@for (item of state.data().attributes; track item.id || item.key) { <option [value]="item.key">{{ item.label }}</option> }</select></label>
+        <label class="field">Exibir<select [value]="attribute.properties.labelMode" (change)="setLabelMode($event)"><option value="label-value">Rótulo e valor</option><option value="value">Valor</option><option value="label">Rótulo</option></select></label>
+        <label class="field">Sufixo<input [value]="attribute.properties.suffix" maxlength="32" (input)="patchAttribute({suffix: value($event)})" /></label>
+        <label class="check-field"><input type="checkbox" [checked]="attribute.properties.showIcon" (change)="patchAttribute({showIcon: checked($event)})" /> Mostrar ícone do atributo</label>
+        <label class="field">Fonte<select [value]="attribute.properties.fontFamily" (change)="patchAttribute({fontFamily: value($event)})">@for (font of fonts; track font) { <option [value]="font">{{ font }}</option> }</select></label>
+        <div class="fields-grid"><label class="field">Tamanho<input type="number" [value]="attribute.properties.fontSize" min="6" max="256" (input)="attributeNumber($event)" /></label>
+          <label class="field">Estilo<select [value]="attribute.properties.fontStyle" (change)="setFontStyle($event)"><option value="normal">Normal</option><option value="bold">Negrito</option><option value="italic">Itálico</option><option value="bold italic">Negrito e itálico</option></select></label></div>
+        <label class="field">Alinhamento<select [value]="attribute.properties.align" (change)="setAlign($event)"><option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option></select></label>
+      }
+      @if (barElement(); as bar) {
+        <h3>Barra de atributo</h3>
+        <label class="field">Atributo<select [value]="bar.properties.attributeKey" (change)="patchBar({attributeKey: value($event)})">@for (item of state.data().attributes; track item.id || item.key) { <option [value]="item.key">{{ item.label }}</option> }</select></label>
+        <label class="field">Cor da trilha<input [value]="bar.properties.trackColor" (input)="extraColor('trackColor', $event)" /></label>
+        <label class="check-field"><input type="checkbox" [checked]="bar.properties.showValue" (change)="patchBar({showValue: checked($event)})" /> Exibir valor</label>
+        <label class="field">Fonte<select [value]="bar.properties.fontFamily" (change)="patchBar({fontFamily: value($event)})">@for (font of fonts; track font) { <option [value]="font">{{ font }}</option> }</select></label>
+        <div class="fields-grid"><label class="field">Tamanho<input type="number" [value]="bar.properties.fontSize" min="6" max="256" (input)="barNumber('fontSize', $event, 6, 256)" /></label>
+          <label class="field">Raio dos cantos<input type="number" [value]="bar.properties.cornerRadius" min="0" max="4096" (input)="barNumber('cornerRadius', $event, 0, 4096)" /></label></div>
+      }
+      <h3>Cores e borda</h3>
+      <div class="fields-grid">
+        <label class="field">Cor / preenchimento<input [value]="element.properties.fill" placeholder="#ffffff" (input)="styleColor('fill', $event)" /></label>
+        <label class="field">Cor da borda<input [value]="element.properties.stroke" placeholder="#000000" (input)="styleColor('stroke', $event)" /></label>
+      </div>
+      <label class="field">Espessura da borda<input type="number" [value]="element.properties.strokeWidth" min="0" max="64" (input)="styleNumber('strokeWidth', $event, 0, 64)" /></label>
+      <details><summary>Sombra</summary>
+        <label class="field">Cor<input [value]="element.properties.shadowColor" (input)="styleColor('shadowColor', $event)" /></label>
+        <div class="fields-grid">
+          <label class="field">Desfoque<input type="number" [value]="element.properties.shadowBlur" min="0" max="100" (input)="styleNumber('shadowBlur', $event, 0, 100)" /></label>
+          <label class="field">Deslocamento X<input type="number" [value]="element.properties.shadowOffsetX" min="-100" max="100" (input)="styleNumber('shadowOffsetX', $event, -100, 100)" /></label>
+          <label class="field">Deslocamento Y<input type="number" [value]="element.properties.shadowOffsetY" min="-100" max="100" (input)="styleNumber('shadowOffsetY', $event, -100, 100)" /></label>
+        </div>
+      </details>
+    </fieldset>
+  } @else {
+    <fieldset [disabled]="state.busy()"><legend>Dimensões reais (px)</legend><div class="fields-grid">
+      <label class="field">Largura<input type="number" [value]="state.canvas().width" [min]="config.minDimension" [max]="config.maxDimension" (input)="dimension('width', $event)" /></label>
+      <label class="field">Altura<input type="number" [value]="state.canvas().height" [min]="config.minDimension" [max]="config.maxDimension" (input)="dimension('height', $event)" /></label>
+    </div><p class="hint">O zoom altera a visualização, mantendo esta resolução.</p></fieldset>
+    <fieldset [disabled]="state.busy()"><legend>Fundo</legend>
+      <label class="field">Tipo<select [value]="state.canvas().background.kind" (change)="backgroundKind($event)"><option value="solid">Cor sólida</option><option value="gradient">Gradiente</option><option value="image">Imagem</option><option value="texture">Textura</option></select></label>
+      <label class="field">Cor<input [value]="state.canvas().background.color" (input)="backgroundColor('color', $event)" /></label>
+      @if (state.canvas().background.kind === 'gradient') {
+        <label class="field">Segunda cor<input [value]="state.canvas().background.color2" (input)="backgroundColor('color2', $event)" /></label>
+        <label class="field">Ângulo<input type="number" [value]="state.canvas().background.angle" min="-360" max="360" (input)="backgroundAngle($event)" /></label>
+      }
+      @if (state.canvas().background.kind === 'image' || state.canvas().background.kind === 'texture') {
+        <p class="asset-name">{{ assetName(state.canvas().background.assetId) }}</p>
+        <label class="field">Imagem do fundo<input type="file" [accept]="imageTypes" (change)="upload($event)" /></label>
+        <button type="button" (click)="state.updateCanvasSettings({background: {assetId: null}})">Remover imagem do fundo</button>
+      }
+    </fieldset>
+  }
+</section>

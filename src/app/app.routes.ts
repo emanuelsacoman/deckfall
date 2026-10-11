@@ -1,13 +1,17 @@
 import { Routes } from '@angular/router';
+import { authChildGuard, authGuard } from './model/guards/auth.guard';
+import { cardEditorLeaveGuard } from './model/guards/card-editor-leave.guard';
 
 export const routes: Routes = [
   {
     path: 'login',
-    title: 'Login em breve | Deckfall',
+    title: 'Entrar e registrar | Deckfall',
     loadComponent: () => import('./view/auth/login/login.component').then((m) => m.LoginComponent),
   },
   {
     path: 'admin',
+    canActivate: [authGuard],
+    canActivateChild: [authChildGuard],
     loadComponent: () => import('./view/admin/layout/layout.component').then((m) => m.LayoutComponent),
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
@@ -24,11 +28,13 @@ export const routes: Routes = [
       },
       {
         path: 'cartas/criar',
+        canDeactivate: [cardEditorLeaveGuard],
         title: 'Criar carta | Deckfall',
         loadComponent: () => import('./view/admin/admin-components/cards/card-create/card-create.component').then((m) => m.CardCreateComponent),
       },
       {
         path: 'cartas/editar/:id',
+        canDeactivate: [cardEditorLeaveGuard],
         title: 'Editar carta | Deckfall',
         loadComponent: () => import('./view/admin/admin-components/cards/card-edit/card-edit.component').then((m) => m.CardEditComponent),
       },
@@ -50,6 +56,6 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '', pathMatch: 'full', redirectTo: 'admin/dashboard' },
-  { path: '**', redirectTo: 'admin/dashboard' },
+  { path: '', pathMatch: 'full', redirectTo: 'login' },
+  { path: '**', redirectTo: 'login' },
 ];

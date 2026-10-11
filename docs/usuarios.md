@@ -4,9 +4,9 @@
 
 As telas e serviços usam perfis `users/{uid}` no Firestore, vinculados pelo UID a contas já existentes no Firebase Authentication. O modelo permite consultar, vincular e editar perfis e atribuir papéis `admin`/`member`.
 
-A navegação está aberta nesta etapa, pois a autenticação foi adiada a pedido do proprietário. Não há usuário corrente, resolução de sessão ou verificação de administrador na UI. Os serviços continuam chamando o Firebase real; as Rules exigem administrador para listar, vincular e editar. Sem uma sessão autenticada, essas operações são rejeitadas pelo backend que aplica essas Rules. Não existe cadastro público nem exclusão de contas.
+O requisito mais recente restabeleceu autenticação com cadastro por e-mail/senha e Google. O guard aguarda sessão/perfil e libera o admin somente com `role` e `roleId` iguais a `admin`. Os serviços continuam chamando o Firebase real; Rules exigem admin para listar, vincular e editar perfis. Novas contas podem criar apenas o próprio perfil `member`, com e-mail igual ao token autenticado. Não há exclusão de contas pelo painel.
 
-O SDK cliente não lista todas as contas Auth. Contas sem perfil Firestore não aparecem na lista; o administrador deve copiar o UID em Authentication → Users e vincular o perfil. Vincular um perfil não cria conta Auth e não confirma automaticamente que o UID existe no Auth. Uma integração futura com Admin SDK/backend seria necessária para listar/gerenciar contas e credenciais diretamente.
+O SDK cliente não lista todas as contas Auth. O fluxo de autenticação provisiona um perfil member apenas quando não há documento; perfis existentes, inclusive admins, são preservados. Contas sem perfil Firestore ainda podem ser vinculadas manualmente pelo admin com o UID copiado no Console. Vincular um perfil não cria conta Auth e não confirma automaticamente que o UID existe. Uma integração futura com Admin SDK/backend seria necessária para listar/gerenciar todas as contas e credenciais diretamente.
 
 Referência oficial dessa distinção: [gerenciamento de usuários com Admin SDK](https://firebase.google.com/docs/auth/admin/manage-users).
 
@@ -16,13 +16,13 @@ Referência oficial dessa distinção: [gerenciamento de usuários com Admin SDK
 
 Papéis centralizados: `admin` e `member`, gravados sempre iguais em `role` e `roleId`. UID é imutável na edição. Cliente grava timestamps de servidor; createdAt existente não muda. Perfis mínimos antigos sem createdAt mantêm a ausência para não inventar data histórica.
 
-Nas Rules preservadas, somente admin lista/vincula/edita perfis; um usuário autenticado pode ler o próprio perfil. Membros não escrevem perfis nem se promovem. Exclusão está bloqueada. As Rules também impedem que um administrador rebaixe a si mesmo. Nesta versão, o formulário e o serviço não identificam o usuário corrente; essa identidade e a proteção correspondente na interface dependem da futura autenticação.
+Nas Rules, admin lista/vincula/edita perfis; autenticado lê o próprio. A única criação permitida a não admins é seu perfil inicial member; membros não alteram perfis nem se promovem. Exclusão e próprio rebaixamento são bloqueados pelas Rules. O formulário confirma mudanças de cargo; segurança e proteção do próprio admin são garantidas no backend, inclusive se o SDK for usado fora da interface.
 
-Atribuições/mudanças de cargo pedem confirmação. Na futura operação autenticada, o bloqueio das Rules de próprio rebaixamento não representa uma garantia global de último administrador entre solicitações concorrentes de vários admins. Recuperação continua disponível ao proprietário pelo Firebase Console.
+Atribuições/mudanças de cargo pedem confirmação. O bloqueio das Rules de próprio rebaixamento não representa uma garantia global de último administrador entre solicitações concorrentes de vários admins. Recuperação continua disponível ao proprietário pelo Firebase Console.
 
 ## Primeiro administrador
 
-O primeiro administrador será provisionado no Firebase Console quando a autenticação for implementada. O UID deve ser copiado da conta Authentication e usado em `users/{UID}`, com strings `role = admin` e `roleId = admin`. `/login` não exibe UID autenticado nem observa alterações do perfil nesta versão. Consulte [autenticação e admin](autenticacao-e-admin.md) para separar o estado atual da preparação futura.
+O proprietário pode registrar/entrar em `/login` e copiar o UID exibido para uma conta sem acesso. No Console, completar seu documento `users/{UID}` com strings `role = admin` e `roleId = admin`. O listener acompanha a alteração; não há botão de autopromoção. Consulte [autenticação e admin](autenticacao-e-admin.md) para habilitar provedores e publicar as Rules em uma ação futura autorizada.
 
 ## Arquitetura
 

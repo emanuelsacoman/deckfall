@@ -1,0 +1,7 @@
+:host { display: block; min-width: 0; }
+header h2 { font-size: .95rem; margin-bottom: .25rem; } header p, .muted { font-size: .75rem; color: var(--text-muted); margin: .25rem 0 1rem; }
+.tool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
+.tool { display: grid; gap: .35rem; padding: .7rem .25rem; background: white; color: var(--text); border: 1px solid var(--border); font-size: .72rem; font-weight: 500; }
+.tool:hover { border-color: var(--primary); background: #eff4fc; }.tool-icon { font-size: 1.35rem; line-height: 1.3; color: var(--primary); }
+.background-tool { width: 100%; font-size: .75rem; background: #edf2fa; color: var(--primary); margin: .8rem 0 1.2rem; }
+.upload-label { display: block; font-size: .8rem; margin-bottom: .4rem; } input { font-size: .7rem; } .notice { font-size: .75rem; }

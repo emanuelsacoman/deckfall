@@ -1,0 +1,20 @@
+<section aria-labelledby="library-title">
+  <header><h2 id="library-title">Elementos</h2><p>Monte um layout do seu jeito.</p></header>
+  <div class="tool-grid">
+    @for (tool of tools; track tool.preset) {
+      <button type="button" class="tool" [title]="tool.description" (click)="state.addElement(tool.preset)"
+        [disabled]="state.busy() || state.canvas().elements.length >= maxElements">
+        <span class="tool-icon" aria-hidden="true">{{ tool.icon }}</span><span>{{ tool.label }}</span>
+      </button>
+    }
+  </div>
+  <button class="background-tool" type="button" (click)="state.select(null)" [disabled]="state.busy()">Fundo e dimensões</button>
+  <label class="upload-label" for="library-image">Enviar imagem</label>
+  <input id="library-image" type="file" [accept]="imageTypes" (change)="upload($event)"
+    [disabled]="state.busy() || state.canvas().elements.length >= maxElements" aria-describedby="library-upload-help" />
+  <p id="library-upload-help" class="muted">PNG, JPEG ou WebP · até 5 MiB</p>
+  @if (imageError()) { <p class="field-error" role="alert">{{ imageError() }}</p> }
+  @if (state.canvas().elements.length >= maxElements) {
+    <p class="notice" role="status">Limite de {{ maxElements }} elementos atingido.</p>
+  }
+</section>

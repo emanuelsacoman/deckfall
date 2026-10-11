@@ -1,0 +1,9 @@
+:host { display: block; min-width: 0; } header h2 { font-size: .95rem; margin-bottom: .25rem; } header h2 span { font-size: .7rem; font-weight: 400; color: var(--text-muted); }
+header p, .empty { font-size: .72rem; color: var(--text-muted); margin: .25rem 0 .8rem; }
+.layer-list { display: grid; gap: .45rem; } .layer { border: 1px solid var(--border); border-radius: 6px; background: white; overflow: hidden; }
+.layer.selected { border-color: var(--primary); background: #f0f5fd; }.layer.drop-target { border-top: 3px solid var(--primary); }
+.layer-select { display: flex; justify-content: flex-start; width: 100%; color: var(--text); background: transparent; padding: .55rem .5rem; text-align: left; }
+.drag-handle { color: var(--text-muted); cursor: grab; }.layer-name { min-width: 0; overflow-wrap: anywhere; font-size: .75rem; }.layer-name small { display: block; font-size: .65rem; font-weight: 400; color: var(--text-muted); }
+.layer-controls { display: flex; justify-content: flex-end; border-top: 1px solid #e6ebf2; padding: .15rem .25rem; gap: .1rem; }
+.layer-controls button { color: var(--text-muted); background: transparent; border: 0; padding: .2rem .38rem; font-size: .82rem; min-width: 24px; }.layer-controls .remove { color: var(--danger); }
+fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

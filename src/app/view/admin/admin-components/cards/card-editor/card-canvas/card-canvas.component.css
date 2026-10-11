@@ -1,0 +1,6 @@
+:host { display: block; min-width: 0; }
+.canvas-panel { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: #dfe5ed; }
+.canvas-status { display: flex; justify-content: space-between; padding: .5rem .75rem; color: #556277; font-size: .75rem; background: #edf1f6; border-bottom: 1px solid #cbd3e0; }
+.canvas-viewport { width: 100%; height: clamp(420px, 72vh, 860px); overflow: auto; overscroll-behavior: contain; }
+.canvas-help { margin: 0; padding: .65rem .75rem; color: #556277; font-size: .72rem; background: #edf1f6; }
+@media (max-width: 700px) { .canvas-viewport { height: 540px; } }

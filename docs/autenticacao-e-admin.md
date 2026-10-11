@@ -1,50 +1,50 @@
-﻿# Autenticação e administrador
+# Autenticação e administrador
 
-## Estado atual: autenticação adiada
+## Fluxos implementados
 
-A pedido do proprietário, a aplicação não implementa autenticação nesta etapa. `/login` é apenas um placeholder com uma mensagem e um link para o painel. Não há formulário de login, inputs de credenciais, `AuthService`, estado de sessão, logout, guards ou `provideAuth`.
+`/login` oferece entrar por e-mail/senha, registrar e entrar com Google via popup. Cadastro por e-mail usa senha mínima local de seis caracteres e nome opcional até 120. Não persistir senhas em Firestore nem arquivos. `app.config.ts` fornece Firebase App, Auth, Firestore e Storage.
 
-A raiz e `/admin` abrem `/admin/dashboard`. As rotas de cartas e usuários podem ser visitadas diretamente. O shell não identifica um usuário corrente nem observa alterações de papel. Essa navegação aberta serve ao desenvolvimento da interface; não representa autorização para acessar os dados.
+`AuthService` observa Authentication, prepara um perfil mínimo se ainda não existe e acompanha `users/{uid}` em tempo real. Novos perfis recebem displayName/contactEmail da identidade, `role:member`, `roleId:member` e timestamps de servidor. Perfil existente não é sobrescrito pelo login ou Google. Cadastro nunca concede admin.
 
-`app.config.ts` continua fornecendo Firebase App, Firestore e Storage. Os serviços de cartas, arte e perfis mantêm as chamadas reais ao Firebase. Não foi acrescentado login anônimo, sessão sintética ou desvio das permissões do backend.
+Estado da sessão usa undefined durante resolução, null sem sessão e AuthSession após identificar conta/perfil. A resolução possui timeout de 15 segundos, nega admin em falhas e ignora callbacks de sessões antigas. Uma conta autenticada com falha no perfil pode aparecer com papéis null e mensagem para conferir Rules; não recebe acesso administrativo.
 
-## Permissões de dados preservadas
+Login e cadastro são operações de Auth separadas do Firestore. Se a conta foi criada e a preparação do perfil falhou, use Entrar para tentar novamente; não presumir que a conta foi desfeita. Popup bloqueado/cancelado, conta desativada, credencial inválida e método de acesso diferente recebem mensagens específicas. A UI limpa a senha após autenticar/trocar de modo.
 
-As Rules deste repositório continuam exigindo um usuário autenticado com documento `users/{uid}` contendo **ambos** `role: "admin"` e `roleId: "admin"` para operações administrativas. E-mail não concede permissão. Os papéis do modelo são `admin` e `member`.
+## Admin, guard e Rules
 
-Com essas Rules aplicadas no backend:
+Administrador exige **ambos** `role == admin` e `roleId == admin`. E-mail não concede autorização. Guards aguardam sessão/perfil no shell e nos filhos de `/admin`; destino interno pode ser conservado em returnUrl. O layout observa perda de sessão/papel e volta ao login. Logout limpa o estado local e chama Firebase; eventual falha no servidor é informada.
 
-- Listagem administrativa e gravação de cartas exigem admin.
-- Leitura pública de metadados de cartas é limitada a `published`; drafts e archived não são públicos.
-- A arte no Storage exige admin para leitura e gravação.
-- Listagem, vínculo e edição de perfis exigem admin; um autenticado pode ler o próprio perfil.
-- Membros não se promovem, perfis não podem ser excluídos e o próprio rebaixamento administrativo é negado.
+Rules são a barreira dos dados. Cadastro autenticado pode criar somente o próprio perfil member, com contactEmail igual ao e-mail do token. Membros leem o próprio perfil e não fazem update ou autopromoção. Admin gerencia cards, templates e perfis; exclusão de perfil e próprio rebaixamento são bloqueados.
 
-Como a aplicação não cria uma sessão autenticada, as operações protegidas são rejeitadas pelo backend que aplica essas Rules. Não enfraquecer as Rules para tornar o CRUD disponível sem sessão. O estado das Rules remotas não foi consultado nem alterado; não houve publicação ou deploy nesta mudança.
+A tela de usuários atual não identifica o próprio perfil para bloquear o rebaixamento localmente; a tentativa continua sendo recusada pelas Rules. Alterações de papel pedem confirmação. Não há garantia global de último administrador entre várias sessões; recuperação cabe ao proprietário no Console.
 
-## Preparação para autenticação futura
+## Bootstrap do primeiro administrador
 
-Quando o login for implementado, usar Firebase Authentication, resolução explícita da sessão/perfil e guards no shell e nas rotas administrativas. Guards protegem a navegação; Firestore e Storage Rules continuam sendo a barreira real dos dados. Não anunciar acesso seguro à UI antes dessa implementação e validação.
+Nenhum botão da aplicação promove a primeira conta. Conferência/publicação remota é uma ação externa futura; não foi realizada nesta entrega.
 
-O bootstrap abaixo é uma preparação futura e não habilita login nesta versão:
+1. Confirme o projeto do Web App nos environments e no Firebase Console. A configuração local existente aponta para `cardgame-6fdcb`; não invente outro projeto/bucket.
+2. Em Authentication → Sign-in method, habilite Email/Password e Google, incluindo a configuração exigida pelo Console para o provedor Google.
+3. Confira Authorized domains para localhost e o domínio final. Permita o popup do Google no navegador quando necessário.
+4. Crie a conta do proprietário em Authentication ou cadastre-a pela aplicação depois de configurar as Rules. Copie o UID; a tela da conta sem acesso também mostra esse identificador.
+5. Confirme o Firestore padrão e sua região. Crie/edite `users/{UID_EXATO}` com strings `role = admin` e `roleId = admin`. Nome/contato/datas podem ser completados depois; o perfil mínimo é compatível.
+6. Confirme Storage, bucket e integração IAM de Rules Storage → Firestore quando solicitada.
+7. Em uma ação futura autorizada, publique as Rules/índices revisados. Não executar deploy nesta fase.
+8. Entre novamente se o perfil anterior falhou; confira acesso às rotas, operações de dados e logout. O listener reconhece alterações de papel em uma sessão com perfil observado.
 
-1. Confirme o projeto `cardgame-6fdcb` nos environments e no Firebase Console.
-2. Em Authentication → Sign-in method, habilite Email/Password quando esse fluxo for implementado.
-3. Em Authentication → Users, crie o proprietário com e-mail/senha e copie seu UID. Não coloque a senha em arquivos ou commits.
-4. Confirme o banco Firestore padrão e sua região.
-5. Crie `users/{UID_EXATO}` com campos string `role = admin` e `roleId = admin`.
-6. Confirme Storage, bucket configurado e integração de Rules Storage → Firestore quando o Console solicitar a permissão necessária.
-7. Em uma ação futura autorizada, publique as Rules revisadas. Esta entrega local não publica Rules nem Hosting.
-8. Confira domínios autorizados do Auth e valide login, autorização e revogação quando a implementação existir.
+Criar a conta Auth, conhecer seu e-mail ou vincular um perfil não concede admin. Depois do bootstrap, administradores podem atribuir papéis a outros perfis pelo painel, sujeitos às Rules.
 
-Criar uma conta Auth ou um perfil admin no Console não acrescenta um formulário de login à aplicação. O primeiro administrador é provisionado pelo proprietário; a interface não oferece autopromoção.
+## Perfis e credenciais
 
-## Perfis de usuários
-
-As telas `/admin/usuarios/lista`, `/admin/usuarios/criar` e `/admin/usuarios/editar/:uid` administram o modelo de perfis Firestore. Vincular um perfil por UID não cria nem verifica a existência de uma conta Auth. `displayName` e `contactEmail` não alteram credenciais ou o e-mail de login da conta. As gravações permanecem sujeitas às Rules, apesar da navegação aberta. Consulte [gestão de usuários](usuarios.md).
+`/admin/usuarios/lista` trabalha com perfis Firestore. Vincular por UID não cria nem verifica contas Auth de terceiros; copie o UID exato no Console. `contactEmail` é contato administrativo, separado do e-mail de login. Editá-lo não altera senha, e-mail Auth ou métodos de acesso. Não há backend Admin SDK nem gestão de credenciais nesta fase.
 
 ## Configuração local e imagens
 
-Em um clone novo, copie [environment.example.ts](config/environment.example.ts) para os dois arquivos em `src/environments/` e preencha os valores públicos do seu Web App. Use `production:false` no development. Não copie service accounts nem senhas. Os environments reais continuam ignorados conforme a estratégia existente.
+Copie [environment.example.ts](config/environment.example.ts) para os dois environments e preencha somente valores públicos do SDK. Use production false no development. Arquivos reais continuam ignorados; nunca adicionar service accounts, chaves privadas, tokens ou senhas.
 
-Downloads via `getBlob` podem exigir CORS no bucket. [storage.cors.example.json](config/storage.cors.example.json) permite somente GET a partir de `http://localhost:4200`; revise a lista de origens antes de uma configuração externa futura. CORS não é configurável pelo formulário do Firebase Console: o proprietário pode aplicar o arquivo usando Google Cloud CLI/Cloud Shell (`gcloud storage buckets update gs://SEU_BUCKET --cors-file=docs/config/storage.cors.example.json`), depois de conferir o bucket. Esse comando **não foi executado** nesta tarefa. CORS não substitui as Rules. Referência: [downloads diretos Firebase](https://firebase.google.com/docs/storage/web/download-files).
+`getBlob` pode exigir CORS do bucket, além das Rules. [storage.cors.example.json](config/storage.cors.example.json) permite GET de localhost:4200; revise as origens antes de aplicar externamente. O proprietário pode usar Google Cloud CLI/Cloud Shell depois de conferir o bucket:
+
+```text
+gcloud storage buckets update gs://SEU_BUCKET --cors-file=docs/config/storage.cors.example.json
+```
+
+Esse comando não foi executado nesta tarefa. CORS não concede autorização Firebase. Provedores, domínios, IAM, CORS, banco/bucket e Rules remotas não foram verificados no Console; consulte [riscos](riscos-e-dividas-tecnicas.md).

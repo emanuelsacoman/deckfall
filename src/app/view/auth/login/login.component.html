@@ -1,9 +1,55 @@
 <main class="login-page">
   <section class="login-card" aria-labelledby="login-title">
     <div class="brand"><span class="brand-mark" aria-hidden="true">D</span> Deckfall</div>
-    <p class="eyebrow">Em breve</p>
-    <h1 id="login-title">Login</h1>
-    <p class="muted">Esta tela está reservada para a implementação futura da autenticação.</p>
-    <a class="button" routerLink="/admin/dashboard">Abrir painel</a>
+    <p class="eyebrow">Sua conta</p>
+    <h1 id="login-title">{{ mode() === 'register' ? 'Crie sua conta' : 'Entre no Deckfall' }}</h1>
+    <p class="muted">Cadastre-se ou entre com e-mail e senha ou Google.</p>
+    @if (auth.currentUser() === undefined && !submitting()) {
+      <p class="notice" role="status">Verificando a sessão…</p>
+    }
+    @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
+    @if (auth.sessionError()) { <p class="notice" role="status">{{ auth.sessionError() }}</p> }
+    @if (auth.isAdmin()) {
+      <a class="button full-width" routerLink="/admin/dashboard">Acessar painel</a>
+      <button class="secondary full-width" type="button" (click)="logout()" [disabled]="submitting()">Encerrar sessão</button>
+    } @else {
+    @if (auth.currentUser(); as user) {
+      <section class="pending-access" aria-labelledby="pending-title">
+        <h2 id="pending-title">Permissão administrativa pendente</h2>
+        <p>Sua conta: {{ user.email || 'E-mail não informado' }}</p>
+        <p>UID: <code>{{ user.uid }}</code></p>
+        <p class="muted">O cadastro cria uma conta de membro. Um administrador precisa conceder acesso ao painel.</p>
+        <details class="bootstrap-help">
+          <summary>Configurar o primeiro administrador</summary>
+          <p>Se você é o proprietário, abra o Firebase Console → Firestore e configure o documento <code>users/{{ user.uid }}</code>.</p>
+          <p>Defina os campos de texto <code>role</code> e <code>roleId</code> como <code>admin</code>. A permissão depende desse perfil, não do e-mail.</p>
+          <p>Após configurar, a sessão acompanhará a mudança. Se houve erro de leitura, encerre a sessão e entre novamente.</p>
+        </details>
+        <button class="secondary full-width" type="button" (click)="logout()" [disabled]="submitting()">{{ submitting() ? 'Saindo…' : 'Encerrar sessão / usar outra conta' }}</button>
+      </section>
+    } @else {
+      <div class="auth-tabs" aria-label="Escolha como acessar">
+        <button type="button" class="secondary" [attr.aria-pressed]="mode() === 'login'" [disabled]="submitting()" (click)="changeMode('login')">Entrar</button>
+        <button type="button" class="secondary" [attr.aria-pressed]="mode() === 'register'" [disabled]="submitting()" (click)="changeMode('register')">Registrar</button>
+      </div>
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        @if (mode() === 'register') {
+          <div class="field"><label for="display-name">Nome (opcional)</label><input id="display-name" formControlName="displayName" autocomplete="name" maxlength="120">
+            @if (form.controls.displayName.touched && form.controls.displayName.invalid) { <span class="field-error">Use até 120 caracteres.</span> }
+          </div>
+        }
+        <div class="field"><label for="email">E-mail</label><input id="email" type="email" formControlName="email" autocomplete="username" [attr.aria-invalid]="form.controls.email.touched && form.controls.email.invalid">
+          @if (form.controls.email.touched && form.controls.email.invalid) { <span class="field-error">Informe um e-mail válido.</span> }
+        </div>
+        <div class="field"><label for="password">Senha</label><input id="password" type="password" formControlName="password" [attr.autocomplete]="mode() === 'register' ? 'new-password' : 'current-password'" [attr.aria-invalid]="form.controls.password.touched && form.controls.password.invalid">
+          @if (form.controls.password.touched && form.controls.password.invalid) { <span class="field-error">{{ mode() === 'register' ? 'Use pelo menos 6 caracteres.' : 'Informe sua senha.' }}</span> }
+        </div>
+        <button class="full-width" type="submit" [disabled]="submitting() || auth.currentUser() === undefined" [attr.aria-busy]="submitting()">{{ submitting() ? 'Aguarde…' : mode() === 'register' ? 'Criar conta' : 'Entrar' }}</button>
+      </form>
+      <div class="auth-divider"><span>ou</span></div>
+      <button class="secondary full-width" type="button" (click)="google()" [disabled]="submitting() || auth.currentUser() === undefined">Continuar com Google</button>
+      <p class="access-note">Novas contas recebem o papel de membro. O painel exige permissão administrativa.</p>
+    }
+    }
   </section>
 </main>

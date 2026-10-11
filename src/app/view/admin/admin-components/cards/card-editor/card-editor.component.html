@@ -1,0 +1,42 @@
+<header class="editor-heading">
+  <div><p class="eyebrow">Estúdio de cartas</p><h1>{{ original() ? 'Editar carta' : 'Criar carta' }}</h1></div>
+  <div class="actions"><span class="save-indicator">{{ state.dirty() ? 'Alterações pendentes' : 'Design atual' }}</span><a class="button secondary" routerLink="/admin/cartas/lista">Voltar à lista</a></div>
+</header>
+@if (error()) { <div class="notice error" role="alert">{{ error() }} @if (recoveryId()) { <a [routerLink]="['/admin/cartas/editar', recoveryId()]">Verificar carta {{ recoveryId() }}</a> } @if (mode === 'edit') { <button type="button" class="secondary" (click)="reloadAfterError()" [disabled]="state.busy()">Recarregar carta</button> } <button type="button" class="secondary" (click)="error.set('')">Fechar</button></div> }
+@if (feedback()) { <p class="notice success" role="status">{{ feedback() }}</p> }
+@for (warning of warnings(); track warning) { <p class="notice" role="alert">{{ warning }}</p> }
+@if (loading()) { <p role="status" class="notice">Carregando editor...</p> } @else if (loadError()) {
+  <div class="notice error" role="alert"><p>{{ loadError() }}</p><button type="button" class="secondary" (click)="loadCard()">Tentar carregar novamente</button></div>
+} @else {
+  <app-card-toolbar [busy]="state.busy()" [hasSavedCard]="!!original()" [dataValid]="dataValid() && !recoveryId()" (action)="handleAction($event)" (exportRequested)="exportImage($event)" />
+  <div class="editor-workspace" [class.preview-mode]="state.mode() === 'preview'" [class.data-mode]="state.mode() === 'data'" [class.editor-busy]="state.busy()" [attr.aria-busy]="state.busy()">
+    @if (state.mode() !== 'preview') {
+      <aside class="editor-left" aria-label="Elementos e camadas">
+        <fieldset [disabled]="state.busy()"><app-element-library (assetSelected)="selectAsset($event)" /><app-card-layers /></fieldset>
+      </aside>
+    }
+    <section class="editor-center" aria-label="Preview da carta"><app-card-canvas [assetUrls]="assets.urls()" (renderError)="error.set($event)" /></section>
+      <aside class="editor-right" aria-label="Dados e propriedades" [hidden]="state.mode() === 'preview'">
+        <fieldset [disabled]="state.busy()">
+          <app-card-data [hidden]="state.mode() !== 'data'" (validityChanged)="dataValid.set($event)" />
+          <app-card-properties [hidden]="state.mode() !== 'design'" (assetSelected)="selectAsset($event)" />
+        </fieldset>
+      </aside>
+  </div>
+}
+<input id="editor-json-file" class="visually-hidden" type="file" accept="application/json,.json" (change)="importJson($event)" />
+@if (modal(); as active) {
+  <div class="modal-backdrop"><section class="editor-modal panel" role="dialog" aria-modal="true" aria-labelledby="template-dialog-title">
+    <div class="modal-heading"><h2 id="template-dialog-title">{{ active === 'save-template' ? 'Salvar como template' : 'Escolher template' }}</h2><button type="button" class="secondary" (click)="modal.set(null)" [disabled]="state.busy()">Fechar</button></div>
+    @if (templateError()) { <p class="notice error" role="alert">{{ templateError() }}</p> }
+    @if (active === 'save-template') {
+      <label for="template-name">Nome do template</label><input id="template-name" [(ngModel)]="templateName" maxlength="120" [disabled]="state.busy()" />
+      <p class="muted">O design e os atributos iniciais serão reutilizáveis em outras cartas. As imagens terão arquivos próprios.</p>
+      <button type="button" (click)="saveTemplate()" [disabled]="state.busy() || !templateName.trim()">Salvar template no Firebase</button>
+    } @else {
+      <button type="button" class="template-option secondary" (click)="applyTemplate(null)" [disabled]="state.busy()"><strong>Fantasy Basic</strong><span>Template inicial editável, disponível localmente</span></button>
+      @for (template of templateList(); track template.id) { <button type="button" class="template-option secondary" (click)="applyTemplate(template)" [disabled]="state.busy()"><strong>{{ template.name }}</strong><span>{{ template.canvas.elements.length }} camadas</span></button> }
+      <button type="button" class="secondary" (click)="listTemplates()" [disabled]="state.busy()">Atualizar templates do Firebase</button>
+    }
+  </section></div>
+}

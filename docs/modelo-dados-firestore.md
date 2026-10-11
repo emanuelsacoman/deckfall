@@ -1,21 +1,62 @@
 # Modelo Firestore
 
-## Coleções
+Contratos ficam em `model/interfaces`. IDs pertencem ao caminho e são acrescentados na leitura; não precisam ser duplicados no documento. Timestamps persistidos são de servidor. Não armazenar File, Blob, Base64, URLs de download, nós Konva, listeners ou histórico no Firestore.
 
-`users/{uid}`: perfil administrativo com `role` e `roleId` iguais (`admin`/`member`), `displayName`, `contactEmail`, `createdAt` e `updatedAt`. UID pertence ao caminho, sem duplicação no documento. Nome e contato são strings opcionais no conteúdo (vazio permitido), limitadas a 120 e 254 caracteres. Novo perfil exige os seis campos e timestamps de servidor. O bootstrap mínimo `role`/`roleId` continua legível/editável: datas antigas ausentes não são inventadas; atualização recebe `updatedAt`, preservando `createdAt` existente ou sua ausência.
+## `users/{uid}`
 
-As Rules preservadas permitem que admin liste, leia e escreva perfis e que um autenticado leia o próprio. Membros não escrevem nem se promovem; exclusão e próprio rebaixamento são negados. A aplicação atual não autentica usuários nem resolve sessão: a navegação aberta não concede essas permissões, e as operações protegidas são rejeitadas sem sessão por um backend que aplique essas Rules. E-mail de contato não é credencial de login. Não misturar dados públicos do jogador nesta coleção. Leia [usuários](usuarios.md) para detalhes.
+Perfil com `displayName`, `contactEmail`, `role`, `roleId`, `createdAt` e `updatedAt`. Nome/contato podem ser vazios, limitados a 120/254 caracteres. Papéis aceitos: `admin` e `member`, sempre iguais nos dois campos.
 
-`cards/{cardId}`: `name`, `slug`, `description`, `rarity`, `status`, `art`, `attributes`, `setId`, `createdAt`, `updatedAt`. ID pertence ao caminho e não precisa ser gravado no documento. Timestamps são de servidor, não relógio do browser.
+Cadastro autenticado cria somente o próprio perfil member, com e-mail de contato igual ao e-mail do token e timestamps de servidor. Um perfil existente nunca é sobrescrito automaticamente pelo login. O bootstrap mínimo antigo, apenas role/roleId, continua legível; edição completa recebe updatedAt e preserva createdAt ou sua ausência.
 
-- Raridades: `common`, `rare`, `epic`, `legendary`.
-- Status: `draft`, `published`, `archived`.
-- `art`: null ou mapa `{ storagePath, fileName, contentType, size }`.
-- `attributes`: lista de `{ key, label, value }`, valor numérico finito entre 0 e 100. A lista não depende de quatro chaves fixas.
-- `setId`: string ou null, reservado para associação futura; não há coleção de sets nesta fase.
+Admin lê/lista/vincula/edita perfis. Um autenticado lê o próprio perfil; membros não fazem update nem se promovem. Exclusão de perfis e rebaixamento do próprio admin são negados pelas Rules. `contactEmail` não altera a credencial Auth. A lista não representa todas as contas Authentication; veja [usuários](usuarios.md) e [autenticação](autenticacao-e-admin.md).
 
-As regras limitam campos e valores; leitura pública apenas `published`, admin lê todos e é o único que escreve. Sem autenticação no frontend, a lista administrativa completa e as gravações permanecem protegidas pelo backend. Rules não filtram consultas: uma futura lista pública precisa `where('status', '==', 'published')`.
+## `cards/{cardId}`
 
-Não persistir File, Blob, Base64 nem URL de download. Slug é derivado do nome; unicidade global não está prometida. Leia [cartas](cartas.md) para os fluxos e limites efetivamente implementados.
+Campos base obrigatórios nas gravações: `name`, `slug`, `description`, `rarity`, `status`, `art`, `attributes`, `setId`, `createdAt`, `updatedAt`. Campos novos opcionais: `type`, `subtype`, `templateId`, `canvas`.
 
-Limites: nome/slug 120 caracteres, descrição 5000, até 8 atributos, chave técnica até 40 (`^[a-z][a-z0-9_-]{0,39}$`), rótulo até 60 e setId até 128. O serviço exige chaves únicas; as Rules validam o conteúdo de cada posição. O limite inicial de 8 conserva margem no orçamento de expressões das Rules, verificado com arte e todos os atributos. `createdAt` permanece imutável na edição e `updatedAt` recebe timestamp do servidor. Tipos de leitura usam `Timestamp | null`; o serviço consulta o servidor antes de operações que dependem da versão.
+| Campo | Contrato |
+| --- | --- |
+| name / slug | Nome obrigatório; slug derivado. Até 120 caracteres |
+| description | Até 5000 caracteres |
+| rarity | common, rare, epic, legendary |
+| status | draft, published, archived |
+| art | null ou metadados `{storagePath,fileName,contentType,size}` da arte principal |
+| attributes | Lista genérica, até 8 atributos |
+| setId | String até 128 ou null; sets não implementados |
+| type / subtype | String até 80 ou null, quando presentes |
+| templateId | ID até 128 ou null, quando presente |
+| canvas | CardCanvasData versão 1, quando presente |
+| createdAt / updatedAt | Timestamps de servidor; createdAt imutável |
+
+Atributos usam `{key,label,value}` e podem incluir `{id,min,max,icon,color}`. Sem min/max, a faixa é 0–100. Limites personalizados ficam dentro de ±1.000.000, min < max e valor finito na faixa. Chave até 40, minúscula seguida de letras/números/_/-, rótulo até 60, ID até 128, ícone até 32 e cor validada pelo cliente. IDs/chaves únicos são validados no cliente. Não existe dependência obrigatória dos quatro atributos iniciais.
+
+## Canvas versionado
+
+```text
+canvas
+  version: 1
+  width, height
+  background: {kind,color,color2,angle,assetId}
+  elements: CardCanvasElement[]
+  assets: {id,storagePath,fileName,contentType,size}[]
+```
+
+Elementos possuem ID/nome/tipo, geometria, opacidade, visible/locked e properties tipadas. Tipos atuais: text, icon, rect, circle, line, image, artwork, attribute, bar. A ordem do array determina z-order. Bindings seguros usam campos conhecidos e `attributes.<key>`; conteúdo completo fica em [editor](editor-de-cartas.md).
+
+Limites do cliente: dimensões 160–2048, 64 elementos, 24 assets e documento estruturado até 128 KiB. Fontes/cores/crop/faixas/IDs/referências são validados profundamente antes da persistência/importação. Assets locais podem ter storagePath null; a gravação final pelo serviço exige arquivos materializados no namespace do proprietário.
+
+`firestore.indexes.json` isenta `canvas` de índices de campo único em cards/cardTemplates. O editor não consulta geometria ou propriedades internas. Consultas atuais usam updatedAt; não foram adicionados índices compostos.
+
+## `cardTemplates/{templateId}`
+
+Campos: `name`, `canvas`, `attributes`, `createdAt`, `updatedAt`. Nome obrigatório até 120; canvas e atributos usam os mesmos contratos. ID é acrescentado na leitura. Templates são administrativos, sem catálogo público. O template local Fantasy Basic não é criado automaticamente na coleção.
+
+Salvar uma carta baseada em template preserva templateId como associação e copia assets ao namespace da carta quando necessário. O documento de carta contém seu canvas editável; renderização não exige buscar continuamente o template original.
+
+## Regras e garantias
+
+Cards publicados têm leitura pública de metadados; admin lê todos e é o único que escreve. Templates exigem admin para leitura/escrita. Storage exige admin para artes/assets, aceita imagens declaradas PNG/JPEG/WebP até 5 MiB, exige documento proprietário no upload e bloqueia overwrite.
+
+Rules validam campos base, raridade/status, timestamps, atributos numéricos/ranges e envelope do canvas: versão, dimensões, background estrutural, até 64 elementos e 24 assets. Não fazem a validação profunda de toda union de elementos, IDs/metadados de cada asset ou todos os valores visuais. O limite de 128 KiB e validação profunda são garantias do cliente, não devem ser anunciados como enforcement completo das Rules. Ampliar limites exige testes no orçamento de expressões.
+
+Rules não filtram consultas: uma lista pública futura precisa consultar somente `status == published`. Slug não garante unicidade global. Consulte [cartas](cartas.md) para transações e compensação. Backend remoto e publicação das Rules/índices continuam sujeitos à conferência externa; nenhum deploy foi feito nesta entrega.
