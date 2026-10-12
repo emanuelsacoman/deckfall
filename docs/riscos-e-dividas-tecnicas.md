@@ -40,6 +40,8 @@ Assets de outro proprietário são copiados pelo serviço antes da gravação fi
 
 As listas administrativas carregam coleções completas. Paginação será necessária com maior volume. Slug não garante unicidade global. Arte permanece privada mesmo quando a carta está published; um catálogo público precisa decidir distribuição/revogação de imagens.
 
+A galeria gera prévias perto da área visível, com até dois jobs de renderização e downloads simultâneos. O PNG final tem as dimensões salvas (até 2048×2048); URLs de cartas já visitadas permanecem enquanto a galeria está montada. Rolar por muitas cartas grandes pode aumentar uso de memória; virtualização/cache persistente de thumbnails continuam futuros. Cancelar um job rejeita o consumidor e libera Stage/URLs, mas `getBlob` em andamento não é abortável pelo SDK: o slot fica reservado até essa chamada terminar, sem iniciar downloads extras.
+
 A lista de usuários mostra perfis Firestore, não todas as contas Authentication. Vincular por UID não confirma que a conta existe; gestão de credenciais de terceiros ou sincronização completa exigirá backend/Admin SDK. O titular já pode vincular seus próprios métodos e solicitar recuperação de senha em Minha conta.
 
 Rules bloqueiam próprio rebaixamento, mas o formulário atual de perfis não identifica o usuário corrente. Não há garantia global de último admin em solicitações concorrentes; recuperação pode ser feita pelo Console. Cadastro da conta Auth e criação do perfil não são atômicos: falha do perfil pode exigir novo login após configurar Rules.

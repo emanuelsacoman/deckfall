@@ -4,11 +4,14 @@ import { Router, RouterLink } from '@angular/router';
 import { Card, CARD_RARITY_LABELS, CARD_STATUS_LABELS } from '../../../../../model/interfaces/Cards/card';
 import { CardService } from '../../../../../model/services/cruds/cards/card.service';
 import { CardStorageService } from '../../../../../model/services/fire/card-storage.service';
+import { CardPreviewComponent } from '../card-preview/card-preview.component';
+
+type CardDisplayMode = 'list' | 'cards';
 
 @Component({
   selector: 'app-card-list',
   standalone: true,
-  imports: [DatePipe, RouterLink],
+  imports: [DatePipe, RouterLink, CardPreviewComponent],
   templateUrl: './card-list.component.html',
   styleUrl: './card-list.component.css'
 })
@@ -17,9 +20,11 @@ export class CardListComponent implements OnInit, OnDestroy {
   private readonly storage = inject(CardStorageService);
   private readonly router = inject(Router);
   private loadVersion = 0;
+  private artVersion = 0;
   private destroyed = false;
 
   readonly cards = signal<Card[]>([]);
+  readonly displayMode = signal<CardDisplayMode>('list');
   readonly loading = signal(true);
   readonly error = signal('');
   readonly deletingId = signal<string | null>(null);
@@ -39,6 +44,7 @@ export class CardListComponent implements OnInit, OnDestroy {
   async load(): Promise<void> {
     if (this.deletingId()) return;
     const version = ++this.loadVersion;
+    ++this.artVersion;
     this.releaseArtUrls();
     this.cards.set([]);
     this.artFailures.set(new Set());
@@ -48,7 +54,7 @@ export class CardListComponent implements OnInit, OnDestroy {
       const cards = await this.service.list();
       if (!this.isCurrent(version)) return;
       this.cards.set(cards);
-      void this.loadArt(cards, version);
+      if (this.displayMode() === 'list') void this.loadArt(cards, version);
     } catch (error: unknown) {
       if (this.isCurrent(version)) {
         this.error.set(error instanceof Error ? error.message : 'Não foi possível carregar as cartas.');
@@ -56,6 +62,12 @@ export class CardListComponent implements OnInit, OnDestroy {
     } finally {
       if (this.isCurrent(version)) this.loading.set(false);
     }
+  }
+
+  setDisplayMode(mode: CardDisplayMode): void {
+    if (this.displayMode() === mode) return;
+    this.displayMode.set(mode); ++this.artVersion; this.releaseArtUrls(); this.artFailures.set(new Set());
+    if (mode === 'list' && !this.loading()) void this.loadArt(this.cards(), this.loadVersion);
   }
 
   async deleteCard(card: Card): Promise<void> {
@@ -88,24 +100,27 @@ export class CardListComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     ++this.loadVersion;
+    ++this.artVersion;
     this.releaseArtUrls();
   }
 
   private async loadArt(cards: Card[], version: number): Promise<void> {
+    const artVersion = ++this.artVersion;
+    const current = (): boolean => this.isCurrent(version) && this.artVersion === artVersion && this.displayMode() === 'list';
     const withArt = cards.filter(card => card.art);
     // Bound simultaneous downloads while keeping the document list usable.
-    for (let start = 0; start < withArt.length && this.isCurrent(version); start += 4) {
+    for (let start = 0; start < withArt.length && current(); start += 4) {
       await Promise.all(withArt.slice(start, start + 4).map(async card => {
         if (!card.art) return;
         try {
           const url = await this.storage.getArtUrl(card.art);
-          if (!this.isCurrent(version) || !this.cards().some(item => item.id === card.id)) {
+          if (!current() || !this.cards().some(item => item.id === card.id)) {
             URL.revokeObjectURL(url);
             return;
           }
           this.artUrls.update(urls => ({ ...urls, [card.id]: url }));
         } catch {
-          if (this.isCurrent(version) && this.cards().some(item => item.id === card.id)) {
+          if (current() && this.cards().some(item => item.id === card.id)) {
             this.artFailures.update(ids => new Set([...ids, card.id]));
           }
         }

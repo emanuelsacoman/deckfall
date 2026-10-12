@@ -8,6 +8,8 @@ O editor usa Konva 10.7.1 diretamente em Angular 18 standalone, mantendo CSS e a
 
 Contratos ficam em `model/interfaces/Cards`. Estado, fábricas, validação, assets, rascunhos e auxiliares de renderização ficam em `model/services/tools`. `CardEditorComponent` orquestra os serviços CRUD/Storage e o componente canvas. Os painéis apresentam e editam estado local, sem acesso Firebase próprio.
 
+`savedCardDocument` compartilha a adaptação de cartas salvas/legadas com a galeria do catálogo. `CardPreviewService` usa o mesmo renderer no modo Preview para gerar snapshots PNG completos, sem alterar o documento ou criar uma instância interativa do editor por carta. Consulte [os modos do catálogo](cartas.md#templates-lista-e-segurança).
+
 ## Canvas e elementos
 
 `CardCanvasData` versão 1 contém `width`, `height`, `background`, `elements` e `assets`. Cada elemento possui ID estável, nome, tipo, X/Y, largura/altura, rotação, opacidade, visibilidade, bloqueio e propriedades tipadas por uma union discriminada.

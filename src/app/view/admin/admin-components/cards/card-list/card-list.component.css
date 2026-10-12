@@ -1,4 +1,15 @@
 :host { display: block; }
+.display-switch { display: inline-flex; gap: .35rem; padding: .3rem; margin-bottom: 1.5rem; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; }
+.display-switch button { border-color: transparent; }
+.display-switch [aria-pressed="true"] { background: #e8eefb; color: var(--primary); border-color: #b8cae9; }
+.card-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 280px)); align-items: start; justify-content: center; gap: 1.75rem; }
+.gallery-card { position: relative; box-shadow: 0 5px 18px #17243b1a; transition: transform .15s ease, box-shadow .15s ease; }
+.gallery-card:hover, .gallery-card:focus-within { transform: translateY(-3px); box-shadow: 0 10px 25px #17243b26; }
+.gallery-open { position: absolute; inset: 0; z-index: 1; }
+.gallery-open span { position: absolute; right: .75rem; bottom: .75rem; padding: .55rem .8rem; border-radius: 6px; background: var(--primary); color: white; font-size: .85rem; font-weight: 600; opacity: 0; transition: opacity .15s ease; }
+.gallery-card:hover .gallery-open span, .gallery-open:focus-visible span { opacity: 1; }
+@media (hover: none) { .gallery-open span { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .gallery-card, .gallery-open span { transition: none; } .gallery-card:hover, .gallery-card:focus-within { transform: none; } }
 .card-art { display: block; width: 64px; height: 88px; object-fit: contain; border-radius: .25rem; }
 .art-placeholder { display: block; min-width: 80px; max-width: 130px; font-size: .8rem; }
 .row-actions { flex-wrap: nowrap; }

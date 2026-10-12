@@ -2,13 +2,18 @@
   <div>
     <p class="eyebrow">Cartas</p>
     <h1>Todas as cartas</h1>
-    <p class="muted">Gerencie dados, atributos e artes do catálogo.</p>
+    <p class="muted">{{ displayMode() === 'cards' ? 'Clique em uma carta para abrir a edição.' : 'Gerencie dados, atributos e artes do catálogo.' }}</p>
   </div>
   <div class="actions">
     <button class="button secondary" type="button" (click)="load()" [disabled]="loading() || !!deletingId()">Atualizar</button>
     <a class="button" routerLink="/admin/cartas/criar">Criar carta</a>
   </div>
 </header>
+
+<div class="display-switch" role="group" aria-label="Visualização das cartas">
+  <button class="secondary" type="button" [attr.aria-pressed]="displayMode() === 'list'" (click)="setDisplayMode('list')">Lista</button>
+  <button class="secondary" type="button" [attr.aria-pressed]="displayMode() === 'cards'" (click)="setDisplayMode('cards')">Cartas inteiras</button>
+</div>
 
 @if (feedback()) {
   <p class="notice success" role="status">{{ feedback() }}</p>
@@ -25,6 +30,16 @@
 @if (loading()) {
   <p class="notice" role="status">Carregando cartas...</p>
 } @else if (cards().length > 0) {
+  @if (displayMode() === 'cards') {
+    <div class="card-gallery" aria-label="Galeria de cartas completas">
+      @for (card of cards(); track card.id) {
+        <article class="gallery-card">
+          <app-card-preview [card]="card" />
+          <a class="gallery-open" [routerLink]="['/admin/cartas/editar', card.id]" [attr.aria-label]="'Editar ' + card.name"><span>Editar carta</span></a>
+        </article>
+      }
+    </div>
+  } @else {
   <div class="panel table-wrap">
     <table>
       <caption class="visually-hidden">Cartas do catálogo administrativo</caption>
@@ -64,6 +79,7 @@
       </tbody>
     </table>
   </div>
+  }
 } @else if (!error()) {
   <div class="panel">
     <h2>Nenhuma carta criada</h2>

@@ -1,0 +1,12 @@
+<div #frame class="card-preview" [style.aspect-ratio]="aspectRatio" [attr.aria-busy]="loading()">
+  @if (url(); as image) {
+    <img [src]="image" [alt]="'Carta completa: ' + card.name" decoding="async" (error)="imageFailed()" />
+  } @else if (error()) {
+    <div class="preview-message preview-error" role="alert">
+      <strong>{{ card.name }}</strong><span>{{ error() }}</span>
+      <button class="secondary" type="button" (click)="loadPreview()" [disabled]="loading()">Tentar novamente</button>
+    </div>
+  } @else {
+    <div class="preview-message" role="status"><strong>{{ card.name }}</strong><span>{{ loading() ? 'Carregando carta…' : 'Aguardando prévia…' }}</span></div>
+  }
+</div>

@@ -20,6 +20,7 @@ O CORS do Storage foi configurado e confirmado para leitura em `http://localhost
 - **Design, Dados e Preview:** propriedades por tipo, bindings seguros, atributos com limites personalizados, grid, snap, zoom e visualização limpa.
 - **Histórico e exportação:** desfazer/refazer, atalhos e PNG/JPEG em 1×, 2× ou 4×, respeitando dimensões reais e orçamento de pixels.
 - **Cartas e templates:** salvar/reabrir o modelo próprio no Firestore, uploads organizados no Storage, Fantasy Basic editável, salvar/carregar templates e preparar cópias de cartas.
+- **Catálogo em dois modos:** lista administrativa ou galeria de cartas inteiras, com a composição salva, proporção original e acesso à edição ao clicar.
 - **Rascunho local:** salvamento manual de documento e imagens em IndexedDB; importação/exportação de JSON para o modelo estruturado.
 - **Edição com imagens indisponíveis:** a carta abre sem esperar downloads; falhas têm nova tentativa manual e referências dos arquivos próprios podem ser conservadas ao salvar dados/design.
 - **Usuários:** consultar, vincular por UID e editar perfis Firestore e papéis com confirmação. Alterar contato não muda credenciais.
@@ -79,7 +80,7 @@ Os testes Angular precisam do Chrome. Os testes de Rules precisam da Firebase CL
 
 Resultados finais e detalhes do ambiente ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Verificações locais não confirmam a configuração nem a publicação do backend remoto.
 
-Validação local: **195 testes Angular, 17 cenários de Security Rules e build de produção aprovados**, incluindo edição com downloads bloqueados, pixels transparentes, espelhamento, efeitos, bordas, alinhamento e exportação. OAuth Google e entrega de recuperação de senha reais dependem da configuração do Firebase Console.
+Validação local: **220 testes Angular, 17 cenários de Security Rules e build de produção aprovados**, incluindo modos lista/galeria, prévias completas, cancelamento, edição com downloads bloqueados, transparência, efeitos e exportação. OAuth Google e entrega de recuperação de senha reais dependem da configuração do Firebase Console.
 
 ## Documentação e desenvolvimento
 

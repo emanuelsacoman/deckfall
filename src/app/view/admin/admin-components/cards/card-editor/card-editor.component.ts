@@ -15,6 +15,7 @@ import { validateCardInput } from '../../../../../model/services/tools/card-vali
 import { CardEditorStateService } from '../../../../../model/services/tools/card-editor-state.service';
 import { CardEditorAssetsService } from '../../../../../model/services/tools/card-editor-assets.service';
 import { CardLocalDraftService } from '../../../../../model/services/tools/card-local-draft.service';
+import { savedCardDocument } from '../../../../../model/services/tools/card-saved-document';
 import { CardCanvasComponent } from './card-canvas/card-canvas.component';
 import { CardToolbarComponent } from './card-toolbar/card-toolbar.component';
 import { CardLayersComponent } from './card-layers/card-layers.component';
@@ -343,15 +344,7 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
       subtype: input.subtype ?? null, templateId: input.templateId ?? null };
   }
   private documentFromCard(card: Card): CardEditorDocument {
-    const data = this.dataFromInput(card);
-    const canvas = card.canvas ? structuredClone(card.canvas) : fantasyBasicCanvas(data);
-    if (!card.canvas && card.art) {
-      const asset = { ...card.art, id: 'legacy-art' };
-      canvas.assets.push(asset);
-      const artwork = canvas.elements.find(element => element.type === 'artwork');
-      if (artwork?.type === 'artwork') artwork.properties.assetId = asset.id;
-    }
-    return { data: { ...data, attributes: normalizeEditorAttributes(data.attributes) }, canvas };
+    return savedCardDocument(card);
   }
   private message(error: unknown): string { return error instanceof Error ? error.message : 'Não foi possível concluir a operação.'; }
   private download(blob: Blob, fileName: string): void {

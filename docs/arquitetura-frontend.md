@@ -39,6 +39,7 @@ O shell administrativo possui guard no pai e nos filhos, observa revogação de 
 ```text
 cards/
   card-list/
+  card-preview/
   card-create/
   card-edit/
   card-editor/
@@ -78,6 +79,10 @@ model/services/tools/card-konva-renderer.ts
 model/services/tools/card-konva-elements.ts
 model/services/tools/card-filter-cache.ts
 model/services/tools/card-export.service.ts
+model/services/tools/card-preview.service.ts
+model/services/tools/card-saved-document.ts
 ```
 
 Listas carregam sob demanda e permitem retry, sem listener permanente da coleção inteira. Auth observa a conta e seu perfil. O dashboard não consulta dados apenas para preencher contadores. Leia [editor](editor-de-cartas.md), [cartas](cartas.md) e [autenticação](autenticacao-e-admin.md) antes de alterar esses fluxos.
+
+O catálogo possui modo de tabela e galeria. `CardPreviewComponent` gerencia visibilidade, cancelamento e a URL final da imagem; `CardPreviewService` limita renderizações a dois jobs, baixa assets autenticados e gera PNG pelo renderer existente. Não há editor interativo nem Stage permanente em cada item. `savedCardDocument` adapta o modelo salvo/legado para uso tanto no editor como na galeria, mantendo uma fonte para essa compatibilidade.
