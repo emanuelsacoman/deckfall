@@ -1,6 +1,6 @@
 # Contexto operacional
 
-O projeto pertence a Emanuel Sacoman. CardGame é a base Angular da plataforma de cartas digitais; Firebase Hosting aponta para o site `deckfall`. O requisito mais recente evolui criação/edição para editor visual Konva e restabelece login/cadastro por e-mail/senha e Google. Novas contas são membros; admin exige `role` e `roleId` iguais a `admin`. Sem jogo, marketplace, decks ou RBAC complexo. Leia [editor](editor-de-cartas.md) para canvas próprio, templates e limites.
+O projeto pertence a Emanuel Sacoman. CardGame é a base Angular da plataforma de cartas digitais; Firebase Hosting aponta para o site `deckfall`. A implementação reúne editor visual Konva, login/cadastro por e-mail/senha e Google, painel administrativo e primeira área visual do jogador. Novas contas são membros; admin exige `role` e `roleId` iguais a `admin`. `/game` admite member/admin com sessão/perfil válido; coleção, decks e modos de jogo são placeholders, sem gameplay, PvP, partidas, inventário, economia ou RBAC complexo. Leia [editor](editor-de-cartas.md) para canvas próprio, templates e limites.
 
 ## Reconhecimento em 11/10/2026
 
@@ -18,6 +18,10 @@ O projeto pertence a Emanuel Sacoman. CardGame é a base Angular da plataforma d
 Leia [autenticação](autenticacao-e-admin.md) para provedores/primeiro admin e [riscos](riscos-e-dividas-tecnicas.md) antes de depender do backend. Cadastro não concede cargos administrativos; não relaxe Rules. A configuração pública Firebase não é credencial administrativa. Novos clones precisam reproduzir os environments locais; nenhum segredo deve entrar no repositório.
 
 `/login` também é Minha conta quando autenticado, com métodos lidos do Auth, vínculo Google/senha ao mesmo UID e reautenticação antes de adicionar senha. O admin tem um atalho para essa tela. Recuperação usa `sendPasswordResetEmail` e o handler hospedado padrão; não altera Firestore nem sessão. Não persistir senhas durante fallback/redirect e não usar `contactEmail` como credencial. Veja [os fluxos](autenticacao-e-admin.md).
+
+`/game` redireciona para `/game/home`; Início, Coleção, Decks, Jogar e Perfil usam um layout próprio em `view/game`, lazy loading e CSS responsivo. Perfil reutiliza nome/contato/papel da sessão e aponta para Minha conta em `/login`. O painel tem Área do jogador; o jogo mostra Painel administrativo apenas para admin. Não preencher placeholders com consultas Firebase, números fictícios ou serviços vazios. Storage mantém artes/assets administrativos.
+
+`authenticatedGuard`/`authenticatedChildGuard` exigem UID e `role`/`roleId` iguais em member/admin; `adminGuard`/`adminChildGuard` continuam exclusivos de admin. Login/cadastro member segue por padrão para `/game/home`, admin para `/admin/dashboard`; um `returnUrl` interno correspondente a rota permitida tem prioridade. Nome/contato do perfil são projetados em `AuthSession`, sem alterar o modelo persistido nem o e-mail Auth. Veja [rotas e divisão de telas](arquitetura-frontend.md) e [autorização](autenticacao-e-admin.md).
 
 PNG já transparente deve preservar seu alpha: presets de imagem/arte e uploads PNG usam preenchimento transparente; imagens antigas podem usar **Usar fundo transparente** em Propriedades. A cor de preenchimento continua opcional e o fundo geral da carta é independente. Arquivos/contratos/Rules não mudam. Veja [transparência no editor](editor-de-cartas.md#imagens-png-transparentes).
 
@@ -57,3 +61,11 @@ Para repetir Rules nesta máquina com o runtime portátil já obtido, prefixe o 
 - Os 17 cenários de Security Rules passaram novamente no projeto isolado `demo-cardgame`; Firestore/Storage foram encerrados ao concluir. Java 21 portátil foi usado somente no PATH da sessão PowerShell.
 - As três execuções iniciais encontraram `EPERM` no sandbox ao resolver o perfil Windows. As repetições fora dele receberam aprovação automática. Logs ignorados em `.local-tools/deckfall-cors-angular-test.log`, `deckfall-cors-production-build.log` e `deckfall-cors-rules-test.log`.
 - `git diff --check` passou após a atualização da documentação; status foi revisado, com mudanças apenas no README, guia CORS, exemplo de configuração, contexto operacional e riscos.
+
+## Validação da área do jogador — 12/10/2026
+
+- Jasmine/Karma: 274 testes aprovados na suíte completa, incluindo acesso de member/admin a `/game`, bloqueio administrativo para member, espera/negação de sessão inválida, preservação e validação de `returnUrl`, destinos padrão por papel, `/game` → `/game/home`, navegação e link administrativo condicional, logout/revogação, dados de perfil e controles de placeholders desabilitados. Os fluxos anteriores de autenticação, catálogo e editor continuam incluídos na suíte.
+- Build de produção final passou sem avisos após os ajustes mobile. Security Rules: 17 cenários aprovados em `demo-cardgame`, com Rules inalteradas; emuladores Firestore/Storage encerrados ao concluir. Java 21 portátil foi acrescentado somente ao PATH da sessão PowerShell.
+- QA visual e de layout: componentes reais compilados em uma prévia local em `127.0.0.1`, com `AuthService` substituído por sessões member/admin em memória. Chrome headless/CDP usou um perfil separado para conferir as cinco páginas em larguras de 320, 390, 768 e 1440 pixels, sem overflow horizontal. Screenshots desktop/mobile foram inspecionados; os cinco destinos da navegação permanecem visíveis no celular. Essa prévia não usou conta Firebase real nem exercitou OAuth, acesso remoto ou persistência no backend.
+- Os três comandos inicialmente encontraram `EPERM` no sandbox ao resolver o perfil Windows; as repetições fora dele receberam aprovação automática. Logs ignorados em `.local-tools/player-area-angular-test.log`, `player-area-production-build.log` e `player-area-rules-test.log`. Não houve atualização de dependências, alteração de modelos persistidos/Rules ou deploy.
+- Ao adicionar rotas, manter a lista explícita de destinos permitidos em `returnUrl` e seus testes. Coleção, decks e partidas continuam somente como estrutura visual; nenhum serviço, documento ou coleção de gameplay foi criado.

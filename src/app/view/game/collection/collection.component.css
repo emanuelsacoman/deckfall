@@ -1,0 +1,25 @@
+.collection-tools { padding: 1.4rem; }
+.tools-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: .6rem; margin-bottom: 1.2rem; }
+.tools-heading h2 { font-size: .9rem; font-weight: 550; margin: 0; }
+.tools-heading > span { color: var(--text-muted); font-size: .7rem; }
+.search-field { max-width: 500px; }
+.search-field label { display: block; margin-bottom: .45rem; color: var(--text-muted); font-size: .75rem; font-weight: 400; }
+.search-input { position: relative; }
+.search-input svg { position: absolute; top: .75rem; left: .85rem; width: 17px; height: 17px; fill: none; stroke: #8a9a8f; stroke-width: 1.5; }
+.search-input input { padding: .7rem .85rem .7rem 2.4rem; background: #121a17; border: 1px solid #3b493e; color: var(--text-muted); font-size: .8rem; }
+.search-input input:disabled { cursor: not-allowed; opacity: .8; }
+fieldset { border: 0; padding: 0; margin: 1.3rem 0 0; min-width: 0; }
+legend { padding: 0; margin-bottom: .6rem; font-size: .75rem; color: var(--text-muted); }
+.rarity-options { display: flex; flex-wrap: wrap; gap: .55rem; }
+.rarity-options button { padding: .5rem .75rem; background: #222b25; color: #b9c5bd; border-color: #3e493f; font-size: .72rem; font-weight: 400; }
+.rarity-options button:disabled { opacity: .7; }
+.rarity-dot { width: 5px; height: 5px; border-radius: 50%; }
+.common { background: #aab5ab; }.rare { background: #86b6d7; }.epic { background: #b9a0d9; }.legendary { background: #e0ba76; }
+.collection-empty { margin-top: 1.25rem; background: radial-gradient(ellipse at 50% 20%, #26332577, transparent 60%), var(--surface); }
+.empty-cards { display: flex; justify-content: center; align-items: center; height: 134px; margin-bottom: 1.5rem; }
+.empty-card { position: relative; width: 69px; height: 97px; border: 1px solid #63704e; border-radius: 5px; background: #232e22; }
+.empty-card::after { content: ''; position: absolute; inset: 6px; border: 1px solid #596943; border-radius: 2px; }
+.side-card:first-child { transform: rotate(-14deg) translate(8px, 4px); opacity: .45; }.side-card:last-child { transform: rotate(14deg) translate(-8px, 4px); opacity: .45; }
+.center-card { width: 80px; height: 116px; display: grid; place-items: center; z-index: 1; background: linear-gradient(140deg, #384330, #222d22); }
+.center-card span { font-size: 2.6rem; color: #b8b48a; }
+@media (max-width: 600px) { .collection-tools { padding: 1.1rem; }.tools-heading { flex-direction: column; }.rarity-options { gap: .45rem; }.rarity-options button { padding: .45rem .6rem; } }

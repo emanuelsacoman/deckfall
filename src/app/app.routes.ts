@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authChildGuard, authGuard } from './model/guards/auth.guard';
+import { adminChildGuard, adminGuard, authenticatedChildGuard, authenticatedGuard } from './model/guards/auth.guard';
 import { cardEditorLeaveGuard } from './model/guards/card-editor-leave.guard';
 
 export const routes: Routes = [
@@ -9,9 +9,43 @@ export const routes: Routes = [
     loadComponent: () => import('./view/auth/login/login.component').then((m) => m.LoginComponent),
   },
   {
+    path: 'game',
+    canActivate: [authenticatedGuard],
+    canActivateChild: [authenticatedChildGuard],
+    loadComponent: () => import('./view/game/layout/game-layout.component').then((m) => m.GameLayoutComponent),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'home' },
+      {
+        path: 'home',
+        title: 'Início | Deckfall',
+        loadComponent: () => import('./view/game/home/home.component').then((m) => m.HomeComponent),
+      },
+      {
+        path: 'colecao',
+        title: 'Minha coleção | Deckfall',
+        loadComponent: () => import('./view/game/collection/collection.component').then((m) => m.CollectionComponent),
+      },
+      {
+        path: 'decks',
+        title: 'Meus decks | Deckfall',
+        loadComponent: () => import('./view/game/decks/decks.component').then((m) => m.DecksComponent),
+      },
+      {
+        path: 'jogar',
+        title: 'Jogar | Deckfall',
+        loadComponent: () => import('./view/game/play/play.component').then((m) => m.PlayComponent),
+      },
+      {
+        path: 'perfil',
+        title: 'Perfil | Deckfall',
+        loadComponent: () => import('./view/game/profile/profile.component').then((m) => m.ProfileComponent),
+      },
+    ],
+  },
+  {
     path: 'admin',
-    canActivate: [authGuard],
-    canActivateChild: [authChildGuard],
+    canActivate: [adminGuard],
+    canActivateChild: [adminChildGuard],
     loadComponent: () => import('./view/admin/layout/layout.component').then((m) => m.LayoutComponent),
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },

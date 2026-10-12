@@ -1,6 +1,6 @@
 ﻿import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { AuthSession } from '../../../model/interfaces/Auth/auth-session';
 import { AuthService } from '../../../model/services/fire/auth.service';
 import { LoginComponent } from './login.component';
@@ -12,6 +12,8 @@ describe('Login, registration and account access methods', () => {
   const redirecting = signal(false);
   const googleLinked = signal(false);
   const passwordLinked = signal(false);
+  const completedSignInRedirect = signal(false);
+  let returnUrl: string | null;
   let login: jasmine.Spy;
   let register: jasmine.Spy;
   let google: jasmine.Spy;
@@ -21,6 +23,7 @@ describe('Login, registration and account access methods', () => {
   beforeEach(async () => {
     currentUser.set(null); isAdmin.set(false); sessionError.set(null);
     redirecting.set(false); googleLinked.set(false); passwordLinked.set(false);
+    completedSignInRedirect.set(false); returnUrl = null;
     login = jasmine.createSpy('login').and.resolveTo();
     register = jasmine.createSpy('register').and.resolveTo();
     google = jasmine.createSpy('google').and.resolveTo();
@@ -28,9 +31,12 @@ describe('Login, registration and account access methods', () => {
     sendPasswordReset = jasmine.createSpy('sendPasswordReset').and.resolveTo();
     await TestBed.configureTestingModule({
       imports: [LoginComponent],
-      providers: [provideRouter([]), { provide: AuthService, useValue: {
+      providers: [provideRouter([]), { provide: ActivatedRoute, useValue: {
+        snapshot: { get queryParamMap() { return convertToParamMap(returnUrl === null ? {} : { returnUrl }); } }
+      } }, { provide: AuthService, useValue: {
         currentUser, isAdmin, sessionError, login, register, addPassword, sendPasswordReset,
         redirecting, googleError: signal(null), googleLinked, passwordLinked,
+        completedSignInRedirect, clearSignInRedirect: () => completedSignInRedirect.set(false),
         loginWithGoogle: google, logout: jasmine.createSpy('logout').and.resolveTo()
       } }]
     }).compileComponents();
@@ -70,13 +76,15 @@ describe('Login, registration and account access methods', () => {
     expect(google).toHaveBeenCalled();
   });
 
-  it('shows a member identity and explains that signup does not grant admin', () => {
+  it('shows a member identity and access to the player area without requiring admin', () => {
     currentUser.set({ uid: 'member-uid', email: 'member@example.test', displayName: null, role: 'member', roleId: 'member' });
     const fixture = TestBed.createComponent(LoginComponent);
     fixture.detectChanges();
     const page = fixture.nativeElement as HTMLElement;
     expect(page.textContent).toContain('member-uid');
-    expect(page.textContent).toContain('Permissão administrativa pendente');
+    expect(page.textContent).not.toContain('Permissão administrativa pendente');
+    expect(page.textContent).not.toContain('Perfil indisponível');
+    expect(page.querySelector('a[href="/game"]')).not.toBeNull();
     expect(page.textContent).toContain('Vincular Google a esta conta');
     expect(page.querySelector('a[href="/admin/dashboard"]')).toBeNull();
     expect(page.querySelector('form')).toBeNull();
@@ -323,5 +331,91 @@ describe('Login, registration and account access methods', () => {
     component.form.patchValue({ email: 'admin@example.test', password: 'password' });
     await component.submit();
     expect(navigate).toHaveBeenCalledOnceWith('/admin/dashboard');
+  });
+
+  it('opens the player home after member login or registration without returnUrl', async () => {
+    const member: AuthSession = { uid: 'member', email: 'member@example.test', displayName: null, role: 'member', roleId: 'member' };
+    login.and.callFake(async () => { currentUser.set(member); });
+    register.and.callFake(async () => { currentUser.set(member); });
+    const navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const component = TestBed.createComponent(LoginComponent).componentInstance;
+    component.form.patchValue({ email: 'member@example.test', password: 'password' });
+    await component.submit();
+    expect(navigate).toHaveBeenCalledWith('/game/home');
+    currentUser.set(null); navigate.calls.reset();
+    component.changeMode('register');
+    component.form.controls.password.setValue('password');
+    await component.submit();
+    expect(navigate).toHaveBeenCalledOnceWith('/game/home');
+  });
+
+  it('prioritizes a player returnUrl for either member or admin sign-in', async () => {
+    returnUrl = '/game/colecao?rarity=rare#cards';
+    const navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const component = TestBed.createComponent(LoginComponent).componentInstance;
+    for (const role of ['member', 'admin']) {
+      currentUser.set(null); navigate.calls.reset();
+      login.and.callFake(async () => { currentUser.set({ uid: role, email: null, displayName: null, role, roleId: role }); isAdmin.set(role === 'admin'); });
+      component.form.patchValue({ email: 'member@example.test', password: 'password' });
+      await component.submit();
+      expect(navigate).toHaveBeenCalledOnceWith(returnUrl);
+    }
+  });
+
+  it('honors an admin returnUrl only for an administrator', async () => {
+    returnUrl = '/admin/cartas/lista';
+    const navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const component = TestBed.createComponent(LoginComponent).componentInstance;
+    for (const role of ['member', 'admin']) {
+      currentUser.set(null); navigate.calls.reset();
+      login.and.callFake(async () => { currentUser.set({ uid: role, email: null, displayName: null, role, roleId: role }); isAdmin.set(role === 'admin'); });
+      component.form.patchValue({ email: 'member@example.test', password: 'password' });
+      await component.submit();
+      expect(navigate).toHaveBeenCalledOnceWith(role === 'admin' ? returnUrl : '/game/home');
+    }
+  });
+
+  it('ignores external URLs, unknown routes, auxiliary outlets and traversal in returnUrl', async () => {
+    login.and.callFake(async () => { currentUser.set({ uid: 'member', email: null, displayName: null, role: 'member', roleId: 'member' }); });
+    const navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const component = TestBed.createComponent(LoginComponent).componentInstance;
+    for (const value of ['https://example.test/game', '//example.test/game', '/login', '/game/decks/criar', '/game/unknown', '/game\\evil', '/game/../admin', '/game/%2Fadmin', '/game/(home//other:admin)']) {
+      currentUser.set(null); navigate.calls.reset(); returnUrl = value;
+      component.form.patchValue({ email: 'member@example.test', password: 'password' });
+      await component.submit();
+      expect(navigate).toHaveBeenCalledOnceWith('/game/home');
+    }
+  });
+
+  it('denies post-login access and access links when the profile is invalid', async () => {
+    login.and.callFake(async () => { currentUser.set({ uid: 'member', email: null, displayName: null, role: 'admin', roleId: 'member' }); });
+    const navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const fixture = TestBed.createComponent(LoginComponent);
+    fixture.componentInstance.form.patchValue({ email: 'member@example.test', password: 'password' });
+    await fixture.componentInstance.submit(); fixture.detectChanges();
+    expect(navigate).not.toHaveBeenCalled();
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.textContent).toContain('Perfil indisponível');
+    expect(page.querySelector('a[href="/game"]')).toBeNull();
+    expect(page.querySelector('a[href="/admin/dashboard"]')).toBeNull();
+  });
+
+  it('opens the requested player page after a recovered Google sign-in redirect', () => {
+    returnUrl = '/game/decks';
+    currentUser.set({ uid: 'member', email: null, displayName: null, role: 'member', roleId: 'member' });
+    completedSignInRedirect.set(true);
+    const navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const fixture = TestBed.createComponent(LoginComponent);
+    fixture.detectChanges();
+    expect(navigate).toHaveBeenCalledOnceWith('/game/decks');
+    expect(completedSignInRedirect()).toBeFalse();
+  });
+
+  it('keeps ordinary account management open without a recovered sign-in', () => {
+    currentUser.set({ uid: 'member', email: null, displayName: null, role: 'member', roleId: 'member' });
+    const navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const fixture = TestBed.createComponent(LoginComponent);
+    fixture.detectChanges();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

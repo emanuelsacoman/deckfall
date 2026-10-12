@@ -184,7 +184,7 @@ describe('AuthService session and member provisioning', () => {
   });
 
   it('recovers a redirect identity without duplicating profile provisioning', async () => {
-    client.redirectResult.and.resolveTo({ ...alice, providerIds: ['google.com'] });
+    client.redirectResult.and.resolveTo({ identity: { ...alice, providerIds: ['google.com'] }, operationType: 'signIn' });
     const service = TestBed.inject(AuthService);
     authNext(alice); await flush();
     expect(client.ensureProfile).toHaveBeenCalledTimes(1);
@@ -192,6 +192,43 @@ describe('AuthService session and member provisioning', () => {
     expect(service.currentUser()?.uid).toBe('alice');
     expect(service.googleLinked()).toBeTrue();
     expect(service.isAdmin()).toBeTrue();
+    expect(service.completedSignInRedirect()).toBeTrue();
+    service.clearSignInRedirect();
+    expect(service.completedSignInRedirect()).toBeFalse();
+  });
+
+  it('does not request post-login navigation for a recovered Google link', async () => {
+    client.redirectResult.and.resolveTo({ identity: { ...alice, providerIds: ['google.com'] }, operationType: 'link' });
+    const service = TestBed.inject(AuthService);
+    authNext(alice); await flush(); profiles[0].next(member); await flush();
+    expect(service.completedSignInRedirect()).toBeFalse();
+  });
+
+  it('exposes profile contact and name without replacing the Authentication email', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext(alice); await flush();
+    profiles[0].next({ ...member, displayName: 'Nome do perfil', contactEmail: 'contact@example.test' });
+    expect(service.currentUser()?.displayName).toBe('Nome do perfil');
+    expect(service.currentUser()?.contactEmail).toBe('contact@example.test');
+    expect(service.currentUser()?.email).toBe('alice@example.test');
+    expect(service.isAuthenticated()).toBeTrue();
+    expect(service.sessionError()).toBeNull();
+    authNext({ ...alice, displayName: 'Nome do Google', providerIds: ['google.com'] });
+    expect(service.currentUser()?.displayName).toBe('Nome do perfil');
+    expect(service.currentUser()?.contactEmail).toBe('contact@example.test');
+  });
+
+  it('supports the minimal bootstrap profile and denies player access for invalid roles', async () => {
+    const service = TestBed.inject(AuthService);
+    authNext(alice); await flush(); profiles[0].next(admin);
+    expect(service.isAuthenticated()).toBeTrue();
+    expect(service.currentUser()?.displayName).toBe('Alice');
+    expect(service.currentUser()?.contactEmail).toBeNull();
+    profiles[0].next({ role: 'member', roleId: 'admin' });
+    expect(service.isAuthenticated()).toBeFalse();
+    expect(service.sessionError()).toContain('papel válido');
+    profiles[0].error();
+    expect(service.isAuthenticated()).toBeFalse();
   });
 
   it('retains the live admin session when Google linking is cancelled', async () => {

@@ -42,6 +42,12 @@ Assets de outro proprietário são copiados pelo serviço antes da gravação fi
 
 ## Catálogo, usuários e produto
 
+A primeira área do jogador existe em `/game` como estrutura visual e navegável, com perfil baseado nos dados existentes. Coleção, decks e modos de jogo são placeholders explícitos: não há propriedade de cartas, inventário, deck builder, treino funcional, partidas, PvP ou economia. Busca/filtros da coleção são somente visuais, sem contratos ou coleções de gameplay antecipados.
+
+Artes/assets do Storage continuam acessíveis somente a admin. Mesmo metadados públicos de cartas `published` não liberam seus binários. As páginas do jogador usam elementos visuais locais e não consultam o catálogo nem tentam baixar assets protegidos. Uma futura coleção real terá de definir acesso/distribuição/revogação de arte e modelo de propriedade em trabalho próprio; liberar Storage para preencher esta UI não é uma solução adotada.
+
+`returnUrl` usa uma lista explícita das rotas existentes em `/game` e `/admin`, com destinos administrativos permitidos somente para admin. Ao acrescentar ou mudar rotas, atualizar também essa validação e seus testes; caso contrário, o novo destino volta ao padrão após login. Não ampliar a lista para aceitar URLs externas, outlets auxiliares ou caminhos desconhecidos.
+
 As listas administrativas carregam coleções completas. Paginação será necessária com maior volume. Slug não garante unicidade global. Arte permanece privada mesmo quando a carta está published; um catálogo público precisa decidir distribuição/revogação de imagens.
 
 A galeria gera prévias perto da área visível, com até dois jobs de renderização e downloads simultâneos. O PNG final tem as dimensões salvas (até 2048×2048); URLs de cartas já visitadas permanecem enquanto a galeria está montada. Rolar por muitas cartas grandes pode aumentar uso de memória; virtualização/cache persistente de thumbnails continuam futuros. Cancelar um job rejeita o consumidor e libera Stage/URLs, mas `getBlob` em andamento não é abortável pelo SDK: o slot fica reservado até essa chamada terminar, sem iniciar downloads extras.
@@ -50,4 +56,4 @@ A lista de usuários mostra perfis Firestore, não todas as contas Authenticatio
 
 Rules bloqueiam próprio rebaixamento, mas o formulário atual de perfis não identifica o usuário corrente. Não há garantia global de último admin em solicitações concorrentes; recuperação pode ser feita pelo Console. Cadastro da conta Auth e criação do perfil não são atômicos: falha do perfil pode exigir novo login após configurar Rules.
 
-Jogo, decks, packs, batalhas, inventário, trocas, marketplace e gerenciamento de sets continuam fora desta entrega. Resultados de testes/build ficam no [contexto operacional](contexto-operacional-para-ias.md); não confundir validação local com backend remoto configurado.
+Gameplay, decks funcionais, packs, batalhas, inventário, trocas, marketplace e gerenciamento de sets continuam fora desta entrega. Resultados de testes/build ficam no [contexto operacional](contexto-operacional-para-ias.md); não confundir validação local com backend remoto configurado.

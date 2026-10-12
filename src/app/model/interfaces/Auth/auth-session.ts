@@ -10,9 +10,11 @@ export interface AuthIdentity {
 export interface UserAccessProfile {
   role: string | null;
   roleId: string | null;
+  displayName?: string | null;
+  contactEmail?: string | null;
 }
 
-export interface AuthSession extends AuthIdentity, UserAccessProfile {}
+export type AuthSession = AuthIdentity & UserAccessProfile;
 
 export interface MemberProfileSeed {
   displayName: string;
@@ -21,6 +23,11 @@ export interface MemberProfileSeed {
   roleId: 'member';
 }
 
+export function isAuthenticatedSession(session: AuthSession | null | undefined): session is AuthSession {
+  return typeof session?.uid === 'string' && !!session.uid.trim() && session.role === session.roleId &&
+    (session.role === 'member' || session.role === ADMIN_ROLE);
+}
+
 export function isAdminSession(session: AuthSession | null | undefined): boolean {
-  return session?.role === ADMIN_ROLE && session.roleId === ADMIN_ROLE;
+  return isAuthenticatedSession(session) && session.role === ADMIN_ROLE;
 }

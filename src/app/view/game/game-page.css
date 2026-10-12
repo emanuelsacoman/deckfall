@@ -1,0 +1,24 @@
+:host { display: block; }
+.game-eyebrow { margin: 0 0 .6rem; color: var(--game-accent); font-size: .66rem; font-weight: 650; letter-spacing: .17em; text-transform: uppercase; }
+.game-page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; margin-bottom: 2rem; }
+.game-page-header h1 { margin-bottom: .6rem; font: 400 2.35rem/1.2 Georgia, "Times New Roman", serif; letter-spacing: -.015em; }
+.game-page-header p:last-child { color: var(--text-muted); max-width: 590px; margin: 0; font-size: .9rem; }
+.coming-soon { display: inline-flex; align-items: center; flex-shrink: 0; gap: .4rem; padding: .4rem .65rem; color: #c5bd98; background: #27281d; border: 1px solid #444430; border-radius: 5px; font-size: .65rem; font-weight: 550; white-space: nowrap; }
+.coming-soon::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #c5bd98; }
+.game-page-header > .coming-soon { margin-top: 1.9rem; }
+.game-link { display: inline-flex; align-items: center; justify-content: center; gap: .8rem; padding: .75rem 1rem; background: var(--game-accent); color: #182018; border: 1px solid var(--game-accent); border-radius: 5px; font-size: .82rem; font-weight: 650; text-decoration: none; }
+.game-link:hover { background: #edca88; }
+.game-link.subtle { color: #d2dbc9; background: transparent; border-color: #536247; }
+.game-link.subtle:hover { background: #263123; }
+.game-panel { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.empty-state { text-align: center; padding: 3rem 1.5rem; }
+.empty-state h2 { font: 400 1.7rem Georgia, serif; margin: 0 0 .85rem; }
+.empty-state > p { margin: 0 auto; max-width: 450px; color: var(--text-muted); font-size: .87rem; }
+.empty-state .coming-soon { margin-top: 1.35rem; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.section-heading h2 { margin: 0; font-size: 1rem; font-weight: 550; }
+.section-heading > span { color: var(--text-muted); font-size: .72rem; }
+.page-note { display: flex; gap: .65rem; align-items: flex-start; margin: 1.25rem 0 0; color: var(--text-muted); font-size: .75rem; }
+.page-note svg { flex: 0 0 16px; width: 16px; height: 16px; fill: none; stroke: var(--game-green); stroke-width: 1.5; margin-top: .18rem; }
+.page-note p { margin: 0; }
+@media (max-width: 600px) { .game-page-header { flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; } .game-page-header h1 { font-size: 2rem; } .game-page-header > .coming-soon { margin-top: 0; } .game-page-header p:last-child { font-size: .85rem; } .empty-state { padding: 2rem 1rem; } .empty-state h2 { font-size: 1.5rem; } .section-heading { align-items: flex-start; flex-direction: column; gap: .35rem; } }

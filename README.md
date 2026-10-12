@@ -1,19 +1,20 @@
 # Deckfall
 
-Uma plataforma de cartas digitais de Emanuel Sacoman, com editor visual e administração em Angular/Firebase.
+Uma plataforma de cartas digitais de Emanuel Sacoman, com área do jogador, editor visual e administração em Angular/Firebase.
 
 Cada carta combina dados estruturados de gameplay com um design editável. A imagem exportada apresenta a carta; dados e elementos continuam disponíveis para edição e futuras experiências de jogo.
 
 ## Estágio atual
 
-A implementação local concentra-se no catálogo e no editor administrativo. Login, cadastro por e-mail/senha e Google usam Firebase Authentication. Novas contas recebem o papel `member`; somente perfis com `role` e `roleId` iguais a `admin` entram no painel.
+A implementação local reúne o catálogo/editor administrativo e a primeira estrutura visual da área do jogador. Login, cadastro por e-mail/senha e Google usam Firebase Authentication. Novas contas recebem o papel `member` e entram em `/game/home`; admins entram por padrão no painel e também podem navegar em `/game`. Somente perfis com `role` e `roleId` iguais a `admin` entram no painel.
 
-O backend remoto depende da conferência do proprietário: provedores Auth, domínios, primeiro administrador, Firestore, Storage, Rules, índices e CORS. Esta entrega não publica Rules nem faz deploy. Jogo, decks, packs, batalhas, inventário, trocas e marketplace continuam para etapas futuras.
+O backend remoto depende da conferência do proprietário: provedores Auth, domínios, primeiro administrador, Firestore, Storage, Rules, índices e CORS. Esta entrega não publica Rules nem faz deploy. A área do jogador oferece navegação e perfil; coleção, decks e modos de jogo são placeholders identificados como em desenvolvimento. Gameplay, PvP, partidas, inventário, packs, economia, trocas e marketplace continuam para etapas futuras.
 
 O CORS do Storage permite `GET` em `http://localhost:4200` e `https://deckfall.web.app`. A resposta real de uma imagem foi conferida nas duas origens; o teste usou a identidade OAuth da CLI e não substitui a verificação da sessão no editor. Para outras origens ou diagnóstico de imagens, siga [a configuração do Storage](docs/configuracao-cors-storage.md), preservando as entradas existentes do bucket.
 
 ## Recursos implementados
 
+- **Área do jogador:** layout próprio responsivo em `/game`, com Início, Coleção, Decks, Jogar e Perfil; identidade da conta, logout e acesso ao painel para admins. Não há persistência de coleção/decks nem partidas.
 - **Editor Konva:** texto, imagens, arte principal, formas, ícones, molduras, emblemas, atributos e barras; seleção, movimento, resize, rotação, bloqueio, visibilidade e camadas.
 - **Ateliê de molduras:** seis temas, bordas ornamentais/rúnicas/simples, doze símbolos vetoriais e emblemas com medalhão, escudo ou sem suporte. Cores, detalhes, largura, cantos, relevo e semente são editáveis; criar uma composição pode ser desfeito.
 - **PNG transparente:** imagens já sem fundo preservam a transparência no editor, no salvamento e na exportação PNG, mostrando as camadas da carta por baixo.
@@ -36,7 +37,9 @@ Molduras e emblemas vetoriais combinam cores e formas sem depender de emojis. Pa
 
 ### Permissões e contas
 
-Guards protegem o painel; Firestore e Storage Rules protegem os dados. Metadados de cartas `published` podem ser lidos publicamente; artes e templates permanecem privados. Cadastro público cria somente o próprio perfil de membro, sem autopromoção.
+Guards distinguem a sessão autenticada com perfil válido (`member` ou `admin`) do acesso administrativo. Firestore e Storage Rules protegem os dados. Metadados de cartas `published` podem ser lidos publicamente; artes e templates permanecem administrativos. A área do jogador usa placeholders locais, sem consultar o catálogo nem baixar assets privados. Cadastro público cria somente o próprio perfil de membro, sem autopromoção.
+
+Um destino interno válido em `returnUrl` tem prioridade após entrar: membros podem voltar às páginas de `/game`, e admins também às rotas de `/admin`. `/login` continua sendo Minha conta com sessão ativa; o Perfil do jogador aponta para essa experiência existente.
 
 A gestão lista **perfis em `users/{uid}`**, não todas as contas Authentication. O primeiro admin é configurado no Console; outros papéis podem ser administrados pelo painel. Cada titular vincula seus métodos e solicita a recuperação da própria senha; o painel não altera credenciais de terceiros nem exclui contas. Não há backend Admin SDK. Veja [autenticação e admin](docs/autenticacao-e-admin.md).
 
@@ -66,7 +69,7 @@ Habilite Email/Password e Google, confira os domínios autorizados e configure o
 npm.cmd start
 ```
 
-Abra `http://localhost:4200/`. Após autenticar como admin, acesse `/admin/cartas/criar` ou `/admin/cartas/lista`.
+Abra `http://localhost:4200/`. Após registrar ou entrar como membro, navegue em `/game/home`. Como admin, acesse `/admin/cartas/criar` ou `/admin/cartas/lista`; o painel também oferece um atalho para a área do jogador.
 
 O gerador inicial já foi executado. Não repita `npm run setup`: ele pode sobrescrever configurações auxiliares.
 
@@ -83,7 +86,7 @@ Os testes Angular precisam do Chrome. Os testes de Rules precisam da Firebase CL
 
 Resultados finais e detalhes do ambiente ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Verificações locais não confirmam a configuração nem a publicação do backend remoto.
 
-Validação local: **243 testes Angular, 17 cenários de Security Rules e build de produção aprovados**, incluindo ornamentos/temas, histórico, validação do canvas, pixels transparentes e seleção pela janela da moldura, exportação em 1×/2×/4× e os fluxos anteriores de catálogo/editor/autenticação. As composições dos seis temas e doze emblemas também foram inspecionadas com arte sintética. OAuth Google e entrega de recuperação de senha reais dependem da configuração do Firebase Console.
+Validação local: **274 testes Angular, 17 cenários de Security Rules e build de produção aprovados**, incluindo acesso member/admin, `returnUrl`, redirecionamentos, navegação/perfil do jogador e regressões de autenticação, catálogo e editor. As cinco páginas foram conferidas com sessões locais substituídas de membro/admin em larguras de 320, 390, 768 e 1440 pixels, sem overflow horizontal; screenshots desktop/mobile foram inspecionados. Nenhuma conta Firebase real foi exercitada nesta validação. OAuth Google e entrega de recuperação de senha reais dependem da configuração do Firebase Console.
 
 ## Documentação e desenvolvimento
 

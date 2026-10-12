@@ -41,20 +41,26 @@
           </form>
         }
       </section>
+      @if (hasValidProfile()) {
+        <a class="button full-width panel-link" routerLink="/game">Acessar área do jogador</a>
+      }
       @if (auth.isAdmin()) {
-        <a class="button full-width panel-link" routerLink="/admin/dashboard">Acessar painel</a>
-      } @else {
+        <a class="button secondary full-width panel-link" routerLink="/admin/dashboard">Acessar painel administrativo</a>
+      }
+      <p class="account-hint muted">UID: <code>{{ user.uid }}</code></p>
+      @if (!hasValidProfile()) {
         <section class="pending-access" aria-labelledby="pending-title">
-          <h2 id="pending-title">Permissão administrativa pendente</h2>
-          <p>UID: <code>{{ user.uid }}</code></p>
-          <p class="muted">O cadastro cria uma conta de membro. Um administrador precisa conceder acesso ao painel.</p>
-          <details class="bootstrap-help">
-            <summary>Configurar o primeiro administrador</summary>
-            <p>Se você é o proprietário, abra o Firebase Console → Firestore e configure o documento <code>users/{{ user.uid }}</code>.</p>
-            <p>Defina os campos de texto <code>role</code> e <code>roleId</code> como <code>admin</code>. A permissão depende desse perfil, não do e-mail.</p>
-            <p>Após configurar, a sessão acompanhará a mudança. Se houve erro de leitura, encerre a sessão e entre novamente.</p>
-          </details>
+          <h2 id="pending-title">Perfil indisponível</h2>
+          <p class="muted">Não foi possível confirmar um perfil válido para acessar o Deckfall. Entre novamente ou contate um administrador.</p>
         </section>
+      }
+      @if (!auth.isAdmin()) {
+        <details class="bootstrap-help">
+          <summary>Configurar o primeiro administrador</summary>
+          <p>Se você é o proprietário, abra o Firebase Console → Firestore e configure o documento <code>users/{{ user.uid }}</code>.</p>
+          <p>Defina os campos de texto <code>role</code> e <code>roleId</code> como <code>admin</code>. A permissão depende desse perfil, não do e-mail.</p>
+          <p>Após configurar, a sessão acompanhará a mudança. Se houve erro de leitura, encerre a sessão e entre novamente.</p>
+        </details>
       }
       <button class="secondary full-width" type="button" (click)="logout()" [disabled]="submitting() || auth.redirecting()">{{ submitting() ? 'Aguarde…' : 'Encerrar sessão / usar outra conta' }}</button>
     } @else {
@@ -88,7 +94,7 @@
         @if (mode() === 'login') { <button class="text-button full-width" type="button" [disabled]="submitting()" (click)="changeMode('reset')">Esqueci minha senha</button> }
         <div class="auth-divider"><span>ou</span></div>
         <button class="secondary full-width" type="button" (click)="google()" [disabled]="submitting() || auth.redirecting() || auth.currentUser() === undefined">Continuar com Google</button>
-        <p class="access-note">Novas contas recebem o papel de membro. O painel exige permissão administrativa.</p>
+        <p class="access-note">Novas contas recebem o papel de membro e acessam a área do jogador. O painel exige permissão administrativa.</p>
       }
     }
   </section>

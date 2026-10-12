@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../model/services/fire/auth.service';
+import { AuthSession, isAdminSession, isAuthenticatedSession } from '../../../model/interfaces/Auth/auth-session';
 
 @Component({
   selector: 'app-login',
@@ -19,6 +20,7 @@ export class LoginComponent {
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
   readonly message = signal<string | null>(null);
+  readonly hasValidProfile = computed(() => isAuthenticatedSession(this.auth.currentUser()));
   readonly form = inject(FormBuilder).nonNullable.group({
     displayName: ['', Validators.maxLength(120)],
     email: ['', [Validators.required, Validators.email]],
@@ -37,6 +39,12 @@ export class LoginComponent {
         accountUid = uid;
         this.passwordForm.reset();
         this.form.controls.password.reset();
+      }
+    }, { allowSignalWrites: true });
+    effect(() => {
+      if (this.auth.completedSignInRedirect() && !this.submitting()) {
+        this.auth.clearSignInRedirect();
+        void this.navigateAfterSignIn();
       }
     }, { allowSignalWrites: true });
   }
@@ -112,7 +120,7 @@ export class LoginComponent {
     }
   }
 
-  private async authenticate(action: () => Promise<void>, navigateToAdmin = true): Promise<void> {
+  private async authenticate(action: () => Promise<void>, navigateAfterSignIn = true): Promise<void> {
     if (this.submitting()) return;
     this.submitting.set(true);
     this.error.set(null);
@@ -120,14 +128,36 @@ export class LoginComponent {
     try {
       await action();
       this.form.controls.password.reset();
-      if (navigateToAdmin && this.auth.isAdmin() && !this.auth.redirecting()) {
-        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
-        await this.router.navigateByUrl(returnUrl?.startsWith('/admin/') ? returnUrl : '/admin/dashboard');
-      }
+      if (navigateAfterSignIn && !this.auth.redirecting()) await this.navigateAfterSignIn();
     } catch (error: unknown) {
       this.error.set(error instanceof Error ? error.message : 'Não foi possível autenticar.');
     } finally {
       this.submitting.set(false);
+    }
+  }
+
+  private async navigateAfterSignIn(): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!isAuthenticatedSession(user)) return;
+    const returnUrl = this.validReturnUrl(user);
+    await this.router.navigateByUrl(returnUrl ?? (isAdminSession(user) ? '/admin/dashboard' : '/game/home'));
+  }
+
+  private validReturnUrl(user: AuthSession): string | null {
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    if (!returnUrl || !returnUrl.startsWith('/') || returnUrl.startsWith('//') || /[\\\u0000-\u0020]/.test(returnUrl)) return null;
+    try {
+      const tree = this.router.parseUrl(returnUrl);
+      const primary = tree.root.children['primary'];
+      if (!primary || Object.keys(tree.root.children).some(outlet => outlet !== 'primary') || Object.keys(primary.children).length) return null;
+      const segments = primary.segments.map(segment => segment.path);
+      if (segments.some(segment => segment === '.' || segment === '..' || /[\\/]/.test(segment))) return null;
+      const path = segments.join('/').replace(/\/$/, '');
+      const gamePath = /^game(?:\/(?:home|colecao|decks|jogar|perfil))?$/.test(path);
+      const adminPath = /^admin(?:\/(?:dashboard|cartas(?:\/(?:lista|criar|editar\/[^/]+))?|usuarios(?:\/(?:lista|criar|editar\/[^/]+))?))?$/.test(path);
+      return gamePath || (adminPath && isAdminSession(user)) ? returnUrl : null;
+    } catch {
+      return null;
     }
   }
 }

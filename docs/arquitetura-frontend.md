@@ -19,6 +19,12 @@ Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`,
 
 | Rota | Tela |
 | --- | --- |
+| `/game` | Redireciona para `/game/home` |
+| `/game/home` | Início e atalhos do jogador |
+| `/game/colecao` | Minha coleção, com controles visuais e placeholder |
+| `/game/decks` | Meus decks, com placeholder |
+| `/game/jogar` | Modos de jogo em desenvolvimento |
+| `/game/perfil` | Nome, contato e papel já existentes; atalho para Minha conta |
 | `/admin` | Redireciona para `/admin/dashboard` |
 | `/admin/dashboard` | Atalhos administrativos |
 | `/admin/cartas` | Redireciona para `/admin/cartas/lista` |
@@ -30,7 +36,17 @@ Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`,
 | `/admin/usuarios/criar` | Vínculo por UID de conta existente |
 | `/admin/usuarios/editar/:uid` | Consulta e edição do perfil |
 
-O shell administrativo possui guard no pai e nos filhos, observa revogação de acesso e oferece logout. O menu inclui Painel, Todas as cartas, Criar carta, Todos os usuários, Vincular perfil e o atalho Minha conta. Criação/edição de cartas usam wrappers pequenos; `cardEditorLeaveGuard` consulta alterações pendentes antes da saída. A raiz contém o router outlet; `app.config.ts` fornece App, Auth, Firestore e Storage.
+O shell administrativo possui `adminGuard` no pai e `adminChildGuard` nos filhos, observa revogação de acesso e oferece logout. O menu inclui Painel, Todas as cartas, Criar carta, Todos os usuários, Vincular perfil e os atalhos Minha conta e Área do jogador. Criação/edição de cartas usam wrappers pequenos; `cardEditorLeaveGuard` consulta alterações pendentes antes da saída. A raiz contém o router outlet; `app.config.ts` fornece App, Auth, Firestore e Storage.
+
+## Área do jogador
+
+`view/game/` reúne `layout`, `home`, `collection`, `decks`, `play` e `profile`. O layout é separado do administrativo, com identidade Deckfall, navegação Início/Coleção/Decks/Jogar/Perfil, indicação da conta e logout. Admins veem também Painel administrativo. As telas usam standalone, `loadComponent` e CSS próprio, sem nova biblioteca de UI.
+
+`GameLayoutComponent` contém o outlet das páginas e acompanha revogação de sessão/perfil. Sua sidebar no desktop se adapta a cabeçalho e navegação horizontal em telas menores; o CSS do tema fica no layout e os estilos comuns das páginas em `game-page.css`, sem substituir o tema administrativo.
+
+`authenticatedGuard` e `authenticatedChildGuard` aguardam a sessão e aceitam um UID com `role`/`roleId` consistentes em `member` ou `admin`. Perfil ausente, inválido ou não resolvido não libera `/game`; o destino solicitado segue em `returnUrl` para `/login`. Guards protegem navegação, sem ampliar permissões de Firestore/Storage.
+
+Início oferece saudação e atalhos. Coleção, decks e jogar são estruturas visuais com estados em desenvolvimento, sem consultas ao catálogo, downloads de arte, persistência, contadores fictícios ou infraestrutura de gameplay. Perfil consome a sessão de `AuthService` e encaminha gerenciamento de credenciais para `/login`. Não há acesso direto ao Firestore pelas páginas nem novos serviços de coleção/decks/partidas. Veja [autenticação](autenticacao-e-admin.md) para os destinos após login e [riscos](riscos-e-dividas-tecnicas.md) para o limite dos assets administrativos.
 
 ## Editor compartilhado
 

@@ -11,10 +11,15 @@ import { FirebaseError } from 'firebase/app';
 import { doc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { BehaviorSubject, filter, firstValueFrom, take } from 'rxjs';
 import {
-  AuthIdentity, AuthSession, isAdminSession, MemberProfileSeed, UserAccessProfile
+  AuthIdentity, AuthSession, isAdminSession, isAuthenticatedSession, MemberProfileSeed, UserAccessProfile
 } from '../../interfaces/Auth/auth-session';
 import { AuthenticatedGoogleError, authErrorCode, linkPendingGoogleCredential, runGoogleAuth } from './google-auth-flow';
 import { PasswordAuthFlow } from './password-auth-flow';
+
+export interface AuthRedirectResult {
+  identity: AuthIdentity;
+  operationType: 'signIn' | 'link' | 'reauthenticate';
+}
 
 export interface AuthSessionClient {
   observeAuth(next: (user: AuthIdentity | null) => void, error: () => void): () => void;
@@ -25,7 +30,7 @@ export interface AuthSessionClient {
   loginWithGoogle(): Promise<AuthIdentity | null>;
   addPassword(password: string): Promise<AuthIdentity | null>;
   sendPasswordReset(email: string): Promise<void>;
-  redirectResult(): Promise<AuthIdentity | null>;
+  redirectResult(): Promise<AuthRedirectResult | null>;
   logout(): Promise<void>;
 }
 
@@ -60,7 +65,9 @@ export const AUTH_SESSION_CLIENT = new InjectionToken<AuthSessionClient>('Auth s
         const data = snapshot.data();
         next({
           role: typeof data?.['role'] === 'string' ? data['role'] : null,
-          roleId: typeof data?.['roleId'] === 'string' ? data['roleId'] : null
+          roleId: typeof data?.['roleId'] === 'string' ? data['roleId'] : null,
+          displayName: typeof data?.['displayName'] === 'string' ? data['displayName'] : null,
+          contactEmail: typeof data?.['contactEmail'] === 'string' ? data['contactEmail'] : null
         });
       }, error),
       ensureProfile: async (user, seed) => {
@@ -119,7 +126,7 @@ export const AUTH_SESSION_CLIENT = new InjectionToken<AuthSessionClient>('Auth s
             const token = await getIdTokenResult(result.user);
             passwordFlow.acceptGoogleReauthentication(result.user, Date.parse(token.authTime));
           }
-          return result ? identity(result.user) : null;
+          return result ? { identity: identity(result.user), operationType: result.operationType } : null;
         } catch (error: unknown) {
           captureCollision(error); throw error;
         }
@@ -146,12 +153,16 @@ export class AuthService {
   private allowAuthenticatedEvents = true;
   private resolvingUid: string | null = null;
   private identity: AuthIdentity | null = null;
+  private accessProfile: UserAccessProfile | null = null;
+  private readonly redirectSignInState = signal(false);
   readonly redirecting = signal(false);
   readonly googleError = signal<string | null>(null);
 
   readonly currentUser = this.userState.asReadonly();
+  readonly completedSignInRedirect = this.redirectSignInState.asReadonly();
   readonly sessionError = this.errorState.asReadonly();
   readonly isAdmin = computed(() => isAdminSession(this.currentUser()));
+  readonly isAuthenticated = computed(() => isAuthenticatedSession(this.currentUser()));
   readonly googleLinked = computed(() => this.currentUser()?.providerIds?.includes(GoogleAuthProvider.PROVIDER_ID) ?? false);
   readonly passwordLinked = computed(() => this.currentUser()?.providerIds?.includes(EmailAuthProvider.PROVIDER_ID) ?? false);
 
@@ -208,6 +219,7 @@ export class AuthService {
     this.allowAuthenticatedEvents = false;
     this.redirecting.set(false); this.identity = null; this.resolvingUid = null;
     this.googleError.set(null);
+    this.redirectSignInState.set(false);
     ++this.version;
     this.stopProfile();
     this.clearTimeout();
@@ -227,6 +239,10 @@ export class AuthService {
     return firstValueFrom(this.sessionChanges.pipe(
       filter((user): user is AuthSession | null => user !== undefined), take(1)
     ));
+  }
+
+  clearSignInRedirect(): void {
+    this.redirectSignInState.set(false);
   }
 
   private async authenticate(action: () => Promise<AuthIdentity | null>, preserveSession = false): Promise<void> {
@@ -266,7 +282,7 @@ export class AuthService {
     if (user && this.profileUnsubscribe && this.currentUser()?.uid === user.uid) {
       this.identity = user;
       const session = this.currentUser();
-      if (session) this.setSession({ ...session, ...user });
+      if (session) this.setSession({ ...session, ...user, displayName: this.accessProfile?.displayName ?? user.displayName });
       return;
     }
     this.identity = user; this.resolvingUid = user?.uid ?? null;
@@ -290,9 +306,14 @@ export class AuthService {
       this.profileUnsubscribe = this.client.observeProfile(user.uid, profile => {
         if (version !== this.version) return;
         this.clearTimeout();
-        const session: AuthSession = { ...(this.identity?.uid === user.uid ? this.identity : user), role: profile.role, roleId: profile.roleId };
+        this.accessProfile = profile;
+        const identity = this.identity?.uid === user.uid ? this.identity : user;
+        const session: AuthSession = {
+          ...identity, role: profile.role, roleId: profile.roleId,
+          displayName: profile.displayName ?? identity.displayName, contactEmail: profile.contactEmail ?? null
+        };
         this.setSession(session);
-        this.errorState.set(isAdminSession(session) ? null : 'Sua conta está ativa. O acesso ao painel depende de permissão administrativa.');
+        this.errorState.set(isAuthenticatedSession(session) ? null : 'O perfil da sua conta não possui um papel válido. Tente entrar novamente ou contate um administrador.');
       }, () => {
         if (version === this.version) this.denySession('Não foi possível verificar sua permissão. Tente entrar novamente.', user);
       });
@@ -327,6 +348,7 @@ export class AuthService {
   private stopProfile(): void {
     this.profileUnsubscribe?.();
     this.profileUnsubscribe = undefined;
+    this.accessProfile = null;
   }
 
   private setSession(session: AuthSession | null | undefined): void {
@@ -337,10 +359,11 @@ export class AuthService {
   private async recoverRedirect(): Promise<void> {
     const requestVersion = this.requestVersion;
     try {
-      const user = await this.client.redirectResult();
-      if (user && requestVersion === this.requestVersion) {
-        await this.observeUser(user, true);
+      const result = await this.client.redirectResult();
+      if (result && requestVersion === this.requestVersion) {
+        await this.observeUser(result.identity, true);
         await this.waitForSession();
+        if (requestVersion === this.requestVersion && result.operationType === 'signIn') this.redirectSignInState.set(true);
       }
     } catch (error: unknown) {
       if (requestVersion === this.requestVersion) this.googleError.set(authErrorMessage(error));

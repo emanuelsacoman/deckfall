@@ -11,6 +11,7 @@ form h3, form p { margin: 0; }
 .account-methods { margin: 1.5rem 0; }
 .account-methods h2 { font-size: 1.1rem; }
 .account-hint { font-size: .85rem; }
+.account-hint code { overflow-wrap: anywhere; }
 .provider-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .6rem; }
 .provider-list li { display: flex; align-items: center; gap: .65rem; padding: .75rem; border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); }
 .provider-list li.linked { color: var(--text); border-color: #bee0ce; background: #eef9f3; }

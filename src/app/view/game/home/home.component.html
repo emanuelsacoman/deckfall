@@ -1,0 +1,40 @@
+<header class="game-page-header">
+  <div><p class="game-eyebrow">Início da jornada</p><h1>{{ greeting() }}</h1><p>Seu espaço no universo Deckfall. Explore o que está por vir.</p></div>
+</header>
+
+<section class="home-hero" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <span class="coming-soon">Em desenvolvimento</span>
+    <h2 id="hero-title">Cada carta,<br>uma possibilidade.</h2>
+    <p>Uma nova experiência de cartas está tomando forma. Este é o primeiro passo da sua jornada no Deckfall.</p>
+    <a class="game-link" routerLink="/game/jogar">Conhecer a área de jogo <span aria-hidden="true">→</span></a>
+    <span class="hero-caption">O sistema de partidas ainda não está disponível.</span>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+    <div class="decorative-card card-left"><div class="card-border"><span class="card-symbol">✦</span></div></div>
+    <div class="decorative-card card-right"><div class="card-border"><span class="card-symbol">✦</span></div></div>
+    <div class="decorative-card card-front"><div class="card-border"><div class="card-seal"><span>D</span></div><span class="card-wordmark">Deckfall</span></div></div>
+    <span class="art-spark spark-one"></span><span class="art-spark spark-two"></span><span class="art-spark spark-three"></span>
+  </div>
+</section>
+
+<section class="home-shortcuts" aria-labelledby="shortcuts-title">
+  <div class="section-heading"><h2 id="shortcuts-title">Explore seu espaço</h2><span>A jornada começa por aqui</span></div>
+  <div class="shortcut-grid">
+    <a class="shortcut-card" routerLink="/game/colecao">
+      <div class="shortcut-top"><span class="shortcut-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="8" y="5" width="12" height="16" rx="2" /><path d="M15 3H5a2 2 0 0 0-2 2v12M11 10h6m-6 4h6" /></svg></span><span class="shortcut-arrow" aria-hidden="true">↗</span></div>
+      <h3>Minha coleção</h3><p>O espaço onde suas cartas aparecerão quando a coleção estiver disponível.</p><span class="shortcut-status">Coleção em desenvolvimento</span>
+    </a>
+    <a class="shortcut-card" routerLink="/game/decks">
+      <div class="shortcut-top"><span class="shortcut-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 10 5-10 5L2 8zm-10 9 10 5 10-5M2 16l10 5 10-5" /></svg></span><span class="shortcut-arrow" aria-hidden="true">↗</span></div>
+      <h3>Meus decks</h3><p>Um lugar reservado para montar e gerenciar suas futuras combinações de cartas.</p><span class="shortcut-status">Deck Builder em desenvolvimento</span>
+    </a>
+    <a class="shortcut-card" routerLink="/game/jogar">
+      <div class="shortcut-top"><span class="shortcut-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8 3 10 9L8 21z" /></svg></span><span class="shortcut-arrow" aria-hidden="true">↗</span></div>
+      <h3>Jogar</h3><p>Conheça o espaço dos modos de jogo. As partidas chegarão em uma etapa futura.</p><span class="shortcut-status">Partidas em desenvolvimento</span>
+    </a>
+  </div>
+</section>
+
+<div class="page-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10v1" /></svg><p>Esta versão apresenta a navegação do jogador. Coleção, decks e modos de jogo ainda não estão disponíveis.</p></div>

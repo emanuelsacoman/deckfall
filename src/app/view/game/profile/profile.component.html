@@ -1,0 +1,18 @@
+<header class="game-page-header"><div><p class="game-eyebrow">Sua identidade</p><h1>Perfil</h1><p>As informações da sua conta no Deckfall.</p></div></header>
+
+@if (auth.currentUser(); as user) {
+  <section class="game-panel profile-panel" aria-labelledby="player-profile-title">
+    <div class="profile-banner" aria-hidden="true"><div class="banner-emblem">D</div></div>
+    <div class="profile-body">
+      <div class="profile-identity"><span class="profile-avatar" aria-hidden="true">{{ playerInitial() }}</span><div><h2 id="player-profile-title">{{ playerName() }}</h2><span class="role-label">{{ auth.isAdmin() ? 'Administrador' : 'Membro' }}</span></div></div>
+      <dl class="profile-details">
+        <div><dt>Nome de exibição</dt><dd>{{ user.displayName || 'Não informado' }}</dd></div>
+        <div><dt>E-mail de contato</dt><dd>{{ user.contactEmail || 'Não informado' }}</dd></div>
+        <div><dt>Papel da conta</dt><dd>{{ auth.isAdmin() ? 'Administrador' : 'Membro' }} <span class="role-code">({{ user.role }})</span></dd></div>
+      </dl>
+      <div class="account-management"><div><h3>Sua conta, seus acessos</h3><p>Gerencie seus métodos de login e a recuperação de senha na área Minha conta.</p></div><a class="game-link subtle" routerLink="/login">Gerenciar minha conta <span aria-hidden="true">↗</span></a></div>
+    </div>
+  </section>
+}
+
+<div class="page-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10v1" /></svg><p>O perfil exibe somente os dados atuais da conta. Progressão e estatísticas de jogo ainda não estão disponíveis.</p></div>

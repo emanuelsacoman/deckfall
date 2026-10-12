@@ -1,0 +1,53 @@
+@if (hasSession()) {
+  <a class="skip-link" href="#game-content">Ir para o conteúdo</a>
+  <div class="game-shell">
+    <aside class="game-sidebar" aria-label="Área do jogador">
+      <a class="game-brand" routerLink="/game/home" aria-label="Deckfall — Início">
+        <span class="brand-mark" aria-hidden="true"><span>D</span></span>
+        <span class="brand-name">Deckfall<small>Área do jogador</small></span>
+      </a>
+
+      <div class="navigation">
+        <p class="nav-caption">Seu universo</p>
+        <nav aria-label="Navegação principal do jogador">
+          <a routerLink="/game/home" routerLinkActive="active" ariaCurrentWhenActive="page">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10h-6v-6H9v6H3z" /></svg><span>Início</span>
+          </a>
+          <a routerLink="/game/colecao" routerLinkActive="active" ariaCurrentWhenActive="page">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="5" width="12" height="16" rx="2" /><path d="M15 3H5a2 2 0 0 0-2 2v12M11 10h6m-6 4h6" /></svg><span>Coleção</span>
+          </a>
+          <a routerLink="/game/decks" routerLinkActive="active" ariaCurrentWhenActive="page">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 10 5-10 5L2 8zm-10 9 10 5 10-5M2 16l10 5 10-5" /></svg><span>Decks</span>
+          </a>
+          <a routerLink="/game/jogar" routerLinkActive="active" ariaCurrentWhenActive="page">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3 10 9L8 21z" /></svg><span>Jogar</span>
+          </a>
+          <a routerLink="/game/perfil" routerLinkActive="active" ariaCurrentWhenActive="page">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></svg><span>Perfil</span>
+          </a>
+        </nav>
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="development-note"><span class="status-dot" aria-hidden="true"></span><span>Deckfall em construção<small>Conheça os espaços do jogo</small></span></div>
+        @if (auth.isAdmin()) {
+          <a class="admin-link" routerLink="/admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4v6c0 4-8 8-8 8s-8-4-8-8V7zM9 12l2 2 4-4" /></svg>Painel administrativo<span aria-hidden="true">↗</span></a>
+        }
+        <div class="account">
+          <a class="player" routerLink="/game/perfil"><span class="player-avatar" aria-hidden="true">{{ playerInitial() }}</span><span class="player-details"><strong>{{ playerName() }}</strong><small>{{ auth.isAdmin() ? 'Administrador' : 'Membro' }}</small></span></a>
+          <button class="logout" type="button" (click)="logout()" [disabled]="signingOut()" [attr.aria-busy]="signingOut()">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H4v16h6m5-12 4 4-4 4m-7-4h11" /></svg>{{ signingOut() ? 'Saindo…' : 'Sair' }}
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="game-main">
+      <header class="game-topbar"><span>Uma nova jornada de cartas</span><span class="preview-label">Primeira versão</span></header>
+      <main id="game-content" class="game-content" tabindex="-1"><router-outlet /></main>
+      <footer class="game-footer"><span>Deckfall</span><span>Coleção, decks e partidas em desenvolvimento.</span></footer>
+    </div>
+  </div>
+} @else {
+  <main class="session-check"><p role="status">Verificando acesso ao Deckfall…</p></main>
+}
