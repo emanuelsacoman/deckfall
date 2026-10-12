@@ -10,7 +10,7 @@ A implementação local concentra-se no catálogo e no editor administrativo. Lo
 
 O backend remoto depende da conferência do proprietário: provedores Auth, domínios, primeiro administrador, Firestore, Storage, Rules, índices e CORS. Esta entrega não publica Rules nem faz deploy. Jogo, decks, packs, batalhas, inventário, trocas e marketplace continuam para etapas futuras.
 
-O CORS do Storage foi configurado e confirmado para leitura em `http://localhost:4200`, com autorização do proprietário. Para outras origens ou diagnóstico de imagens, siga [a configuração do Storage](docs/configuracao-cors-storage.md), preservando as entradas existentes do bucket.
+O CORS do Storage permite `GET` em `http://localhost:4200` e `https://deckfall.web.app`. A resposta real de uma imagem foi conferida nas duas origens; o teste usou a identidade OAuth da CLI e não substitui a verificação da sessão no editor. Para outras origens ou diagnóstico de imagens, siga [a configuração do Storage](docs/configuracao-cors-storage.md), preservando as entradas existentes do bucket.
 
 ## Recursos implementados
 

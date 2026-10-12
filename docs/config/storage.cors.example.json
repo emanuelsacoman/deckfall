@@ -3,5 +3,10 @@
     "origin": ["http://localhost:4200"],
     "method": ["GET"],
     "maxAgeSeconds": 3600
+  },
+  {
+    "origin": ["https://deckfall.web.app"],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
   }
 ]
