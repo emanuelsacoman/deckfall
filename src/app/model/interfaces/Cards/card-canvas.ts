@@ -9,7 +9,7 @@ export const CARD_CANVAS_CONFIG = {
 export const CARD_FONTS = ['Arial', 'Georgia', 'Times New Roman', 'Courier New', 'Verdana', 'Trebuchet MS'] as const;
 export const CARD_ZOOMS = [0.25, 0.5, 0.75, 1, 1.25, 1.5] as const;
 export type EditorMode = 'design' | 'data' | 'preview';
-export type CardElementType = 'text' | 'image' | 'artwork' | 'rect' | 'circle' | 'line' | 'icon' | 'attribute' | 'bar';
+export type CardElementType = 'text' | 'image' | 'artwork' | 'rect' | 'circle' | 'line' | 'icon' | 'attribute' | 'bar' | 'frame' | 'emblem';
 export type CardBinding = 'name' | 'description' | 'rarity' | 'type' | 'subtype' | `attributes.${string}`;
 export type FontStyle = 'normal' | 'bold' | 'italic' | 'bold italic';
 export type BorderStyle = 'solid' | 'dashed' | 'dotted';
@@ -43,6 +43,27 @@ export interface ShapeProperties extends CanvasStyle {
   fillMode: 'solid' | 'gradient';
   gradientColor: string;
   gradientAngle: number;
+}
+export const CARD_FRAME_STYLES = ['ornate', 'runic', 'minimal'] as const;
+export const CARD_ORNAMENT_MOTIFS = ['flame', 'leaf', 'crystal', 'sun', 'moon', 'skull', 'heart', 'sword', 'shield', 'drop', 'bolt', 'star'] as const;
+export const CARD_EMBLEM_CONTAINERS = ['medallion', 'shield', 'plain'] as const;
+export type CardOrnamentMotif = typeof CARD_ORNAMENT_MOTIFS[number];
+export interface FrameProperties extends CanvasStyle {
+  frameStyle: typeof CARD_FRAME_STYLES[number];
+  motif: CardOrnamentMotif;
+  borderWidth: number;
+  cornerRadius: number;
+  detail: number;
+  seed: number;
+  accentColor: string;
+  gemColor: string;
+}
+export interface EmblemProperties extends CanvasStyle {
+  motif: CardOrnamentMotif;
+  container: typeof CARD_EMBLEM_CONTAINERS[number];
+  accentColor: string;
+  gemColor: string;
+  relief: number;
 }
 export interface ImageProperties extends CanvasStyle {
   assetId: string | null;
@@ -99,7 +120,9 @@ export type CardCanvasElement =
   | (CanvasElementBase & { type: 'rect' | 'circle' | 'line'; properties: ShapeProperties })
   | (CanvasElementBase & { type: 'image' | 'artwork'; properties: ImageProperties })
   | (CanvasElementBase & { type: 'attribute'; properties: AttributeProperties })
-  | (CanvasElementBase & { type: 'bar'; properties: BarProperties });
+  | (CanvasElementBase & { type: 'bar'; properties: BarProperties })
+  | (CanvasElementBase & { type: 'frame'; properties: FrameProperties })
+  | (CanvasElementBase & { type: 'emblem'; properties: EmblemProperties });
 
 export interface CardCanvasAsset {
   id: string;
@@ -135,7 +158,7 @@ export interface CardAssetOwner {
   kind: 'card' | 'template';
   id: string;
 }
-export type CardElementPreset = CardElementType | 'frame' | 'badge' | 'description';
+export type CardElementPreset = CardElementType | 'ornate-frame' | 'badge' | 'description';
 export type CardEditorAction = 'save' | 'save-template' | 'load-template' | 'duplicate-card' | 'delete-card'
   | 'export' | 'save-local' | 'load-local' | 'download-json' | 'import-json';
 export interface EditorAssetSelection { elementId: string | null; file: File; }

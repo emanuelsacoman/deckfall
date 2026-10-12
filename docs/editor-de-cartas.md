@@ -14,7 +14,7 @@ Contratos ficam em `model/interfaces/Cards`. Estado, fábricas, validação, ass
 
 `CardCanvasData` versão 1 contém `width`, `height`, `background`, `elements` e `assets`. Cada elemento possui ID estável, nome, tipo, X/Y, largura/altura, rotação, opacidade, visibilidade, bloqueio e propriedades tipadas por uma union discriminada.
 
-Tipos atuais: `text`, `icon`, `rect`, `circle`, `line`, `image`, `artwork`, `attribute` e `bar`. Moldura e badge são presets de formas; área de descrição é um preset de texto. Eles continuam editáveis. A ordem do array é a ordem visual, de fundo para frente; o painel apresenta a lista inversa. IDs usam UUID, sem depender do índice.
+Tipos atuais: `text`, `icon`, `rect`, `circle`, `line`, `image`, `artwork`, `attribute`, `bar`, `frame` e `emblem`. A borda simples antiga (`frame` na fábrica) e badge continuam presets de formas; `ornate-frame` cria o novo elemento tipado `frame`. Área de descrição é um preset de texto. A ordem do array é a ordem visual, de fundo para frente; o painel apresenta a lista inversa. IDs usam UUID, sem depender do índice.
 
 Texto possui conteúdo, vínculo, fonte, tamanho, estilo, alinhamento, espaçamento e entrelinhas. Estilo compartilhado possui fill, stroke, espessura e sombra. Formas aceitam cor/gradiente e raio dos cantos. Imagens possuem referência `assetId`, fit, crop normalizado, zoom, deslocamentos, máscara e filtros de cinza/sépia. `artwork` identifica a área principal, sem fixar sua posição ou dimensão.
 
@@ -31,6 +31,22 @@ Todos os tipos aceitam `borderStyle` opcional: `solid`, `dashed` ou `dotted`; au
 Referências de renderização: [brilho Konva](https://konvajs.org/docs/filters/Brighten.html), [matiz e saturação](https://konvajs.org/docs/filters/HSL.html), [espelhamento](https://konvajs.org/docs/sandbox/Mirror_Canvas_Shape.html), [texto](https://konvajs.org/api/Konva.Text.html) e [bordas](https://konvajs.org/api/Konva.Shape.html). Versões de Angular/Konva foram mantidas. Brilho usa a operação aditiva `Brighten` disponível na versão instalada, com zero neutro; consulte [a dívida de API](riscos-e-dividas-tecnicas.md) antes de atualizar Konva.
 
 Background aceita cor sólida, gradiente, imagem ou textura repetida. Assets armazenam ID, caminho, nome, MIME e bytes. `storagePath:null` representa um arquivo ainda local; os binários permanecem no serviço de assets, fora do JSON persistido.
+
+### Ateliê de molduras e emblemas
+
+Novas cartas começam com uma composição ornamental de camadas independentes: moldura externa, janela da arte, placas, título/descrição/raridade vinculados e valores dos atributos. O **Ateliê de molduras**, na biblioteca, oferece **Fogo ancestral**, **Cristal de gelo**, **Bosque sagrado**, **Runas arcanas**, **Ouro solar** e **Relíquia sombria**. **Aplicar paleta aos ornamentos** altera as cores de molduras/emblemas desbloqueados, preservando símbolos, geometria, textos, arte e gameplay. **Criar layout ornamental** pede confirmação na própria biblioteca, substitui o design e conserva dados, dimensões e assets existentes; a arte principal é ajustada à nova janela. Camadas bloqueadas impedem essa substituição. Ambas as ações participam de Desfazer/Refazer.
+
+A substituição conserva também metadados de imagens auxiliares que deixaram de aparecer. O serviço de assets ainda exige todos os arquivos registrados para exportar, criar template/cópia ou salvar rascunho com binários; uma imagem auxiliar retida e indisponível pode bloquear essas ações. Salvar somente dados/design continua podendo conservar referências do próprio namespace sem novo download. Veja [a dívida de assets retidos](riscos-e-dividas-tecnicas.md#limites-do-editor-e-da-validação).
+
+**Moldura ornamental** adiciona um elemento `frame` com centro aberto, acabamento metálico e estilos `ornate`, `runic` ou `minimal`. Propriedades permite escolher símbolo, cores do material/contorno/destaque/gema, largura de 2–128, raio dos cantos, detalhes inteiros de 0–12 e semente inteira de 0–999999. A mesma semente/propriedades produz a mesma decoração; **Gerar outra variação** troca a semente. As combinações são numerosas, dentro desse repertório e dos limites do modelo.
+
+**Emblema vetorial** adiciona um elemento `emblem` com base `medallion`, `shield` ou `plain`, cores editáveis e relevo de 0–1. Os doze símbolos são chama, folha, cristal, sol, lua, caveira, coração, espada, escudo, gota, raio e estrela. São caminhos vetoriais definidos no código, sem SVG executável ou fontes de emoji. Molduras/emblemas podem ser movidos, redimensionados, rotacionados e sobrepostos como as demais camadas; os caminhos internos não são grupos editáveis separados.
+
+Na composição, emblemas decorativos, rótulos e valores de atributos são camadas distintas. Rótulo e valor são elementos `attribute` vinculados à mesma chave de gameplay, com `labelMode:'label'` e `labelMode:'value'`; editar o rótulo/valor nos Dados atualiza sua representação. Renomear a chave mantendo o ID também conserva esses vínculos. O símbolo é escolhido pela chave inicial e pode ser trocado em Propriedades, sem acompanhar automaticamente futuras mudanças de ícone/chave. Alterar um símbolo, semente ou cor não altera estatísticas ou habilidades.
+
+Os parâmetros acompanham Firestore, JSON, rascunhos, templates, galeria e exportação pelo mesmo modelo/renderizador. Canvas permanece versão 1 e cartas antigas conservam sua composição, sem migração ou ornamentação automática ao abrir. Builds anteriores que desconhecem `frame`/`emblem` não conseguem ler documentos com esses tipos.
+
+Para uma moldura ilustrada com textura como a referência de carta completa, envie PNGs transparentes de molduras/ícones e combine-os com arte e textos vinculados. A transparência preserva a janela da arte. O ateliê cria acabamentos vetoriais; não gera arte por IA nem separa automaticamente uma carta raster pronta em partes editáveis.
 
 ### Imagens PNG transparentes
 
@@ -90,7 +106,7 @@ Salvar dados/design de uma carta existente pode conservar assets já pertencente
 
 `CardTemplate` contém nome, canvas e atributos iniciais, além de ID/timestamps. `cardTemplates` é uma coleção administrativa separada. A UI salva novos templates e carrega templates existentes; o serviço também oferece update/delete, sem tela dedicada de gestão de templates nesta fase.
 
-Fantasy Basic é uma composição inicial local e editável de fundo, moldura, nome, artwork, atributos, descrição e raridade. Não há gravação automática desse template no Firebase. Aplicar template pede confirmação e substitui design/atributos iniciais, mantendo os demais dados da carta. Ao salvar uma carta ou template, assets de outro proprietário são copiados para o namespace do destino.
+Fantasy Basic continua uma composição local e editável de fundo, borda simples, nome, artwork, atributos, descrição e raridade, usada também na adaptação de cartas legadas. A composição ornamental é o início de novas cartas e pode ser recriada pelo ateliê; nenhuma das duas é gravada automaticamente como template no Firebase. Aplicar template pede confirmação e substitui design/atributos iniciais, mantendo os demais dados da carta. Ao salvar uma carta ou template, assets de outro proprietário são copiados para o namespace do destino.
 
 Duplicar carta prepara um novo rascunho local com nome de cópia, status draft e seus binários. A ação Salvar cria o novo documento e materializa arquivos próprios; duplicar não sobrescreve o documento original.
 

@@ -1,8 +1,9 @@
 import { Component, EventEmitter, Output, computed, inject, signal } from '@angular/core';
 import { CARD_IMAGE_TYPES } from '../../../../../../model/interfaces/Cards/card';
 import {
-  AttributeProperties, BarProperties, CARD_CANVAS_CONFIG, CARD_FONTS, CanvasStyle,
-  CardBinding, CardCanvasElement, EditorAssetSelection, FontStyle, ImageProperties, ShapeProperties, TextProperties
+  AttributeProperties, BarProperties, CARD_CANVAS_CONFIG, CARD_FONTS, CARD_ORNAMENT_MOTIFS, CanvasStyle,
+  CardBinding, CardCanvasElement, CardOrnamentMotif, EditorAssetSelection, EmblemProperties, FontStyle,
+  FrameProperties, ImageProperties, ShapeProperties, TextProperties
 } from '../../../../../../model/interfaces/Cards/card-canvas';
 import { CardEditorStateService, CardElementAlignment } from '../../../../../../model/services/tools/card-editor-state.service';
 import { isCanvasColor } from '../../../../../../model/services/tools/card-canvas-validation';
@@ -18,6 +19,13 @@ const IMAGE_LOOKS: Record<ImageLook, Pick<ImageProperties, 'filter' | 'brightnes
   vintage: { filter: 'sepia', brightness: 0.03, contrast: -12, saturation: -0.3, hue: 0 },
   monochrome: { filter: 'grayscale', brightness: 0, contrast: 10, saturation: 0, hue: 0 }
 };
+const MOTIF_LABELS: Record<CardOrnamentMotif, string> = {
+  flame: 'Chama', leaf: 'Folha', crystal: 'Cristal', sun: 'Sol', moon: 'Lua', skull: 'Caveira',
+  heart: 'Coração', sword: 'Espada', shield: 'Escudo', drop: 'Gota', bolt: 'Raio', star: 'Estrela'
+};
+const FRAME_LIMITS = {
+  borderWidth: [2, 128], cornerRadius: [0, 4096], detail: [0, 12], seed: [0, 999999]
+} as const;
 
 @Component({
   selector: 'app-card-properties', standalone: true,
@@ -29,6 +37,7 @@ export class CardPropertiesComponent {
   readonly config = CARD_CANVAS_CONFIG;
   readonly imageTypes = CARD_IMAGE_TYPES.join(',');
   readonly inputError = signal('');
+  readonly ornamentMotifs = CARD_ORNAMENT_MOTIFS.map(id => ({ id, label: MOTIF_LABELS[id] }));
   readonly imageLooks: readonly { id: ImageLook; label: string }[] = [
     { id: 'original', label: 'Original' }, { id: 'vivid', label: 'Vivo' },
     { id: 'vintage', label: 'Vintage' }, { id: 'monochrome', label: 'Preto e branco' }
@@ -63,6 +72,60 @@ export class CardPropertiesComponent {
   }
   barElement(): Extract<CardCanvasElement, { type: 'bar' }> | null {
     const element = this.state.selectedElement(); return element?.type === 'bar' ? element : null;
+  }
+  frameElement(): Extract<CardCanvasElement, { type: 'frame' }> | null {
+    const element = this.state.selectedElement(); return element?.type === 'frame' ? element : null;
+  }
+  emblemElement(): Extract<CardCanvasElement, { type: 'emblem' }> | null {
+    const element = this.state.selectedElement(); return element?.type === 'emblem' ? element : null;
+  }
+  patchFrame(patch: Partial<FrameProperties>): void {
+    const element = this.frameElement();
+    if (element && !element.locked && !this.state.busy() && this.state.mode() === 'design') {
+      this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
+    }
+  }
+  patchEmblem(patch: Partial<EmblemProperties>): void {
+    const element = this.emblemElement();
+    if (element && !element.locked && !this.state.busy() && this.state.mode() === 'design') {
+      this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
+    }
+  }
+  setFrameStyle(event: Event): void {
+    const frameStyle = this.value(event);
+    if (frameStyle === 'ornate' || frameStyle === 'runic' || frameStyle === 'minimal') this.patchFrame({ frameStyle });
+  }
+  setOrnamentMotif(event: Event): void {
+    const motif = this.value(event);
+    if (CARD_ORNAMENT_MOTIFS.some(item => item === motif)) {
+      this.patchFrame({ motif: motif as CardOrnamentMotif }); this.patchEmblem({ motif: motif as CardOrnamentMotif });
+    }
+  }
+  setEmblemContainer(event: Event): void {
+    const container = this.value(event);
+    if (container === 'medallion' || container === 'shield' || container === 'plain') this.patchEmblem({ container });
+  }
+  ornamentColor(key: 'accentColor' | 'gemColor', event: Event): void {
+    const color = this.color(event);
+    if (color !== null) { this.patchFrame({ [key]: color }); this.patchEmblem({ [key]: color }); }
+  }
+  frameNumber(key: keyof typeof FRAME_LIMITS, event: Event): void {
+    const [min, max] = FRAME_LIMITS[key]; const value = this.number(event, min, max);
+    if (value === null) return;
+    if ((key === 'detail' || key === 'seed') && !Number.isInteger(value)) {
+      this.inputError.set('Detalhamento e semente precisam ser números inteiros.'); return;
+    }
+    this.patchFrame({ [key]: value });
+  }
+  emblemRelief(event: Event): void {
+    const relief = this.number(event, 0, 1); if (relief !== null) this.patchEmblem({ relief });
+  }
+  varyFrame(): void {
+    const element = this.frameElement();
+    if (!element || element.locked || this.state.busy() || this.state.mode() !== 'design') return;
+    const seed = (element.properties.seed + 1 + Math.floor(Math.random() * 999999)) % 1000000;
+    this.inputError.set('');
+    this.state.updateElement({ ...element, properties: { ...element.properties, seed } }, false);
   }
   patchText(patch: Partial<TextProperties>): void {
     const element = this.textElement(); if (element && !element.locked && !this.state.busy()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
@@ -213,6 +276,7 @@ export class CardPropertiesComponent {
   assetName(assetId: string | null): string { return this.state.canvas().assets.find(asset => asset.id === assetId)?.fileName ?? 'Nenhuma imagem selecionada'; }
   private patchStyle(patch: Partial<CanvasStyle>): void {
     this.patchText(patch); this.patchShape(patch); this.patchImage(patch); this.patchAttribute(patch); this.patchBar(patch);
+    this.patchFrame(patch); this.patchEmblem(patch);
   }
   private number(event: Event, min: number, max: number): number | null {
     const raw = this.value(event); const value = Number(raw);

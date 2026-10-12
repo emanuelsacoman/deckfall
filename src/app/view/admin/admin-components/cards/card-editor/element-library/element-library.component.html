@@ -1,9 +1,46 @@
 <section aria-labelledby="library-title">
   <header><h2 id="library-title">Elementos</h2><p>Monte um layout do seu jeito.</p></header>
+  <section class="ornament-studio" aria-labelledby="ornament-title">
+    <div class="studio-heading"><span class="studio-symbol" aria-hidden="true">❖</span><div><h3 id="ornament-title">Ateliê de molduras</h3><p>Uma base. Muitas combinações.</p></div></div>
+    <div class="theme-grid" aria-label="Escolha uma paleta ornamental">
+      @for (theme of ornamentThemes; track theme.id) {
+        <button type="button" class="theme-option" [attr.aria-pressed]="selectedTheme() === theme.id"
+          [attr.aria-label]="'Paleta ' + theme.label" [disabled]="unavailable()" (click)="chooseTheme(theme.id)"
+          [style.--theme-fill]="theme.fill" [style.--theme-metal]="theme.stroke"
+          [style.--theme-accent]="theme.accentColor" [style.--theme-gem]="theme.gemColor">
+          <span class="theme-preview" aria-hidden="true"><span class="preview-jewel"></span><span class="preview-window"></span><span class="preview-text"></span></span>
+          <span>{{ theme.label }}</span>
+        </button>
+      }
+    </div>
+    <div class="palette-preview" aria-hidden="true">
+      <span [style.background]="currentTheme().fill"></span><span [style.background]="currentTheme().stroke"></span>
+      <span [style.background]="currentTheme().accentColor"></span><span [style.background]="currentTheme().gemColor"></span>
+    </div>
+    <p class="studio-help">Molduras, relevos e emblemas editáveis. Combine símbolos, cores e sementes em Propriedades.</p>
+    <button type="button" class="palette-action" (click)="applyPalette()" [disabled]="unavailable() || !editableOrnaments()"
+      aria-describedby="palette-help">Aplicar paleta aos ornamentos</button>
+    <p id="palette-help" class="studio-help">Troca as cores das molduras e emblemas desbloqueados, mantendo símbolos e posições.</p>
+    @if (pendingLayout()) {
+      <div class="layout-confirmation" role="group" aria-labelledby="layout-confirm-title">
+        <h4 id="layout-confirm-title">Criar layout {{ currentTheme().label }}?</h4>
+        <p>Substitui as camadas do design. Mantém os dados de jogo e a arte principal, ajustando-a à nova janela. Você pode desfazer.</p>
+        <div class="confirmation-actions"><button type="button" class="layout-action" (click)="createLayout()"
+          [disabled]="unavailable() || hasLockedLayers()">Confirmar novo layout</button>
+          <button type="button" class="cancel-action" (click)="pendingLayout.set(false)">Cancelar</button></div>
+      </div>
+    } @else {
+      <button type="button" class="layout-action" (click)="requestLayout()" [disabled]="unavailable() || hasLockedLayers()"
+        aria-describedby="layout-help">Criar layout ornamental</button>
+      <p id="layout-help" class="studio-help">Compõe moldura, título, arte, descrição e atributos como camadas independentes.</p>
+    }
+    @if (hasLockedLayers()) { <p class="studio-help" role="status">Desbloqueie as camadas para criar um novo layout.</p> }
+    @if (ornamentNotice()) { <p class="studio-notice" role="status">{{ ornamentNotice() }}</p> }
+  </section>
   <div class="tool-grid">
     @for (tool of tools; track tool.preset) {
-      <button type="button" class="tool" [title]="tool.description" (click)="state.addElement(tool.preset)"
-        [disabled]="state.busy() || state.canvas().elements.length >= maxElements">
+      <button type="button" class="tool" [title]="tool.description" (click)="addElement(tool.preset)"
+        [disabled]="unavailable() || state.canvas().elements.length >= maxElements">
         <span class="tool-icon" aria-hidden="true">{{ tool.icon }}</span><span>{{ tool.label }}</span>
       </button>
     }
@@ -11,8 +48,8 @@
   <button class="background-tool" type="button" (click)="state.select(null)" [disabled]="state.busy()">Fundo e dimensões</button>
   <label class="upload-label" for="library-image">Enviar imagem</label>
   <input id="library-image" type="file" [accept]="imageTypes" (change)="upload($event)"
-    [disabled]="state.busy() || state.canvas().elements.length >= maxElements" aria-describedby="library-upload-help" />
-  <p id="library-upload-help" class="muted">PNG, JPEG ou WebP · até 5 MiB. PNGs já transparentes mantêm o fundo transparente.</p>
+    [disabled]="unavailable() || state.canvas().elements.length >= maxElements" aria-describedby="library-upload-help" />
+  <p id="library-upload-help" class="muted">PNG, JPEG ou WebP · até 5 MiB. Use PNGs transparentes para adicionar texturas, molduras e decorações próprias. A transparência do arquivo é preservada.</p>
   @if (imageError()) { <p class="field-error" role="alert">{{ imageError() }}</p> }
   @if (state.canvas().elements.length >= maxElements) {
     <p class="notice" role="status">Limite de {{ maxElements }} elementos atingido.</p>

@@ -53,6 +53,39 @@
         }
         <label class="field">Raio dos cantos<input type="number" [value]="shape.properties.cornerRadius" min="0" max="4096" (input)="shapeNumber('cornerRadius', $event, 0, 4096)" /></label>
       }
+      @if (frameElement(); as frame) {
+        <div class="ornament-controls">
+          <h3>Moldura ornamental</h3>
+          <p class="hint">A janela central permanece aberta para a arte. Cada detalhe é desenhado pelo editor.</p>
+          <label class="field">Estilo da moldura<select [value]="frame.properties.frameStyle" (change)="setFrameStyle($event)"><option value="ornate">Ornamentada</option><option value="runic">Rúnica</option><option value="minimal">Minimalista</option></select></label>
+          <label class="field">Símbolo ornamental<select [value]="frame.properties.motif" (change)="setOrnamentMotif($event)">@for (motif of ornamentMotifs; track motif.id) { <option [value]="motif.id">{{ motif.label }}</option> }</select></label>
+          <div class="fields-grid">
+            <label class="field">Largura da moldura<input type="number" [value]="frame.properties.borderWidth" min="2" max="128" (input)="frameNumber('borderWidth', $event)" /></label>
+            <label class="field">Raio dos cantos<input type="number" [value]="frame.properties.cornerRadius" min="0" max="4096" (input)="frameNumber('cornerRadius', $event)" /></label>
+          </div>
+          <label class="field">Detalhamento <output>{{ frame.properties.detail }}</output><input type="range" [value]="frame.properties.detail" min="0" max="12" step="1" (input)="frameNumber('detail', $event)" aria-label="Detalhamento da moldura" /></label>
+          <div class="fields-grid">
+            <label class="field">Cor dos detalhes<span class="ornament-color"><span [style.background]="frame.properties.accentColor" aria-hidden="true"></span><input [value]="frame.properties.accentColor" (input)="ornamentColor('accentColor', $event)" /></span></label>
+            <label class="field">Cor das gemas<span class="ornament-color"><span [style.background]="frame.properties.gemColor" aria-hidden="true"></span><input [value]="frame.properties.gemColor" (input)="ornamentColor('gemColor', $event)" /></span></label>
+          </div>
+          <label class="field">Semente da variação<input type="number" [value]="frame.properties.seed" min="0" max="999999" step="1" (input)="frameNumber('seed', $event)" aria-describedby="frame-seed-help" /></label>
+          <button type="button" class="variation-action" (click)="varyFrame()">Gerar outra variação</button>
+          <p id="frame-seed-help" class="hint">A mesma semente reproduz os mesmos detalhes. Alterar a semente mantém cores, tamanho e dados da carta.</p>
+        </div>
+      }
+      @if (emblemElement(); as emblem) {
+        <div class="ornament-controls">
+          <h3>Emblema vetorial</h3>
+          <p class="hint">Use como símbolo de elemento, custo ou atributo. Os valores de jogo continuam nas suas próprias camadas.</p>
+          <label class="field">Símbolo<select [value]="emblem.properties.motif" (change)="setOrnamentMotif($event)">@for (motif of ornamentMotifs; track motif.id) { <option [value]="motif.id">{{ motif.label }}</option> }</select></label>
+          <label class="field">Suporte<select [value]="emblem.properties.container" (change)="setEmblemContainer($event)"><option value="medallion">Medalhão</option><option value="shield">Escudo</option><option value="plain">Somente símbolo</option></select></label>
+          <div class="fields-grid">
+            <label class="field">Cor do símbolo<span class="ornament-color"><span [style.background]="emblem.properties.accentColor" aria-hidden="true"></span><input [value]="emblem.properties.accentColor" (input)="ornamentColor('accentColor', $event)" /></span></label>
+            <label class="field">Cor da gema<span class="ornament-color"><span [style.background]="emblem.properties.gemColor" aria-hidden="true"></span><input [value]="emblem.properties.gemColor" (input)="ornamentColor('gemColor', $event)" /></span></label>
+          </div>
+          <label class="field">Relevo <output>{{ (emblem.properties.relief * 100).toFixed(0) }}%</output><input type="range" [value]="emblem.properties.relief" min="0" max="1" step="0.05" (input)="emblemRelief($event)" aria-label="Relevo do emblema" /></label>
+        </div>
+      }
       @if (imageElement(); as image) {
         <h3>{{ image.type === 'artwork' ? 'Arte principal' : 'Imagem' }}</h3>
         <p class="asset-name">{{ assetName(image.properties.assetId) }}</p>
@@ -118,7 +151,7 @@
       <h3>Cores e borda</h3>
       <div class="fields-grid">
         <label class="field">{{ imageElement() ? 'Fundo da imagem (opcional)' : 'Cor / preenchimento' }}<input [value]="element.properties.fill" placeholder="#ffffff" (input)="styleColor('fill', $event)" /></label>
-        <label class="field">Cor da borda<input [value]="element.properties.stroke" placeholder="#000000" (input)="styleColor('stroke', $event)" /></label>
+        <label class="field">{{ frameElement() || emblemElement() ? 'Cor do metal / borda' : 'Cor da borda' }}<input [value]="element.properties.stroke" placeholder="#000000" (input)="styleColor('stroke', $event)" /></label>
       </div>
       <label class="field">Espessura da borda<input type="number" [value]="element.properties.strokeWidth" min="0" max="64" (input)="styleNumber('strokeWidth', $event, 0, 64)" /></label>
       <label class="field">Estilo da borda<select [value]="element.properties.borderStyle || 'solid'" (change)="setBorderStyle($event)"><option value="solid">Contínua</option><option value="dashed">Tracejada</option><option value="dotted">Pontilhada</option></select></label>

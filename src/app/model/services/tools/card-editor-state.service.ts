@@ -3,13 +3,14 @@ import { CardDataInput } from '../../interfaces/Cards/card';
 import {
   CARD_CANVAS_CONFIG, CardCanvasBackground, CardCanvasElement, CardEditorDocument, CardElementPreset, EditorMode
 } from '../../interfaces/Cards/card-canvas';
-import { createCanvasElement, defaultCardData, fantasyBasicCanvas, newEditorId, normalizeEditorAttributes } from './card-canvas-factory';
+import { createCanvasElement, defaultCardData, newEditorId, normalizeEditorAttributes } from './card-canvas-factory';
+import { CardOrnamentThemeId, ornateFantasyCanvas, ornamentTheme, themeOrnament } from './card-ornament-presets';
 
 type ElementPatch = Partial<Pick<CardCanvasElement, 'name' | 'x' | 'y' | 'width' | 'height' | 'rotation' | 'opacity' | 'visible' | 'locked'>>;
 export type CardElementAlignment = 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom';
 const initialData = (): CardEditorDocument => {
   const data = defaultCardData();
-  return { data, canvas: fantasyBasicCanvas(data) };
+  return { data, canvas: ornateFantasyCanvas(data) };
 };
 
 @Injectable()
@@ -77,8 +78,21 @@ export class CardEditorStateService {
   addElement(preset: CardElementPreset): void {
     if (this.canvas().elements.length >= CARD_CANVAS_CONFIG.maxElements) return;
     const element = createCanvasElement(preset, this.data(), this.canvas().elements.length);
+    if (element.type === 'frame') Object.assign(element, { x: this.canvas().width * 0.014, y: this.canvas().height * 0.01,
+      width: this.canvas().width * 0.972, height: this.canvas().height * 0.98 });
     this.commit({ ...this.document(), canvas: { ...this.canvas(), elements: [...this.canvas().elements, element] } });
     this.select(element.id);
+  }
+  applyOrnamentTheme(themeId: CardOrnamentThemeId): void {
+    if (this.busy() || this.mode() !== 'design') return;
+    const theme = ornamentTheme(themeId);
+    const elements = this.canvas().elements.map(element => element.locked ? element : themeOrnament(element, theme));
+    this.commit({ ...this.document(), canvas: { ...this.canvas(), elements } });
+  }
+  applyOrnamentLayout(themeId: CardOrnamentThemeId): void {
+    if (this.busy() || this.mode() !== 'design' || this.canvas().elements.some(element => element.locked)) return;
+    this.commit({ ...this.document(), canvas: ornateFantasyCanvas(this.data(), themeId, this.canvas()) });
+    this.select(null); this.requestFit();
   }
   updateElement(element: CardCanvasElement, coalesce = true): void {
     this.commit({ ...this.document(), canvas: { ...this.canvas(), elements: this.canvas().elements.map(item => item.id === element.id ? structuredClone(element) : item) } }, coalesce ? `element:${element.id}` : '');

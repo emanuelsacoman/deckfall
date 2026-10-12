@@ -11,6 +11,7 @@ import { CardService } from '../../../../../model/services/cruds/cards/card.serv
 import { CardTemplateService } from '../../../../../model/services/cruds/cards/card-template.service';
 import { CardStorageService } from '../../../../../model/services/fire/card-storage.service';
 import { defaultCardData, fantasyBasicCanvas, newEditorId, normalizeEditorAttributes } from '../../../../../model/services/tools/card-canvas-factory';
+import { ornateFantasyCanvas } from '../../../../../model/services/tools/card-ornament-presets';
 import { validateCardInput } from '../../../../../model/services/tools/card-validation';
 import { CardEditorStateService } from '../../../../../model/services/tools/card-editor-state.service';
 import { CardEditorAssetsService } from '../../../../../model/services/tools/card-editor-assets.service';
@@ -79,7 +80,7 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
     const version = ++this.version;
     this.assets.reset(); this.localSavedSignature = ''; this.allowLeave = false; this.clipboard = null;
     this.loading.set(true); this.retryingImages.set(false); this.dataValid.set(true); this.loadError.set(''); this.error.set(''); this.feedback.set(''); this.recoveryId.set(null); this.original.set(null);
-    const fresh = defaultCardData(); this.state.load({ data: fresh, canvas: fantasyBasicCanvas(fresh) });
+    const fresh = defaultCardData(); this.state.load({ data: fresh, canvas: ornateFantasyCanvas(fresh) });
     try {
       if (this.mode === 'edit') {
         if (!this.cardId) throw new Error('O endereço não contém o ID da carta.');

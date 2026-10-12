@@ -36,6 +36,8 @@ O upload preserva os bytes e a transparência do PNG. O editor aplica preenchime
 
 Espelhamento e ajustes de brilho/contraste/saturação/matiz são propriedades do canvas, aplicadas ao renderizar. Salvar/reabrir uma carta ou template conserva esses ajustes e continua usando o mesmo arquivo original. Não gerar uma cópia raster do asset a cada mudança de slider. Consulte [personalização visual](editor-de-cartas.md#personalização-visual).
 
+Molduras e emblemas procedurais são elementos `frame`/`emblem` no canvas v1; suas cores, símbolos e parâmetros ficam no documento, sem arquivos adicionais no Storage. Novas cartas começam com composição ornamental e seus valores continuam ligados aos atributos genéricos. Aplicar paleta conserva arte/geometria; recriar o layout substitui as camadas após confirmação e conserva dados/assets, ajustando a janela da arte principal. PNGs transparentes próprios podem complementar esses vetores com molduras ou ícones ilustrados. Consulte [o ateliê](editor-de-cartas.md#ateliê-de-molduras-e-emblemas) para histórico, camadas bloqueadas e limites.
+
 ## Criar e salvar
 
 1. Validar dados, canvas e uploads pendentes; gerar o ID.

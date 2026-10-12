@@ -43,9 +43,18 @@ canvas
   assets: {id,storagePath,fileName,contentType,size}[]
 ```
 
-Elementos possuem ID/nome/tipo, geometria, opacidade, visible/locked e properties tipadas. Tipos atuais: text, icon, rect, circle, line, image, artwork, attribute, bar. A ordem do array determina z-order. Bindings seguros usam campos conhecidos e `attributes.<key>`; conteúdo completo fica em [editor](editor-de-cartas.md).
+Elementos possuem ID/nome/tipo, geometria, opacidade, visible/locked e properties tipadas. Tipos atuais: text, icon, rect, circle, line, image, artwork, attribute, bar, frame, emblem. A ordem do array determina z-order. Bindings seguros usam campos conhecidos e `attributes.<key>`; conteúdo completo fica em [editor](editor-de-cartas.md).
 
 Personalização acrescenta somente campos opcionais em `properties`: `borderStyle` nos estilos; `textDecoration`/`verticalAlign` em texto/ícone/atributo; `flipX`, `flipY`, `brightness`, `contrast`, `saturation` e `hue` em imagem/artwork. Canvas continua versão 1; a validação preserva a ausência desses campos em documentos antigos e rejeita valores fornecidos fora dos contratos. Defaults de renderização e faixas ficam em [personalização visual](editor-de-cartas.md#personalização-visual). Filtros, pixels em cache e atributos internos Konva não são persistidos.
+
+Ornamentos acrescentam dois tipos à union do canvas v1, sem campos obrigatórios novos nos tipos anteriores:
+
+| Tipo | `properties`, além do estilo compartilhado |
+| --- | --- |
+| frame | `frameStyle` (ornate/runic/minimal), `motif`, `borderWidth` (2–128), `cornerRadius` (0–4096), `detail` inteiro (0–12), `seed` inteiro (0–999999), `accentColor`, `gemColor` |
+| emblem | `motif`, `container` (medallion/shield/plain), `accentColor`, `gemColor`, `relief` (0–1) |
+
+`motif` aceita flame, leaf, crystal, sun, moon, skull, heart, sword, shield, drop, bolt e star. Cores usam a validação compartilhada. Tema é um preset local que materializa cores/propriedades; não há coleção nova nem ID de tema obrigatório. O documento persiste parâmetros vetoriais, sem caminhos Konva/SVG, imagem derivada ou binário. Renderização reconstrói o acabamento a partir desses valores. Cartas anteriores continuam válidas; clientes anteriores que não conhecem os tipos novos os rejeitam. Veja [o ateliê](editor-de-cartas.md#ateliê-de-molduras-e-emblemas).
 
 Limites do cliente: dimensões 160–2048, 64 elementos, 24 assets e documento estruturado até 128 KiB. Fontes/cores/crop/faixas/IDs/referências são validados profundamente antes da persistência/importação. Assets locais podem ter storagePath null; a gravação final pelo serviço exige arquivos materializados no namespace do proprietário.
 

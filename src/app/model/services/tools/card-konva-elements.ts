@@ -5,6 +5,7 @@ import {
 import { CardDataInput } from '../../interfaces/Cards/card';
 import { renderText } from './card-canvas-factory';
 import { cacheFilteredImage } from './card-filter-cache';
+import { drawEmblem, drawFrame } from './card-ornament-renderer';
 
 export function gradient(width: number, height: number, angle: number, color: string, color2: string) {
   const radians = angle * Math.PI / 180;
@@ -143,7 +144,9 @@ function addImage(group: Konva.Group, element: Extract<CardCanvasElement, { type
 export function drawElement(group: Konva.Group, element: CardCanvasElement, data: CardDataInput,
   image?: HTMLImageElement, filteredImageCount = 1): void {
   group.destroyChildren();
-  group.add(new Konva.Rect({ name: 'element-hit-area', width: element.width, height: element.height, fill: 'transparent' }));
+  if (element.type !== 'frame') {
+    group.add(new Konva.Rect({ name: 'element-hit-area', width: element.width, height: element.height, fill: 'transparent' }));
+  }
   const properties = element.properties;
   switch (element.type) {
     case 'text': case 'icon': {
@@ -164,6 +167,8 @@ export function drawElement(group: Konva.Group, element: CardCanvasElement, data
       group.add(new Konva.Line({ ...shapeStyle(element, element.properties), points: [0, 0, element.width, element.height], lineCap: 'round' }));
       break;
     case 'image': case 'artwork': addImage(group, element, image, filteredImageCount); break;
+    case 'frame': drawFrame(group, element); break;
+    case 'emblem': drawEmblem(group, element); break;
     case 'attribute': {
       const attribute = data.attributes.find(item => item.key === element.properties.attributeKey);
       group.add(new Konva.Text({ ...style(properties), fill: attribute?.color ?? properties.fill, text: elementText(element, data),

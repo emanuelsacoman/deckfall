@@ -58,6 +58,8 @@ Os cinco painéis usam `CardEditorStateService` e emitem intenções de ação, 
 
 `card-filter-cache.ts` compartilha limites e recorte de caches de efeitos entre renderer e exportação. A moldura usada pelo cache acompanha clones como atributo Konva somente de runtime; não entra em `CardCanvasData`. Alinhamento e presets alteram o documento pelo serviço de estado, sem writes Firebase por interação.
 
+`card-ornament-presets.ts` define seis temas e constrói composições de camadas tipadas, conservando dados/assets ao recriar um layout. `card-ornament-renderer.ts` desenha molduras e emblemas vetoriais a partir dos parâmetros persistidos; `card-konva-elements.ts` encaminha os tipos `frame`/`emblem` para ele. Biblioteca e Propriedades operam pelo serviço de estado, com histórico e bloqueios, sem novas dependências ou serviço de IA.
+
 ## Arquivos relevantes
 
 ```text
@@ -74,6 +76,8 @@ model/services/tools/card-editor-state.service.ts
 model/services/tools/card-editor-assets.service.ts
 model/services/tools/card-local-draft.service.ts
 model/services/tools/card-canvas-factory.ts
+model/services/tools/card-ornament-presets.ts
+model/services/tools/card-ornament-renderer.ts
 model/services/tools/card-canvas-validation.ts
 model/services/tools/card-konva-renderer.ts
 model/services/tools/card-konva-elements.ts

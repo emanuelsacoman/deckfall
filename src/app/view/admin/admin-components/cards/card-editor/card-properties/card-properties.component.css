@@ -8,3 +8,7 @@ details { margin: .8rem 0; border-top: 1px solid var(--border); padding-top: .7r
 .image-effects .field { margin-top: .75rem; }
 .image-effects output { color: var(--text-muted); font-weight: 400; }
 .image-effects input[type="range"] { padding: .35rem 0; cursor: pointer; accent-color: var(--primary); }
+.ornament-controls { padding: .15rem .7rem .45rem; margin: 1rem 0; border: 1px solid #d8cebc; border-radius: 10px; background: #fbf8f1; }.ornament-controls h3 { color: #59452b; }
+.ornament-controls input[type="range"] { padding: .35rem 0; accent-color: #8b672e; cursor: pointer; }.ornament-controls output { color: var(--text-muted); font-weight: 400; }
+.ornament-color { display: flex; align-items: center; gap: .35rem; min-width: 0; }.ornament-color > span { flex: 0 0 12px; height: 22px; border: 1px solid #0002; border-radius: 3px; }.ornament-color input { min-width: 0; }
+.variation-action { width: 100%; padding: .6rem; color: #664e2d; background: #f0e3c8; border: 1px solid #c1ac86; }

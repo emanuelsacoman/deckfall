@@ -14,12 +14,13 @@ O CORS do Storage foi configurado e confirmado para leitura em `http://localhost
 
 ## Recursos implementados
 
-- **Editor Konva:** texto, imagens, arte principal, formas, ícones, atributos e barras; seleção, movimento, resize, rotação, bloqueio, visibilidade e camadas.
+- **Editor Konva:** texto, imagens, arte principal, formas, ícones, molduras, emblemas, atributos e barras; seleção, movimento, resize, rotação, bloqueio, visibilidade e camadas.
+- **Ateliê de molduras:** seis temas, bordas ornamentais/rúnicas/simples, doze símbolos vetoriais e emblemas com medalhão, escudo ou sem suporte. Cores, detalhes, largura, cantos, relevo e semente são editáveis; criar uma composição pode ser desfeito.
 - **PNG transparente:** imagens já sem fundo preservam a transparência no editor, no salvamento e na exportação PNG, mostrando as camadas da carta por baixo.
 - **Personalização visual:** espelhar imagens, ajustar brilho/contraste/saturação/matiz e aplicar estilos Original, Vivo, Vintage ou Preto e branco; bordas contínuas/tracejadas/pontilhadas, decoração de texto e alinhamento à carta.
 - **Design, Dados e Preview:** propriedades por tipo, bindings seguros, atributos com limites personalizados, grid, snap, zoom e visualização limpa.
 - **Histórico e exportação:** desfazer/refazer, atalhos e PNG/JPEG em 1×, 2× ou 4×, respeitando dimensões reais e orçamento de pixels.
-- **Cartas e templates:** salvar/reabrir o modelo próprio no Firestore, uploads organizados no Storage, Fantasy Basic editável, salvar/carregar templates e preparar cópias de cartas.
+- **Cartas e templates:** salvar/reabrir o modelo próprio no Firestore, uploads organizados no Storage, composição ornamental inicial e Fantasy Basic editáveis, salvar/carregar templates e preparar cópias de cartas.
 - **Catálogo em dois modos:** lista administrativa ou galeria de cartas inteiras, com a composição salva, proporção original e acesso à edição ao clicar.
 - **Rascunho local:** salvamento manual de documento e imagens em IndexedDB; importação/exportação de JSON para o modelo estruturado.
 - **Edição com imagens indisponíveis:** a carta abre sem esperar downloads; falhas têm nova tentativa manual e referências dos arquivos próprios podem ser conservadas ao salvar dados/design.
@@ -30,6 +31,8 @@ O CORS do Storage foi configurado e confirmado para leitura em `http://localhost
 O acesso Google tenta popup e continua por redirecionamento quando o navegador o bloqueia. Em **Minha conta**, quem entrou por e-mail/senha pode vincular Google; quem entrou com Google pode adicionar uma senha após confirmar sua identidade. Os dois métodos preservam UID e perfil. **Esqueci minha senha** envia o link de recuperação pelo Firebase. Veja [o fluxo de autenticação](docs/autenticacao-e-admin.md).
 
 O editor usa um modelo versionado próprio. Konva representa esse estado; `stage.toJSON()` não é o banco de dados. Design e gameplay permanecem separados, sem impor um único layout de carta.
+
+Molduras e emblemas vetoriais combinam cores e formas sem depender de emojis. Para acabamentos ilustrados ou texturas detalhadas, combine arte e PNGs transparentes próprios em camadas. O editor não inclui geração de imagens por IA; as variações procedurais usam os estilos e símbolos disponíveis. Veja [o ateliê e seus limites](docs/editor-de-cartas.md#ateliê-de-molduras-e-emblemas).
 
 ### Permissões e contas
 
@@ -80,7 +83,7 @@ Os testes Angular precisam do Chrome. Os testes de Rules precisam da Firebase CL
 
 Resultados finais e detalhes do ambiente ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Verificações locais não confirmam a configuração nem a publicação do backend remoto.
 
-Validação local: **220 testes Angular, 17 cenários de Security Rules e build de produção aprovados**, incluindo modos lista/galeria, prévias completas, cancelamento, edição com downloads bloqueados, transparência, efeitos e exportação. OAuth Google e entrega de recuperação de senha reais dependem da configuração do Firebase Console.
+Validação local: **243 testes Angular, 17 cenários de Security Rules e build de produção aprovados**, incluindo ornamentos/temas, histórico, validação do canvas, pixels transparentes e seleção pela janela da moldura, exportação em 1×/2×/4× e os fluxos anteriores de catálogo/editor/autenticação. As composições dos seis temas e doze emblemas também foram inspecionadas com arte sintética. OAuth Google e entrega de recuperação de senha reais dependem da configuração do Firebase Console.
 
 ## Documentação e desenvolvimento
 

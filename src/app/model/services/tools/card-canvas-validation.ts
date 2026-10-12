@@ -2,7 +2,8 @@ import { CARD_IMAGE_TYPES, CARD_LIMITS } from '../../interfaces/Cards/card';
 import {
   CARD_CANVAS_CONFIG, CARD_FONTS, AttributeProperties, BarProperties, CardBinding,
   CardCanvasAsset, CardCanvasBackground, CardCanvasData, CardCanvasElement,
-  CanvasStyle, ImageProperties, ShapeProperties, TextProperties
+  CanvasStyle, ImageProperties, ShapeProperties, TextProperties, FrameProperties, EmblemProperties,
+  CARD_FRAME_STYLES, CARD_ORNAMENT_MOTIFS, CARD_EMBLEM_CONTAINERS
 } from '../../interfaces/Cards/card-canvas';
 
 type Fields = Record<string, unknown>;
@@ -83,6 +84,8 @@ function validateElement(value: unknown, assetIds: Set<string>): CardCanvasEleme
     case 'image': case 'artwork': return { ...base, type: data['type'], properties: validateImage(data['properties'], assetIds) };
     case 'attribute': return { ...base, type: 'attribute', properties: validateAttribute(data['properties']) };
     case 'bar': return { ...base, type: 'bar', properties: validateBar(data['properties']) };
+    case 'frame': return { ...base, type: 'frame', properties: validateFrame(data['properties']) };
+    case 'emblem': return { ...base, type: 'emblem', properties: validateEmblem(data['properties']) };
     default: throw new Error('Tipo de elemento desconhecido.');
   }
 }
@@ -119,6 +122,23 @@ function validateShape(value: unknown): ShapeProperties {
     fillMode: choice(data['fillMode'], ['solid', 'gradient'], 'preenchimento'),
     gradientColor: color(data['gradientColor']), gradientAngle: finite(data['gradientAngle'], 'ângulo do gradiente', -360, 360)
   };
+}
+
+function validateFrame(value: unknown): FrameProperties {
+  const data = fields(value, 'moldura ornamentada', [...STYLE_FIELDS, 'frameStyle', 'motif', 'borderWidth', 'cornerRadius', 'detail', 'seed', 'accentColor', 'gemColor']);
+  return { ...style(data), frameStyle: choice(data['frameStyle'], CARD_FRAME_STYLES, 'estilo da moldura'),
+    motif: choice(data['motif'], CARD_ORNAMENT_MOTIFS, 'símbolo ornamental'),
+    borderWidth: finite(data['borderWidth'], 'largura da moldura', 2, 128),
+    cornerRadius: finite(data['cornerRadius'], 'raio dos cantos', 0, 4096),
+    detail: integer(data['detail'], 'detalhes da moldura', 0, 12), seed: integer(data['seed'], 'semente da moldura', 0, 999999),
+    accentColor: color(data['accentColor']), gemColor: color(data['gemColor']) };
+}
+
+function validateEmblem(value: unknown): EmblemProperties {
+  const data = fields(value, 'emblema', [...STYLE_FIELDS, 'motif', 'container', 'accentColor', 'gemColor', 'relief']);
+  return { ...style(data), motif: choice(data['motif'], CARD_ORNAMENT_MOTIFS, 'símbolo do emblema'),
+    container: choice(data['container'], CARD_EMBLEM_CONTAINERS, 'base do emblema'),
+    accentColor: color(data['accentColor']), gemColor: color(data['gemColor']), relief: finite(data['relief'], 'relevo do emblema', 0, 1) };
 }
 
 function validateImage(value: unknown, assetIds: Set<string>): ImageProperties {
@@ -216,6 +236,11 @@ function finite(value: unknown, label: string, minimum: number, maximum: number)
 function bool(value: unknown, label: string): boolean {
   if (typeof value !== 'boolean') throw new Error(`Valor inválido: ${label}.`);
   return value;
+}
+function integer(value: unknown, label: string, minimum: number, maximum: number): number {
+  const result = finite(value, label, minimum, maximum);
+  if (!Number.isInteger(result)) throw new Error(`Valor inválido: ${label}. Use um número inteiro.`);
+  return result;
 }
 function choice<T extends string>(value: unknown, choices: readonly T[], label: string): T {
   if (typeof value !== 'string' || !choices.includes(value as T)) throw new Error(`Opção inválida: ${label}.`);

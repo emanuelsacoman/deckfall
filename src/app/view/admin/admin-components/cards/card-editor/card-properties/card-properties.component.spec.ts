@@ -150,6 +150,69 @@ describe('CardPropertiesComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.image-effects')).toBeNull();
   });
 
+  it('edits ornamental frames with typed controls and rejects invalid seeds or detailing', () => {
+    const fixture = TestBed.createComponent(CardPropertiesComponent);
+    const state = TestBed.inject(CardEditorStateService);
+    state.addElement('ornate-frame'); fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const style = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>('.ornament-controls select')!;
+    style.value = 'runic'; style.dispatchEvent(new Event('change'));
+    component.setOrnamentMotif(input('moon')); component.ornamentColor('accentColor', input('#66aaff'));
+    component.frameNumber('borderWidth', input('36')); component.frameNumber('detail', input('8'));
+    component.frameNumber('seed', input('12345')); component.styleColor('stroke', input('#ccaabb'));
+    expect(component.frameElement()!.properties).toEqual(jasmine.objectContaining({
+      frameStyle: 'runic', motif: 'moon', accentColor: '#66aaff', borderWidth: 36, detail: 8, seed: 12345, stroke: '#ccaabb'
+    }));
+    const valid = structuredClone(component.frameElement()!);
+    component.frameNumber('seed', input('1.5')); expect(component.inputError()).toContain('inteiros');
+    component.frameNumber('detail', input('2.2')); expect(component.inputError()).toContain('inteiros');
+    component.frameNumber('seed', input('1000000')); component.frameNumber('borderWidth', input('1'));
+    component.frameNumber('cornerRadius', input('')); component.setFrameStyle(input('unknown')); component.setOrnamentMotif(input('unknown'));
+    expect(component.frameElement()).toEqual(valid);
+    fixture.detectChanges(); expect((fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it('generates a different reproducible seed as a separate undo command without altering gameplay or geometry', () => {
+    const fixture = TestBed.createComponent(CardPropertiesComponent);
+    const state = TestBed.inject(CardEditorStateService);
+    state.addElement('ornate-frame');
+    const original = structuredClone(state.document()); const frame = fixture.componentInstance.frameElement()!;
+    spyOn(Math, 'random').and.returnValue(0);
+    fixture.componentInstance.varyFrame();
+    const changed = fixture.componentInstance.frameElement()!;
+    expect(changed.properties.seed).toBe((frame.properties.seed + 1) % 1000000);
+    expect({ ...changed, properties: { ...changed.properties, seed: frame.properties.seed } }).toEqual(frame);
+    expect(state.data()).toEqual(original.data); expect(state.canvas().assets).toEqual(original.canvas.assets);
+    state.undo(); expect(state.document()).toEqual(original);
+    state.redo(); state.select(frame.id); expect(fixture.componentInstance.frameElement()!.properties.seed).toBe(changed.properties.seed);
+  });
+
+  it('edits emblem symbols, material and relief independently and respects locked or busy gates', () => {
+    const fixture = TestBed.createComponent(CardPropertiesComponent);
+    const state = TestBed.inject(CardEditorStateService);
+    state.addElement('emblem'); fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.setOrnamentMotif(input('heart')); component.setEmblemContainer(input('shield'));
+    component.ornamentColor('gemColor', input('#aa1122')); component.emblemRelief(input('0.8'));
+    component.styleColor('fill', input('#112233')); component.styleNumber('shadowBlur', input('9'), 0, 100);
+    expect(component.emblemElement()!.properties).toEqual(jasmine.objectContaining({
+      motif: 'heart', container: 'shield', gemColor: '#aa1122', relief: 0.8, fill: '#112233', shadowBlur: 9
+    }));
+    const valid = structuredClone(component.emblemElement()!);
+    component.emblemRelief(input('2')); component.ornamentColor('gemColor', input('url(secret)')); component.setEmblemContainer(input('unknown'));
+    expect(component.emblemElement()).toEqual(valid);
+    state.toggleLocked(valid.id); fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector<HTMLFieldSetElement>('fieldset')!.disabled).toBeTrue();
+    component.patchEmblem({ motif: 'flame' }); expect(component.emblemElement()!.properties.motif).toBe('heart');
+    state.toggleLocked(valid.id); state.busy.set(true); component.emblemRelief(input('0')); component.styleColor('fill', input('#ffffff'));
+    expect(component.emblemElement()).toEqual(valid);
+    state.busy.set(false); state.setMode('preview'); component.patchEmblem({ motif: 'flame' });
+    expect(component.emblemElement()).toEqual(valid);
+    state.setMode('design'); state.addElement('ornate-frame'); const originalFrame = structuredClone(component.frameElement()!);
+    state.toggleLocked(originalFrame.id); component.varyFrame(); component.patchFrame({ detail: 2 });
+    expect(component.frameElement()!.properties).toEqual(originalFrame.properties);
+  });
+
   function input(value: string): Event {
     const element = document.createElement('input'); element.value = value;
     return { target: element } as unknown as Event;

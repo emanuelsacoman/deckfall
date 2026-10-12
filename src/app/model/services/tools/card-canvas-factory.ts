@@ -31,6 +31,15 @@ export function createCanvasElement(preset: CardElementPreset, data: CardDataInp
     width: 300, height: 80, rotation: 0, opacity: 1, visible: true, locked: false
   };
   switch (preset) {
+    case 'ornate-frame':
+      return { ...base, type: 'frame', name: 'Moldura ornamentada', x: 16, y: 16, width: 712, height: 1007,
+        properties: { ...defaultCanvasStyle(), fill: '#35261d', stroke: '#b89558', strokeWidth: 2,
+          frameStyle: 'ornate', motif: 'flame', borderWidth: 28, cornerRadius: 28, detail: 6, seed: 1,
+          accentColor: '#ff9e35', gemColor: '#8e291b' } };
+    case 'emblem':
+      return { ...base, type: 'emblem', name: 'Emblema vetorial', width: 100, height: 100,
+        properties: { ...defaultCanvasStyle(), fill: '#35261d', stroke: '#b89558', strokeWidth: 2,
+          motif: 'flame', container: 'medallion', accentColor: '#ff9e35', gemColor: '#8e291b', relief: 0.75 } };
     case 'text': case 'icon': case 'description':
       return { ...base, type: preset === 'icon' ? 'icon' : 'text', name: preset === 'description' ? 'Descrição' : preset === 'icon' ? 'Ícone' : 'Texto',
         height: preset === 'description' ? 160 : 80,
