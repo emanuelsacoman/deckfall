@@ -11,7 +11,7 @@ model/services/tools = estado, validação e utilitários reutilizáveis
 model/guards = autorização de navegação e proteção de saída
 ```
 
-Componentes não acessam Firestore diretamente. `AuthService` resolve sessão/perfil; `CardService`, `CardTemplateService` e `UserService` persistem seus domínios. `CardStorageService` organiza arquivos e materializa uploads/cópias. Guard não substitui Rules.
+Componentes não acessam Firestore diretamente. `AuthService` resolve sessão/perfil; `CardService`, `CardTemplateService`, `UserService` e `PlayerCollectionService` persistem seus domínios. `CardStorageService` organiza arquivos editáveis e materializa uploads/cópias; `PublishedCardStorageService` trata a imagem final publicada em namespace separado. Guard não substitui Rules.
 
 ## Rotas e layout
 
@@ -21,7 +21,7 @@ Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`,
 | --- | --- |
 | `/game` | Redireciona para `/game/home` |
 | `/game/home` | Início e atalhos do jogador |
-| `/game/colecao` | Minha coleção, com controles visuais e placeholder |
+| `/game/colecao` | Coleção persistida, busca/filtro local e PNG completo publicado |
 | `/game/decks` | Meus decks, com placeholder |
 | `/game/jogar` | Modos de jogo em desenvolvimento |
 | `/game/perfil` | Nome, contato e papel já existentes; atalho para Minha conta |
@@ -34,7 +34,7 @@ Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`,
 | `/admin/usuarios` | Redireciona para `/admin/usuarios/lista` |
 | `/admin/usuarios/lista` | Perfis Firestore |
 | `/admin/usuarios/criar` | Vínculo por UID de conta existente |
-| `/admin/usuarios/editar/:uid` | Consulta e edição do perfil |
+| `/admin/usuarios/editar/:uid` | Consulta/edição do perfil e gestão separada da coleção |
 
 O shell administrativo possui `adminGuard` no pai e `adminChildGuard` nos filhos, observa revogação de acesso e oferece logout. O menu inclui Painel, Todas as cartas, Criar carta, Todos os usuários, Vincular perfil e os atalhos Minha conta e Área do jogador. Criação/edição de cartas usam wrappers pequenos; `cardEditorLeaveGuard` consulta alterações pendentes antes da saída. A raiz contém o router outlet; `app.config.ts` fornece App, Auth, Firestore e Storage.
 
@@ -46,7 +46,11 @@ O shell administrativo possui `adminGuard` no pai e `adminChildGuard` nos filhos
 
 `authenticatedGuard` e `authenticatedChildGuard` aguardam a sessão e aceitam um UID com `role`/`roleId` consistentes em `member` ou `admin`. Perfil ausente, inválido ou não resolvido não libera `/game`; o destino solicitado segue em `returnUrl` para `/login`. Guards protegem navegação, sem ampliar permissões de Firestore/Storage.
 
-Início oferece saudação e atalhos. Coleção, decks e jogar são estruturas visuais com estados em desenvolvimento, sem consultas ao catálogo, downloads de arte, persistência, contadores fictícios ou infraestrutura de gameplay. Perfil consome a sessão de `AuthService` e encaminha gerenciamento de credenciais para `/login`. Não há acesso direto ao Firestore pelas páginas nem novos serviços de coleção/decks/partidas. Veja [autenticação](autenticacao-e-admin.md) para os destinos após login e [riscos](riscos-e-dividas-tecnicas.md) para o limite dos assets administrativos.
+Início oferece saudação e atalhos. Coleção consulta a propriedade persistida pelo `PlayerCollectionService`, resolve as cartas publicadas e aplica busca/raridade localmente. `PlayerCardPreviewComponent` baixa somente o PNG final pelo `PublishedCardStorageService`, com carregamento sob demanda, retry e liberação de object URLs; não usa renderer Konva ou assets privados. Decks e jogar permanecem placeholders, sem infraestrutura de gameplay. Perfil consome a sessão de `AuthService` e encaminha gerenciamento de credenciais para `/login`. Veja [coleção](colecao.md), [autenticação](autenticacao-e-admin.md) e [riscos](riscos-e-dividas-tecnicas.md).
+
+Na edição de usuário, `UserEditComponent` orquestra `UserFormComponent` e `UserCollectionComponent`. O formulário comunica o perfil encontrado; o componente de coleção só é montado para esse perfil. Gestão de quantidade/propriedade permanece em domínio próprio, sem writes de coleção no formulário nem nos componentes.
+
+Após confirmar o salvamento de carta, `PublishedCardPreviewService` reutiliza `CardPreviewService` para sincronizar o PNG, verificar a versão e retornar avisos em falhas posteriores. Uma leitura substituível do documento evita depender de `CardService` no sincronizador; `CARD_PERSISTENCE_CLIENT` concentra as operações existentes de persistência para testes, preservando validação/transações e o contrato `Card`. Exclusão e mudança de status também tentam limpar a imagem publicada. Não há renderer paralelo, nova dependência ou alteração do canvas.
 
 ## Editor compartilhado
 
@@ -82,12 +86,16 @@ Os cinco painéis usam `CardEditorStateService` e emitem intenções de ação, 
 model/interfaces/Auth/auth-session.ts
 model/interfaces/Cards/{card,card-canvas,card-template}.ts
 model/interfaces/Users/user-profile.ts
+model/interfaces/Collection/player-card-collection.ts
 model/guards/{auth,card-editor-leave}.guard.ts
 model/services/fire/{auth,card-storage}.service.ts
+model/services/fire/published-card-storage.service.ts
 model/services/fire/{google-auth-flow,password-auth-flow}.ts
 model/services/cruds/cards/{card,card-template}.service.ts
+model/services/cruds/cards/published-card-preview.service.ts
 model/services/cruds/cards/card-persistence.ts
 model/services/cruds/users/user.service.ts
+model/services/cruds/collection/player-collection.service.ts
 model/services/tools/card-editor-state.service.ts
 model/services/tools/card-editor-assets.service.ts
 model/services/tools/card-local-draft.service.ts

@@ -9,6 +9,33 @@ service cloud.firestore {
         && profile.get('role', '') == 'admin' && profile.get('roleId', '') == 'admin';
     }
 
+    function hasValidAccount() {
+      let profile = request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data : {};
+      return request.auth != null && profile.get('role', '') in ['member', 'admin']
+        && profile.get('role', '') == profile.get('roleId', '');
+    }
+
+    function collectionOwnerExists(uid) {
+      return uid.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && exists(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function publishedCardExists(cardId) {
+      return cardId.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && exists(/databases/$(database)/documents/cards/$(cardId))
+        && get(/databases/$(database)/documents/cards/$(cardId)).data.status == 'published';
+    }
+
+    function validCollectionEntry(data) {
+      // Limite técnico de propriedade, sem relação com regras futuras de decks.
+      return data.keys().hasAll(['quantity', 'firstAcquiredAt', 'lastAcquiredAt'])
+        && data.keys().hasOnly(['quantity', 'firstAcquiredAt', 'lastAcquiredAt'])
+        && data.quantity is int && data.quantity >= 1 && data.quantity <= 9999
+        && data.firstAcquiredAt is timestamp && data.lastAcquiredAt is timestamp;
+    }
+
     function validAttribute(attribute) {
       let value = attribute.value;
       let minimum = attribute.get('min', 0);
@@ -103,6 +130,21 @@ service cloud.firestore {
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && (request.auth.uid != uid || request.resource.data.role == 'admin');
       allow delete: if false;
+
+      match /collection/{cardId} {
+        allow get, list: if collectionOwnerExists(uid)
+          && (isAdmin() || (request.auth != null && request.auth.uid == uid && hasValidAccount()));
+        allow create: if isAdmin() && collectionOwnerExists(uid) && publishedCardExists(cardId)
+          && validCollectionEntry(request.resource.data)
+          && request.resource.data.firstAcquiredAt == request.time
+          && request.resource.data.lastAcquiredAt == request.time;
+        allow update: if isAdmin() && collectionOwnerExists(uid) && publishedCardExists(cardId)
+          && validCollectionEntry(request.resource.data)
+          && request.resource.data.firstAcquiredAt == resource.data.firstAcquiredAt
+          && request.resource.data.lastAcquiredAt == request.time;
+        // Remover propriedade não depende da disponibilidade da carta global.
+        allow delete: if isAdmin();
+      }
     }
 
     match /cards/{cardId} {

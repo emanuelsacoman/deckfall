@@ -25,6 +25,19 @@ const template = (overrides = {}) => ({
 });
 const dbFor = (uid) => uid ? env.authenticatedContext(uid).firestore() : env.unauthenticatedContext().firestore();
 const storageFor = (uid) => uid ? env.authenticatedContext(uid).storage() : env.unauthenticatedContext().storage();
+const ownedEntry = (overrides = {}) => ({
+  quantity: 2, firstAcquiredAt: serverTimestamp(), lastAcquiredAt: serverTimestamp(), ...overrides
+});
+const ownedRef = (db, uid = 'member', cardId = 'published') => doc(db, 'users', uid, 'collection', cardId);
+const publishedPath = (cardId = 'published') => `published-cards/${cardId}/preview.png`;
+
+async function seedOwned(uid = 'member', cardId = 'published', overrides = {}) {
+  await env.withSecurityRulesDisabled(context => setDoc(ownedRef(context.firestore(), uid, cardId), ownedEntry(overrides)));
+}
+
+async function seedPreview(cardId) {
+  await env.withSecurityRulesDisabled(context => uploadBytes(ref(context.storage(), publishedPath(cardId)), new Uint8Array([1, 2, 3]), { contentType: 'image/png' }));
+}
 
 before(async () => {
   env = await initializeTestEnvironment({
@@ -313,4 +326,174 @@ test('assets de cartas e templates mantêm admin, proprietário existente e uplo
   }
   await assertFails(uploadBytes(ref(storageFor('admin'), 'templates/missing/assets/new.png'), new Uint8Array([1]), { contentType: 'image/png' }));
   await assertFails(uploadBytes(ref(storageFor('admin'), 'cards/missing/assets/new.png'), new Uint8Array([1]), { contentType: 'image/png' }));
+});
+
+test('coleção: membro consulta e lista somente a própria; admin consulta qualquer perfil existente', async () => {
+  await seedOwned();
+  await seedOwned('admin');
+  const memberDb = dbFor('member');
+  const entry = await assertSucceeds(getDoc(ownedRef(memberDb)));
+  assert.equal(entry.data().quantity, 2);
+  assert.deepEqual(Object.keys(entry.data()).sort(), ['firstAcquiredAt', 'lastAcquiredAt', 'quantity']);
+  await assertSucceeds(getDocs(collection(memberDb, 'users/member/collection')));
+  await assertFails(getDoc(ownedRef(memberDb, 'admin')));
+  await assertFails(getDocs(collection(memberDb, 'users/admin/collection')));
+  await assertSucceeds(getDoc(ownedRef(dbFor('admin'))));
+  await assertSucceeds(getDocs(collection(dbFor('admin'), 'users/member/collection')));
+});
+
+test('coleção: membro não concede, altera ou remove cartas, inclusive na própria coleção', async () => {
+  await seedOwned();
+  const db = dbFor('member');
+  await assertFails(setDoc(ownedRef(db, 'member', 'draft'), ownedEntry()));
+  await assertFails(setDoc(ownedRef(db), ownedEntry()));
+  await assertFails(updateDoc(ownedRef(db), { quantity: 3, lastAcquiredAt: serverTimestamp() }));
+  await assertFails(deleteDoc(ownedRef(db)));
+  await assertFails(setDoc(ownedRef(db, 'admin'), ownedEntry()));
+});
+
+test('coleção: anônimo, perfil ausente ou inconsistente não lê nem escreve propriedade', async () => {
+  for (const uid of [undefined, 'missing-profile', 'partial']) {
+    if (uid) await seedOwned(uid);
+    const db = dbFor(uid);
+    const target = uid ?? 'member';
+    await assertFails(getDoc(ownedRef(db, target)));
+    await assertFails(getDocs(collection(db, `users/${target}/collection`)));
+    await assertFails(setDoc(ownedRef(db, target), ownedEntry()));
+    await assertFails(deleteDoc(ownedRef(db, target)));
+  }
+});
+
+test('coleção: admin concede publicada, define quantidade total e remove sem excluir a carta global', async () => {
+  const db = dbFor('admin');
+  const reference = ownedRef(db);
+  await assertSucceeds(setDoc(reference, ownedEntry()));
+  const first = (await getDoc(reference)).data().firstAcquiredAt;
+  await assertSucceeds(updateDoc(reference, { quantity: 3, lastAcquiredAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(reference, { quantity: 1, lastAcquiredAt: serverTimestamp() }));
+  const current = (await getDoc(reference)).data();
+  assert.equal(current.quantity, 1);
+  assert.ok(current.firstAcquiredAt.isEqual(first));
+  assert.ok(current.lastAcquiredAt.toMillis() >= first.toMillis());
+  await assertSucceeds(deleteDoc(reference));
+  assert.equal((await getDoc(reference)).exists(), false);
+  assert.equal((await getDoc(doc(db, 'cards/published'))).exists(), true);
+});
+
+test('coleção: quantidade é inteira de 1 a 9999 e campos/timestamps são estritos', async () => {
+  const db = dbFor('admin');
+  for (const quantity of [0, -1, 1.5, 10000, '2', null]) {
+    await assertFails(setDoc(ownedRef(db), ownedEntry({ quantity })));
+  }
+  await assertSucceeds(setDoc(ownedRef(db), ownedEntry({ quantity: 9999 })));
+  for (const quantity of [0, -1, 1.5, 10000, '2', null]) {
+    await assertFails(updateDoc(ownedRef(db), { quantity, lastAcquiredAt: serverTimestamp() }));
+  }
+  await assertFails(updateDoc(ownedRef(db), { cardId: 'published', lastAcquiredAt: serverTimestamp() }));
+  await assertFails(updateDoc(ownedRef(db), { name: 'Duplicado', lastAcquiredAt: serverTimestamp() }));
+  await assertFails(updateDoc(ownedRef(db), { firstAcquiredAt: Timestamp.fromMillis(1), lastAcquiredAt: serverTimestamp() }));
+  await assertFails(updateDoc(ownedRef(db), { quantity: 2, lastAcquiredAt: Timestamp.fromMillis(1) }));
+  await assertSucceeds(deleteDoc(ownedRef(db)));
+  for (const fields of [
+    { cardId: 'published' }, { favorite: true }, { firstAcquiredAt: Timestamp.fromMillis(1) },
+    { lastAcquiredAt: Timestamp.fromMillis(1) }, { firstAcquiredAt: null }, { lastAcquiredAt: null }
+  ]) await assertFails(setDoc(ownedRef(db), ownedEntry(fields)));
+  await assertFails(setDoc(ownedRef(db), { quantity: 2, lastAcquiredAt: serverTimestamp() }));
+});
+
+test('coleção: admin não concede drafts, arquivadas, IDs ausentes ou UID sem perfil', async () => {
+  const db = dbFor('admin');
+  for (const cardId of ['draft', 'archived', 'missing']) {
+    await assertFails(setDoc(ownedRef(db, 'member', cardId), ownedEntry()));
+  }
+  await assertFails(setDoc(ownedRef(db, 'missing-profile'), ownedEntry()));
+  await assertFails(setDoc(ownedRef(db, 'invalid.uid'), ownedEntry()));
+});
+
+test('coleção: carta retirada permanece como propriedade legível, mas seus dados ficam protegidos', async () => {
+  await seedOwned();
+  const adminDb = dbFor('admin');
+  const memberDb = dbFor('member');
+  await assertSucceeds(updateDoc(doc(adminDb, 'cards/published'), { status: 'archived', updatedAt: serverTimestamp() }));
+  await assertSucceeds(getDoc(ownedRef(memberDb)));
+  await assertFails(getDoc(doc(memberDb, 'cards/published')));
+  await assertFails(updateDoc(ownedRef(adminDb), { quantity: 3, lastAcquiredAt: serverTimestamp() }));
+  await assertSucceeds(deleteDoc(ownedRef(adminDb)));
+  await seedOwned();
+  await assertSucceeds(deleteDoc(doc(adminDb, 'cards/published')));
+  await assertSucceeds(getDoc(ownedRef(memberDb)));
+  await assertSucceeds(deleteDoc(ownedRef(adminDb)));
+});
+
+test('preview publicada: admin cria, lê, substitui PNG e exclui; jogador recebe os bytes finais', async () => {
+  const adminObject = ref(storageFor('admin'), publishedPath());
+  await assertSucceeds(uploadBytes(adminObject, new Uint8Array([1, 2, 3]), { contentType: 'image/png' }));
+  await assertSucceeds(getBytes(adminObject));
+  await assertSucceeds(uploadBytes(adminObject, new Uint8Array([4, 5]), { contentType: 'image/png' }));
+  const memberBytes = await assertSucceeds(getBytes(ref(storageFor('member'), publishedPath())));
+  assert.deepEqual([...new Uint8Array(memberBytes)], [4, 5]);
+  await assertSucceeds(deleteObject(adminObject));
+});
+
+test('preview publicada: membro é somente leitor e anônimo/perfil inválido não acessam', async () => {
+  await seedPreview('published');
+  const memberObject = ref(storageFor('member'), publishedPath());
+  await assertSucceeds(getBytes(memberObject));
+  await assertFails(uploadBytes(memberObject, new Uint8Array([4]), { contentType: 'image/png' }));
+  await assertFails(deleteObject(memberObject));
+  for (const uid of [undefined, 'partial', 'missing-profile']) {
+    const object = ref(storageFor(uid), publishedPath());
+    await assertFails(getBytes(object));
+    await assertFails(uploadBytes(object, new Uint8Array([4]), { contentType: 'image/png' }));
+    await assertFails(deleteObject(object));
+  }
+  await assertFails(listAll(ref(storageFor('member'), 'published-cards')));
+});
+
+test('preview publicada: draft, archived e carta ausente negam leitura mesmo com PNG retido', async () => {
+  for (const cardId of ['draft', 'archived', 'missing']) {
+    await seedPreview(cardId);
+    await assertFails(getBytes(ref(storageFor('member'), publishedPath(cardId))));
+    await assertFails(uploadBytes(ref(storageFor('admin'), publishedPath(cardId)), new Uint8Array([1]), { contentType: 'image/png' }));
+    await assertSucceeds(deleteObject(ref(storageFor('admin'), publishedPath(cardId))));
+  }
+});
+
+test('preview publicada: mudança de status/exclusão bloqueia novo download sem depender de cleanup', async () => {
+  await seedPreview('published');
+  const object = ref(storageFor('member'), publishedPath());
+  await assertSucceeds(getBytes(object));
+  const db = dbFor('admin');
+  await assertSucceeds(updateDoc(doc(db, 'cards/published'), { status: 'draft', updatedAt: serverTimestamp() }));
+  await assertFails(getBytes(object));
+  await assertSucceeds(updateDoc(doc(db, 'cards/published'), { status: 'published', updatedAt: serverTimestamp() }));
+  await assertSucceeds(getBytes(object));
+  await assertSucceeds(deleteDoc(doc(db, 'cards/published')));
+  await assertFails(getBytes(object));
+  await assertSucceeds(deleteObject(ref(storageFor('admin'), publishedPath())));
+});
+
+test('preview publicada: PNG não vazio até 20 MiB; MIME, tamanho e caminho inválidos são recusados', async () => {
+  const storage = storageFor('admin');
+  const object = ref(storage, publishedPath());
+  await assertSucceeds(uploadBytes(object, new Uint8Array(20 * 1024 * 1024), { contentType: 'image/png' }));
+  await assertFails(uploadBytes(object, new Uint8Array(20 * 1024 * 1024 + 1), { contentType: 'image/png' }));
+  await assertFails(uploadBytes(object, new Uint8Array(), { contentType: 'image/png' }));
+  await assertFails(uploadBytes(object, new Uint8Array([1]), { contentType: 'image/jpeg' }));
+  await assertFails(uploadBytes(ref(storage, 'published-cards/published/other.png'), new Uint8Array([1]), { contentType: 'image/png' }));
+  await assertFails(uploadBytes(ref(storage, 'published-cards/invalid.id/preview.png'), new Uint8Array([1]), { contentType: 'image/png' }));
+  await assertSucceeds(deleteObject(object));
+});
+
+test('assets editáveis de carta published permanecem admin-only apesar da preview disponível', async () => {
+  await seedPreview('published');
+  await assertSucceeds(getBytes(ref(storageFor('member'), publishedPath())));
+  for (const path of ['cards/published/art/original.png', 'cards/published/assets/layer.png']) {
+    const object = ref(storageFor('admin'), path);
+    await assertSucceeds(uploadBytes(object, new Uint8Array([1]), { contentType: 'image/png' }));
+    await assertSucceeds(getBytes(object));
+    await assertFails(getBytes(ref(storageFor('member'), path)));
+    await assertFails(uploadBytes(object, new Uint8Array([2]), { contentType: 'image/png' }));
+    await assertSucceeds(deleteObject(object));
+  }
 });

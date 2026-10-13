@@ -1,21 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { CollectionComponent } from './collection/collection.component';
 import { DecksComponent } from './decks/decks.component';
 import { PlayComponent } from './play/play.component';
 
 describe('Player area placeholders', () => {
-  it('keeps collection search and rarity filters disabled and explains their availability', () => {
-    TestBed.configureTestingModule({ imports: [CollectionComponent] });
-    const fixture = TestBed.createComponent(CollectionComponent);
-    fixture.detectChanges();
-    const page = fixture.nativeElement as HTMLElement;
-    expect(page.querySelector<HTMLInputElement>('input[type="search"]')?.disabled).toBeTrue();
-    expect(page.querySelector<HTMLFieldSetElement>('fieldset')?.disabled).toBeTrue();
-    expect(page.querySelectorAll('fieldset button').length).toBe(5);
-    expect(page.textContent).toContain('Busca e filtros indisponíveis nesta versão');
-    expect(page.textContent).toContain('Nenhuma carta disponível');
-  });
-
   it('does not expose functional deck creation', () => {
     TestBed.configureTestingModule({ imports: [DecksComponent] });
     const fixture = TestBed.createComponent(DecksComponent);

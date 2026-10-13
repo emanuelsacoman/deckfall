@@ -64,6 +64,15 @@ describe('UserFormComponent', () => {
     }, member);
   });
 
+  it('notifica reset e perfil encontrado para orquestração da coleção sem duplicar leitura', async () => {
+    const loaded = jasmine.createSpy('profileLoaded'); component.profileLoaded.subscribe(loaded);
+    await loadMember();
+    expect(loaded.calls.allArgs()).toEqual([[null], [member]]);
+    users.getByUid.and.resolveTo(null); await component.loadProfile();
+    expect(loaded.calls.mostRecent().args).toEqual([null]);
+    expect(component.profile()).toBeNull();
+  });
+
   it('requires confirmation before promoting another user and respects cancellation', async () => {
     await loadMember();
     component.form.controls.role.setValue('admin');

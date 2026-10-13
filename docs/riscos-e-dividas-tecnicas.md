@@ -1,11 +1,11 @@
 # Riscos e dívidas técnicas
 
-## Configuração externa não verificada
+## Configuração externa e pendências
 
 - O SDK possui configuração local e os environments são ignorados. As verificações pontuais de CORS, documento e arte de Nyra não constituem auditoria completa do backend remoto: não extrapolar para provedores Auth, primeiro admin, todas as coleções, índices ou Rules publicadas. Conferir [bootstrap](autenticacao-e-admin.md).
 - Email/Password e Google precisam estar habilitados, com domínios autorizados e configuração do provedor. Google usa popup; o navegador pode bloqueá-lo ou o usuário cancelá-lo. Não foi executado login real no projeto remoto nesta entrega.
 - Vínculo de senha/Google e entrega de e-mail de recuperação foram validados com clientes substituíveis em testes, sem conta ou caixa postal real. Remetente/templates, política de senhas e página de conclusão dependem do Console. Em fallback de reautenticação, o titular deve informar a nova senha novamente após voltar; ela não é persistida.
-- Rules e índices foram atualizados localmente, sem publicação ou deploy. Seu estado remoto continua desconhecido. Testes de emuladores não comprovam IAM, provedores ou permissões de produção.
+- Após o diagnóstico de `storage/unauthorized`, Firestore/Storage Rules e Hosting foram publicados com autorização explícita em `cardgame-6fdcb`/`deckfall`. As Rules remotas coincidem com os arquivos locais; HTML e 30 JavaScripts públicos coincidem com o build validado. CORS GET das duas origens e a função IAM necessária a Storage → Firestore foram conferidos, sem modificar CORS/IAM ou dados. Índices, provedores e sessão Firebase real continuam fora dessa verificação; testes de emuladores não substituem o teste autenticado do titular.
 - O primeiro diagnóstico corrigiu CORS de localhost, mas o bucket não permitia o domínio hospedado. O relato posterior de Nyra mostrou `https://deckfall.web.app`: o GET/Range real da arte atual retornava `206` sem `Access-Control-Allow-Origin`. Somente GET para esse domínio foi acrescentado, preservando localhost; ambos foram confirmados com cabeçalho e bytes da imagem esperados. [O guia](configuracao-cors-storage.md) registra backups e limites: identidade OAuth da CLI não equivale à sessão Firebase Authentication no navegador, nem comprova toda a integração Rules/IAM Storage → Firestore. Outras origens continuam independentes; Rules/IAM/ACL não foram alteradas. Se a sessão já guardou uma falha, recarregar a página ou usar o retry de imagens/prévias.
 - Um clone precisa preencher environments com valores públicos do Web App. Nunca adicionar service accounts ou credenciais administrativas.
 - O gerador já executado pode sobrescrever robots/sitemap/configurações e reintroduzir referências de outro projeto. Não executá-lo novamente sem tarefa específica.
@@ -40,15 +40,29 @@ Assets de outro proprietário são copiados pelo serviço antes da gravação fi
 - Rascunhos locais usam chave da carta ou `new`, sem particionamento por UID. Usar o mesmo perfil de navegador compartilha esse armazenamento local; ele não é um repositório remoto nem uma camada de autorização.
 - O serviço tem CRUD de templates; a UI oferece criar/carregar, sem página de edição/exclusão de templates. O template Fantasy Basic é apenas um ponto inicial editável, sem representar design final obrigatório.
 
-## Catálogo, usuários e produto
+## Área do jogador
 
-A primeira área do jogador existe em `/game` como estrutura visual e navegável, com perfil baseado nos dados existentes. Coleção, decks e modos de jogo são placeholders explícitos: não há propriedade de cartas, inventário, deck builder, treino funcional, partidas, PvP ou economia. Busca/filtros da coleção são somente visuais, sem contratos ou coleções de gameplay antecipados.
+A área do jogador oferece perfil/navegação e a primeira coleção persistida, com concessão manual administrativa e consulta pelo titular. Decks e modos de jogo permanecem placeholders: não há deck builder, treino funcional, partidas, PvP, Starter Pack, aquisição automática ou economia.
 
-Artes/assets do Storage continuam acessíveis somente a admin. Mesmo metadados públicos de cartas `published` não liberam seus binários. As páginas do jogador usam elementos visuais locais e não consultam o catálogo nem tentam baixar assets protegidos. Uma futura coleção real terá de definir acesso/distribuição/revogação de arte e modelo de propriedade em trabalho próprio; liberar Storage para preencher esta UI não é uma solução adotada.
+Artes/assets editáveis do Storage continuam acessíveis somente a admin. O jogador baixa exclusivamente a representação achatada em `published-cards/{cardId}/preview.png`, por `getBlob` sujeito a perfil válido e carta publicada. Não se usa `getDownloadURL` nem se libera acesso aos originais. A imagem exige CORS e integração Rules Storage → Firestore; validação local não confirma essas permissões/configuração remotas.
+
+## Limites da coleção e da imagem publicada
+
+- A coleção é carregada integralmente sob demanda e resolve uma carta por entrada, com leituras adicionais no Firestore. Não há paginação, cache complexo, atualização realtime ou virtualização. Volume maior exigirá avaliar custo, concorrência de leituras, downloads e memória; não criar essa infraestrutura antecipadamente. Busca/filtros locais não fazem uma consulta por tecla.
+- Propriedade pode permanecer depois de retirar/excluir a carta. O jogador recebe indisponibilidade sem dados protegidos; falhas de rede continuam erros com retry, não indisponibilidade fictícia. Cartas globais não são excluídas ao remover propriedade; não há cascata automática para todas as coleções.
+- Quantidade 1–9999 e PNG até 20 MiB são limites técnicos. O primeiro não define cópias em deck; o segundo não garante custo baixo de download/memória. Rules validam MIME declarado/tamanho, sem inspeção profunda de PNG.
+- A preview é derivada e Firestore/Storage não são atômicos. Render/upload/cleanup posterior pode falhar com aviso depois de salvar ou excluir o documento. Reabrir/salvar a carta publicada atual permite tentar novamente; não há job de reconciliação nem backfill automático das publicadas antigas. Uma carta concedida pode estar sem imagem até esse salvamento ocorrer.
+- Verificações de status/`updatedAt` antes/depois de upload/delete detectam corridas, mas não eliminam a janela entre leitura e operação Storage. Duas sessões podem deixar preview ausente/desatualizada mesmo com documento válido. Upload usa caminho determinístico e `private, no-store`, sem garantia de transação entre serviços.
+- Rules da preview consultam perfil e carta e negam novos downloads quando o status muda ou a carta é excluída, sem depender da limpeza do PNG. Isso não apaga bytes já baixados nem object URLs de uma tela montada; liberação local ocorre ao trocar, recarregar ou destruir a apresentação. Leitura da coleção/dados também é sob demanda, sem revogação remota de conteúdo já recebido.
+- O acesso à imagem exige perfil e publicação, sem verificar propriedade na coleção e sem permitir listagem do namespace. Os dois documentos usados respeitam o orçamento de avaliação Storage; futuras condições precisam considerar esse limite e os testes. A consulta extra gera leituras Firestore, conforme [Firebase](https://firebase.google.com/docs/storage/security/rules-conditions).
+
+Veja [coleção do jogador](colecao.md) para contratos, gestão e diferenças entre imagem publicada e assets privados.
+
+## Catálogo e usuários
 
 `returnUrl` usa uma lista explícita das rotas existentes em `/game` e `/admin`, com destinos administrativos permitidos somente para admin. Ao acrescentar ou mudar rotas, atualizar também essa validação e seus testes; caso contrário, o novo destino volta ao padrão após login. Não ampliar a lista para aceitar URLs externas, outlets auxiliares ou caminhos desconhecidos.
 
-As listas administrativas carregam coleções completas. Paginação será necessária com maior volume. Slug não garante unicidade global. Arte permanece privada mesmo quando a carta está published; um catálogo público precisa decidir distribuição/revogação de imagens.
+As listas administrativas carregam coleções completas. Paginação será necessária com maior volume. Slug não garante unicidade global. Assets originais permanecem privados mesmo quando a carta está published; o PNG separado é autenticado, sem catálogo de imagens para anônimos.
 
 A galeria gera prévias perto da área visível, com até dois jobs de renderização e downloads simultâneos. O PNG final tem as dimensões salvas (até 2048×2048); URLs de cartas já visitadas permanecem enquanto a galeria está montada. Rolar por muitas cartas grandes pode aumentar uso de memória; virtualização/cache persistente de thumbnails continuam futuros. Cancelar um job rejeita o consumidor e libera Stage/URLs, mas `getBlob` em andamento não é abortável pelo SDK: o slot fica reservado até essa chamada terminar, sem iniciar downloads extras.
 
@@ -56,4 +70,4 @@ A lista de usuários mostra perfis Firestore, não todas as contas Authenticatio
 
 Rules bloqueiam próprio rebaixamento, mas o formulário atual de perfis não identifica o usuário corrente. Não há garantia global de último admin em solicitações concorrentes; recuperação pode ser feita pelo Console. Cadastro da conta Auth e criação do perfil não são atômicos: falha do perfil pode exigir novo login após configurar Rules.
 
-Gameplay, decks funcionais, packs, batalhas, inventário, trocas, marketplace e gerenciamento de sets continuam fora desta entrega. Resultados de testes/build ficam no [contexto operacional](contexto-operacional-para-ias.md); não confundir validação local com backend remoto configurado.
+Gameplay, decks funcionais, packs, batalhas, trocas, marketplace e gerenciamento de sets continuam fora desta entrega. Resultados de testes/build ficam no [contexto operacional](contexto-operacional-para-ias.md); não confundir validação local com backend remoto configurado.

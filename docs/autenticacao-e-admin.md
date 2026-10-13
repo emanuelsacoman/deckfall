@@ -52,13 +52,15 @@ Ao entrar ou registrar sem destino válido, member segue para `/game/home` e adm
 
 Rules são a barreira dos dados. Cadastro autenticado pode criar somente o próprio perfil member, com contactEmail igual ao e-mail do token. Membros leem o próprio perfil e não fazem update ou autopromoção. Admin gerencia cards, templates e perfis; exclusão de perfil e próprio rebaixamento são bloqueados.
 
-A área do jogador não cria coleções, documentos iniciais de gameplay ou permissões novas. Coleção, decks e jogar usam placeholders locais; artes/assets do Storage e templates continuam administrativos. O acesso de member a `/game` não concede acesso ao catálogo administrativo nem à leitura de imagens privadas.
+A área do jogador consulta a própria coleção persistida, concedida manualmente por admin. Cadastro prepara somente o perfil: não cria entradas de coleção nem documentos iniciais de gameplay. Decks e jogar permanecem placeholders. Firestore permite leitura da coleção ao titular com perfil válido e escrita somente administrativa; artes/assets editáveis do Storage e templates continuam administrativos.
+
+O PNG final em `published-cards/{cardId}/preview.png` permite get para member/admin com perfil consistente e carta existente publicada, sem acesso anônimo ou listagem. Esse acesso não libera o catálogo administrativo nem assets privados. Novos downloads são negados após retirar/excluir a carta mesmo se cleanup falhar; bytes já baixados não são apagados remotamente. Veja [coleção](colecao.md) para contratos e fluxo administrativo.
 
 A tela de usuários atual não identifica o próprio perfil para bloquear o rebaixamento localmente; a tentativa continua sendo recusada pelas Rules. Alterações de papel pedem confirmação. Não há garantia global de último administrador entre várias sessões; recuperação cabe ao proprietário no Console.
 
 ## Bootstrap do primeiro administrador
 
-Nenhum botão da aplicação promove a primeira conta. Conferência/publicação remota é uma ação externa futura; não foi realizada nesta entrega.
+Nenhum botão da aplicação promove a primeira conta. Rules de Firestore/Storage e Hosting foram publicados com autorização do proprietário; isso não provisiona administradores nem confirma provedores, domínios OAuth ou métodos de acesso reais.
 
 1. Confirme o projeto do Web App nos environments e no Firebase Console. A configuração local existente aponta para `cardgame-6fdcb`; não invente outro projeto/bucket.
 2. Em Authentication → Sign-in method, habilite Email/Password e Google, incluindo a configuração exigida pelo Console para o provedor Google.
@@ -66,7 +68,7 @@ Nenhum botão da aplicação promove a primeira conta. Conferência/publicação
 4. Crie a conta do proprietário em Authentication ou cadastre-a pela aplicação depois de configurar as Rules. Copie o UID; a tela da conta sem acesso também mostra esse identificador.
 5. Confirme o Firestore padrão e sua região. Crie/edite `users/{UID_EXATO}` com strings `role = admin` e `roleId = admin`. Nome/contato/datas podem ser completados depois; o perfil mínimo é compatível.
 6. Confirme Storage, bucket e integração IAM de Rules Storage → Firestore quando solicitada.
-7. Em uma ação futura autorizada, publique as Rules/índices revisados. Não executar deploy nesta fase.
+7. Em outro projeto ou ao alterar configuração, publique Rules/índices revisados apenas no escopo autorizado. Nesta instalação, as Rules da coleção/preview já foram publicadas e conferidas; índices não foram alterados nessa publicação.
 8. Entre novamente se o perfil anterior falhou; confira acesso às rotas, operações de dados e logout. O listener reconhece alterações de papel em uma sessão com perfil observado.
 
 Criar a conta Auth, conhecer seu e-mail ou vincular um perfil não concede admin. Depois do bootstrap, administradores podem atribuir papéis a outros perfis pelo painel, sujeitos às Rules.

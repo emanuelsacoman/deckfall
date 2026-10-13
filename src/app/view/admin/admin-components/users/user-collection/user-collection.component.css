@@ -1,0 +1,18 @@
+:host { display: block; margin-top: 2.5rem; }
+.collection-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.collection-header h2 { margin-bottom: .5rem; }
+.collection-header p { margin-top: 0; }
+.collection-header > button { flex-shrink: 0; }
+.grant-form { margin: 1rem 0 1.5rem; }
+.grant-form h3 { font-size: 1.1rem; margin-bottom: .5rem; }
+.grant-form p { font-size: .88rem; }
+.grant-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr); gap: 1.2rem; margin-bottom: 1rem; align-items: start; }
+.field p { margin: .2rem 0 0; }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.quantity-help { font-size: .85rem; }
+td > small { display: block; margin-top: .3rem; }
+td input { min-width: 100px; max-width: 150px; }
+td .actions { min-width: 225px; }
+td .actions button { font-size: .8rem; padding: .6rem .8rem; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 650px) { .collection-header { flex-direction: column; }.grant-fields { grid-template-columns: 1fr; gap: 1rem; } }

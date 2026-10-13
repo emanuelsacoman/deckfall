@@ -6,15 +6,16 @@ Cada carta combina dados estruturados de gameplay com um design editável. A ima
 
 ## Estágio atual
 
-A implementação local reúne o catálogo/editor administrativo e a primeira estrutura visual da área do jogador. Login, cadastro por e-mail/senha e Google usam Firebase Authentication. Novas contas recebem o papel `member` e entram em `/game/home`; admins entram por padrão no painel e também podem navegar em `/game`. Somente perfis com `role` e `roleId` iguais a `admin` entram no painel.
+A implementação local reúne o catálogo/editor administrativo, a área do jogador e a primeira coleção persistida de cartas. Login, cadastro por e-mail/senha e Google usam Firebase Authentication. Novas contas recebem o papel `member` e entram em `/game/home`; admins entram por padrão no painel e também podem navegar em `/game`. Somente perfis com `role` e `roleId` iguais a `admin` entram no painel.
 
-O backend remoto depende da conferência do proprietário: provedores Auth, domínios, primeiro administrador, Firestore, Storage, Rules, índices e CORS. Esta entrega não publica Rules nem faz deploy. A área do jogador oferece navegação e perfil; coleção, decks e modos de jogo são placeholders identificados como em desenvolvimento. Gameplay, PvP, partidas, inventário, packs, economia, trocas e marketplace continuam para etapas futuras.
+As Rules de Firestore/Storage e o build atual foram publicados com autorização do proprietário em `cardgame-6fdcb`/`deckfall`. O domínio serve a mesma versão validada localmente; localhost usa esse mesmo Firebase remoto. CORS GET para localhost e domínio e a integração Storage → Firestore foram conferidos, sem alterar cartas ou contas. Provedores Auth, domínios autorizados e índices continuam sujeitos à conferência do proprietário. A área do jogador oferece navegação, perfil e consulta da própria coleção; decks e modos de jogo continuam como placeholders. Concessão de cartas é manual por admin, sem Starter Pack ou aquisição pelo jogador. Gameplay, PvP, partidas, packs, economia, trocas e marketplace continuam para etapas futuras.
 
 O CORS do Storage permite `GET` em `http://localhost:4200` e `https://deckfall.web.app`. A resposta real de uma imagem foi conferida nas duas origens; o teste usou a identidade OAuth da CLI e não substitui a verificação da sessão no editor. Para outras origens ou diagnóstico de imagens, siga [a configuração do Storage](docs/configuracao-cors-storage.md), preservando as entradas existentes do bucket.
 
 ## Recursos implementados
 
-- **Área do jogador:** layout próprio responsivo em `/game`, com Início, Coleção, Decks, Jogar e Perfil; identidade da conta, logout e acesso ao painel para admins. Não há persistência de coleção/decks nem partidas.
+- **Área do jogador:** layout próprio responsivo em `/game`, com Início, Coleção, Decks, Jogar e Perfil; identidade da conta, logout e acesso ao painel para admins. Decks e partidas permanecem em desenvolvimento.
+- **Coleção persistida:** cartas concedidas pelo admin, quantidades, busca local e filtro por raridade em `/game/colecao`; o membro consulta somente a própria coleção, sem writes. A carta inteira aparece em PNG publicado separado dos assets privados do editor.
 - **Editor Konva:** texto, imagens, arte principal, formas, ícones, molduras, emblemas, atributos e barras; seleção, movimento, resize, rotação, bloqueio, visibilidade e camadas.
 - **Ateliê de molduras:** seis temas, bordas ornamentais/rúnicas/simples, doze símbolos vetoriais e emblemas com medalhão, escudo ou sem suporte. Cores, detalhes, largura, cantos, relevo e semente são editáveis; criar uma composição pode ser desfeito.
 - **PNG transparente:** imagens já sem fundo preservam a transparência no editor, no salvamento e na exportação PNG, mostrando as camadas da carta por baixo.
@@ -25,7 +26,7 @@ O CORS do Storage permite `GET` em `http://localhost:4200` e `https://deckfall.w
 - **Catálogo em dois modos:** lista administrativa ou galeria de cartas inteiras, com a composição salva, proporção original e acesso à edição ao clicar.
 - **Rascunho local:** salvamento manual de documento e imagens em IndexedDB; importação/exportação de JSON para o modelo estruturado.
 - **Edição com imagens indisponíveis:** a carta abre sem esperar downloads; falhas têm nova tentativa manual e referências dos arquivos próprios podem ser conservadas ao salvar dados/design.
-- **Usuários:** consultar, vincular por UID e editar perfis Firestore e papéis com confirmação. Alterar contato não muda credenciais.
+- **Usuários e coleção:** consultar, vincular por UID e editar perfis Firestore/papéis; na edição de um perfil existente, conceder cartas publicadas, definir quantidade total e remover propriedade com confirmação. Alterar contato não muda credenciais.
 - **Minha conta:** vincular Google e e-mail/senha ao mesmo usuário, consultar métodos ativos e recuperar senha por e-mail.
 - **Memória operacional:** arquitetura, contratos, fluxos, limites e configuração documentados para futuras sessões e agentes.
 
@@ -37,7 +38,9 @@ Molduras e emblemas vetoriais combinam cores e formas sem depender de emojis. Pa
 
 ### Permissões e contas
 
-Guards distinguem a sessão autenticada com perfil válido (`member` ou `admin`) do acesso administrativo. Firestore e Storage Rules protegem os dados. Metadados de cartas `published` podem ser lidos publicamente; artes e templates permanecem administrativos. A área do jogador usa placeholders locais, sem consultar o catálogo nem baixar assets privados. Cadastro público cria somente o próprio perfil de membro, sem autopromoção.
+Guards distinguem a sessão autenticada com perfil válido (`member` ou `admin`) do acesso administrativo. Firestore e Storage Rules protegem os dados. Metadados de cartas `published` podem ser lidos publicamente; artes/assets editáveis e templates permanecem administrativos. A coleção persiste somente quantidade e datas em `users/{uid}/collection/{cardId}`. Membros leem a própria coleção; somente admin altera propriedade. Cadastro público cria apenas o perfil de membro, sem cartas iniciais nem autopromoção.
+
+A imagem completa fica em `published-cards/{cardId}/preview.png`, acessível por download autenticado somente enquanto a carta está publicada. Salvar com status Publicada gera/atualiza o PNG; Rascunho/Arquivada tenta remover uma representação anterior. Falhas posteriores são avisadas sem desfazer o documento salvo. Cartas publicadas antigas precisam ser reabertas/salvas para gerar essa representação. Veja [coleção, gestão e imagens publicadas](docs/colecao.md).
 
 Um destino interno válido em `returnUrl` tem prioridade após entrar: membros podem voltar às páginas de `/game`, e admins também às rotas de `/admin`. `/login` continua sendo Minha conta com sessão ativa; o Perfil do jogador aponta para essa experiência existente.
 
@@ -71,6 +74,8 @@ npm.cmd start
 
 Abra `http://localhost:4200/`. Após registrar ou entrar como membro, navegue em `/game/home`. Como admin, acesse `/admin/cartas/criar` ou `/admin/cartas/lista`; o painel também oferece um atalho para a área do jogador.
 
+Para popular uma coleção, salve uma carta como publicada, abra `/admin/usuarios/editar/:uid` de um perfil existente e defina a quantidade total na seção Coleção. Entre com esse usuário e consulte `/game/colecao`; sem concessões, a coleção permanece vazia.
+
 O gerador inicial já foi executado. Não repita `npm run setup`: ele pode sobrescrever configurações auxiliares.
 
 ## Testar e compilar
@@ -86,13 +91,14 @@ Os testes Angular precisam do Chrome. Os testes de Rules precisam da Firebase CL
 
 Resultados finais e detalhes do ambiente ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Verificações locais não confirmam a configuração nem a publicação do backend remoto.
 
-Validação local: **274 testes Angular, 17 cenários de Security Rules e build de produção aprovados**, incluindo acesso member/admin, `returnUrl`, redirecionamentos, navegação/perfil do jogador e regressões de autenticação, catálogo e editor. As cinco páginas foram conferidas com sessões locais substituídas de membro/admin em larguras de 320, 390, 768 e 1440 pixels, sem overflow horizontal; screenshots desktop/mobile foram inspecionados. Nenhuma conta Firebase real foi exercitada nesta validação. OAuth Google e entrega de recuperação de senha reais dependem da configuração do Firebase Console.
+Validação local: **373 testes Angular, 30 cenários de Security Rules e build de produção aprovados**, incluindo coleção, quantidades, concorrência, busca/raridade, gestão administrativa, imagem publicada, avisos de permissão/limpeza e regressões de autenticação, catálogo e editor. O fluxo de salvamento → PNG real → concessão de duas cópias → consulta pelo membro foi exercitado com clientes de persistência substituídos; as permissões foram verificadas nos emuladores. Coleção e gestão administrativa foram conferidas com dados/PNGs sintéticos em larguras de 320, 390, 768 e 1440 pixels, sem overflow horizontal da página. Após a publicação, Rules remotas, HTML e todos os 30 JavaScripts servidos coincidiram com os arquivos locais; CORS/IAM necessários foram conferidos. Sessão Firebase real/OAuth não foram exercitados nessa verificação.
 
 ## Documentação e desenvolvimento
 
 - [Índice da memória operacional](docs/README.md)
 - [Editor visual, histórico e templates](docs/editor-de-cartas.md)
 - [Cartas, assets e persistência](docs/cartas.md)
+- [Coleção do jogador e imagens publicadas](docs/colecao.md)
 - [Modelo Firestore](docs/modelo-dados-firestore.md)
 - [Arquitetura frontend](docs/arquitetura-frontend.md)
 - [Autenticação e administração](docs/autenticacao-e-admin.md)

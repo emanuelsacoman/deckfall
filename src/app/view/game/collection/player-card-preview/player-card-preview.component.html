@@ -1,0 +1,9 @@
+<div #frame class="player-card-preview" [style.aspect-ratio]="aspectRatio" [attr.aria-busy]="loading()">
+  @if (url()) {
+    <img [src]="url()" [alt]="'Carta completa: ' + card.name" (error)="imageFailed()" />
+  } @else if (error()) {
+    <div class="preview-message" role="alert"><span aria-hidden="true">◇</span><p>{{ error() }}</p><button type="button" (click)="loadPreview()">Tentar novamente</button></div>
+  } @else {
+    <div class="preview-message" role="status"><span class="preview-seal" aria-hidden="true">D</span><p>{{ loading() ? 'Carregando carta…' : 'Imagem da carta' }}</p></div>
+  }
+</div>

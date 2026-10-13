@@ -7,6 +7,30 @@ service firebase.storage {
         && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.roleId == 'admin';
     }
 
+    function hasValidAccount() {
+      let profile = request.auth != null
+        ? firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data : {};
+      return request.auth != null && profile.get('role', '') in ['member', 'admin']
+        && profile.get('role', '') == profile.get('roleId', '');
+    }
+
+    function publishedCardExists(cardId) {
+      return cardId.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && firestore.exists(/databases/(default)/documents/cards/$(cardId))
+        && firestore.get(/databases/(default)/documents/cards/$(cardId)).data.status == 'published';
+    }
+
+    match /published-cards/{cardId}/preview.png {
+      // Somente a imagem achatada é distribuída; os assets editáveis continuam privados.
+      // As leituras usam os dois documentos permitidos: perfil e carta.
+      allow get: if hasValidAccount() && publishedCardExists(cardId);
+      // 20 MiB cobre o PNG do canvas máximo 2048×2048 sem impor o limite dos assets.
+      allow create, update: if isAdmin() && publishedCardExists(cardId)
+        && request.resource.contentType == 'image/png'
+        && request.resource.size > 0 && request.resource.size <= 20 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+
     match /cards/{cardId}/art/{fileName} {
       // Arte privada nesta fase; consultas Firestore são públicas somente para published.
       allow read: if isAdmin();

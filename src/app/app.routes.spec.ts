@@ -7,6 +7,7 @@ import { routes } from './app.routes';
 import { CardService } from './model/services/cruds/cards/card.service';
 import { CardStorageService } from './model/services/fire/card-storage.service';
 import { CardTemplateService } from './model/services/cruds/cards/card-template.service';
+import { PlayerCollectionService } from './model/services/cruds/collection/player-collection.service';
 import { AuthService } from './model/services/fire/auth.service';
 import { AuthSession, isAuthenticatedSession } from './model/interfaces/Auth/auth-session';
 import { LoginComponent } from './view/auth/login/login.component';
@@ -23,6 +24,7 @@ describe('Navegação do jogador, administração e editor', () => {
       { provide: CardService, useValue: {} },
       { provide: CardStorageService, useValue: {} },
       { provide: CardTemplateService, useValue: {} },
+      { provide: PlayerCollectionService, useValue: { listCurrentUser: () => Promise.resolve([]) } },
       { provide: AuthService, useValue: {
         currentUser, isAdmin: computed(() => currentUser()?.role === 'admin' && currentUser()?.roleId === 'admin'),
         isAuthenticated: computed(() => isAuthenticatedSession(currentUser())),

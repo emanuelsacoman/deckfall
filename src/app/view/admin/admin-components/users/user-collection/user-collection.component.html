@@ -1,0 +1,38 @@
+<section class="user-collection" aria-labelledby="user-collection-title">
+  <header class="collection-header"><div><h2 id="user-collection-title">Coleção</h2><p class="muted">Conceda cartas publicadas e defina a quantidade total possuída por este usuário.</p></div><button type="button" class="secondary" (click)="loadCollection()" [disabled]="loading() || saving()">Recarregar coleção</button></header>
+  @if (loading()) {
+    <p class="notice" role="status">Carregando coleção e cartas publicadas…</p>
+  } @else if (loadError()) {
+    <div class="notice error" role="alert"><p>{{ loadError() }}</p><button type="button" class="secondary" (click)="loadCollection()" [disabled]="saving()">Tentar novamente</button></div>
+  }
+  @if (success()) { <p class="notice success" role="status">{{ success() }}</p> }
+  @if (operationError()) { <div class="notice error" role="alert"><p>{{ operationError() }}</p><button type="button" class="secondary" (click)="loadCollection()" [disabled]="loading() || saving()">Recarregar coleção</button></div> }
+
+  @if (!loading() && !loadError()) {
+    <form class="panel grant-form" [formGroup]="form" (ngSubmit)="defineQuantity()" novalidate>
+      <h3>Adicionar carta ou definir quantidade</h3>
+      <p class="muted">O valor substitui o total atual; ele não soma cópias. Novos usuários começam com a coleção vazia.</p>
+      @if (!publishedCards().length) { <p class="notice">Nenhuma carta publicada disponível para concessão.</p> }
+      <fieldset [disabled]="saving() || !publishedCards().length">
+        <legend class="visually-hidden">Concessão administrativa</legend>
+        <div class="grant-fields">
+          <div class="field"><label for="collection-grant-card">Carta publicada</label><select id="collection-grant-card" formControlName="cardId" (change)="selectCard()" [attr.aria-invalid]="form.controls.cardId.invalid && form.controls.cardId.touched" aria-describedby="grant-card-error"><option value="">Escolha uma carta</option>@for (card of publishedCards(); track card.id) { <option [value]="card.id">{{ card.name }} — {{ rarityLabels[card.rarity] }}</option> }</select>@if (form.controls.cardId.invalid && form.controls.cardId.touched) { <p id="grant-card-error" class="field-error">Escolha uma carta publicada.</p> }</div>
+          <div class="field"><label for="collection-grant-quantity">Quantidade total possuída</label><input id="collection-grant-quantity" type="number" min="0" [max]="maxQuantity" step="1" formControlName="quantity" [attr.aria-invalid]="form.controls.quantity.invalid && form.controls.quantity.touched" aria-describedby="grant-quantity-help grant-quantity-error" /><p id="grant-quantity-help" class="muted">1–{{ maxQuantity }} cópias. Zero remove uma carta já possuída após confirmação.</p>@if (form.controls.quantity.invalid && form.controls.quantity.touched) { <p id="grant-quantity-error" class="field-error">Informe um inteiro entre 0 e {{ maxQuantity }}.</p> }</div>
+        </div>
+        <button type="submit">{{ saving() ? 'Salvando…' : 'Definir quantidade total' }}</button>
+      </fieldset>
+    </form>
+
+    @if (!entries().length) {
+      <p class="notice collection-empty" role="status">Este usuário ainda não possui cartas.</p>
+    } @else {
+      <p id="collection-quantity-help" class="muted quantity-help">O limite de {{ maxQuantity }} cópias é técnico. Quantidade zero remove a entrada após confirmação.</p>
+      <div class="table-wrap"><table><caption class="visually-hidden">Cartas pertencentes a este usuário</caption><thead><tr><th scope="col">Carta</th><th scope="col">Raridade</th><th scope="col">Quantidade total</th><th scope="col">Ações</th></tr></thead><tbody>
+        @for (owned of entries(); track owned.collection.cardId) {
+          <tr [attr.data-card-id]="owned.collection.cardId"><td><strong>{{ owned.card?.name || 'Carta indisponível' }}</strong>@if (!owned.card) { <small class="muted">Sem dados disponíveis</small> }</td><td>{{ owned.card ? rarityLabels[owned.card.rarity] : '—' }}</td><td><label class="visually-hidden" [for]="'owned-quantity-' + owned.collection.cardId">Quantidade total de {{ owned.card?.name || 'carta indisponível' }}</label><input [id]="'owned-quantity-' + owned.collection.cardId" type="number" min="0" [max]="maxQuantity" step="1" [value]="quantityFor(owned)" (input)="changeQuantity(owned.collection.cardId, $event)" [disabled]="saving() || !owned.card" [attr.aria-invalid]="!validQuantity(quantityFor(owned))" aria-describedby="collection-quantity-help" />@if (!validQuantity(quantityFor(owned))) { <small class="field-error">Use um inteiro entre 0 e {{ maxQuantity }}.</small> }</td><td><div class="actions"><button type="button" class="secondary" (click)="saveQuantity(owned)" [disabled]="saving() || !owned.card || !validQuantity(quantityFor(owned)) || quantityFor(owned) === owned.collection.quantity">Salvar quantidade</button><button type="button" class="danger" (click)="removeOwned(owned)" [disabled]="saving()">Remover</button></div></td></tr>
+        }
+      </tbody></table></div>
+    }
+  }
+  @if (saving()) { <p class="muted" role="status">Salvando a coleção. Aguarde a conclusão.</p> }
+</section>

@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, Input, OnChanges, OnDestroy, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject, signal } from '@angular/core';
 import {
   AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators
 } from '@angular/forms';
@@ -33,6 +33,7 @@ const validUid: ValidatorFn = control =>
 export class UserFormComponent implements OnChanges, OnDestroy {
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() uid: string | null = null;
+  @Output() readonly profileLoaded = new EventEmitter<UserProfile | null>();
   private readonly service = inject(UserService);
   private readonly router = inject(Router);
   private version = 0;
@@ -62,6 +63,7 @@ export class UserFormComponent implements OnChanges, OnDestroy {
   async loadProfile(): Promise<void> {
     const version = ++this.version;
     this.profile.set(null);
+    this.profileLoaded.emit(null);
     this.loadError.set('');
     this.saveError.set('');
     this.successMessage.set('');
@@ -85,6 +87,7 @@ export class UserFormComponent implements OnChanges, OnDestroy {
         return;
       }
       this.profile.set(profile);
+      this.profileLoaded.emit(profile);
       this.resetForm(profile);
     } catch (error: unknown) {
       if (this.isCurrent(version)) this.loadError.set(this.errorMessage(error, 'Não foi possível carregar o perfil.'));

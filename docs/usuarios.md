@@ -2,9 +2,9 @@
 
 ## Escopo desta evolução
 
-As telas e serviços usam perfis `users/{uid}` no Firestore, vinculados pelo UID a contas já existentes no Firebase Authentication. O modelo permite consultar, vincular e editar perfis e atribuir papéis `admin`/`member`.
+As telas e serviços usam perfis `users/{uid}` no Firestore, vinculados pelo UID a contas já existentes no Firebase Authentication. O modelo permite consultar, vincular e editar perfis e atribuir papéis `admin`/`member`. A edição de um perfil encontrado também permite gerir sua coleção, em uma seção e domínio separados.
 
-O requisito mais recente restabeleceu autenticação com cadastro por e-mail/senha e Google. O guard aguarda sessão/perfil e libera o admin somente com `role` e `roleId` iguais a `admin`. Os serviços continuam chamando o Firebase real; Rules exigem admin para listar, vincular e editar perfis. Novas contas podem criar apenas o próprio perfil `member`, com e-mail igual ao token autenticado. Não há exclusão de contas pelo painel.
+A autenticação oferece cadastro por e-mail/senha e Google. Os guards aguardam sessão/perfil e liberam o admin somente com `role` e `roleId` iguais a `admin`. Os serviços continuam chamando o Firebase real; Rules exigem admin para listar, vincular e editar perfis. Novas contas podem criar apenas o próprio perfil `member`, com e-mail igual ao token autenticado, e começam sem cartas na coleção. Não há exclusão de contas pelo painel.
 
 O SDK cliente não lista todas as contas Auth. O fluxo de autenticação provisiona um perfil member apenas quando não há documento; perfis existentes, inclusive admins, são preservados. Contas sem perfil Firestore ainda podem ser vinculadas manualmente pelo admin com o UID copiado no Console. Vincular um perfil não cria conta Auth e não confirma automaticamente que o UID existe. Uma integração futura com Admin SDK/backend seria necessária para listar/gerenciar todas as contas e credenciais diretamente.
 
@@ -14,7 +14,7 @@ Referência oficial dessa distinção: [gerenciamento de usuários com Admin SDK
 
 Cada usuário autenticado pode abrir `/login` como **Minha conta** para consultar seus provedores Auth e vincular Google a uma conta com senha, ou adicionar senha a uma conta Google após reautenticação. Ambos usam o mesmo UID e perfil; não há cadastro duplicado ou alteração de cargo. O menu admin possui um atalho para essa tela. **Esqueci minha senha** permite recuperação por e-mail sem estar autenticado.
 
-Os provedores exibidos vêm da identidade Auth corrente, não do perfil Firestore. O administrador continua gerenciando somente perfil/contato/cargo dos outros usuários. Vincular credenciais é uma ação do titular, sem armazenar senhas/tokens no documento. Consulte [autenticação](autenticacao-e-admin.md) para fallback, reautenticação e recuperação.
+Os provedores exibidos vêm da identidade Auth corrente, não do perfil Firestore. O administrador gerencia perfil/contato/cargo e propriedade de cartas dos outros usuários. Vincular credenciais é uma ação do titular, sem armazenar senhas/tokens no documento. Consulte [autenticação](autenticacao-e-admin.md) para fallback, reautenticação e recuperação.
 
 ## Contrato e acesso
 
@@ -32,8 +32,18 @@ O proprietário pode registrar/entrar em `/login` e copiar o UID exibido para um
 
 ## Arquitetura
 
+`UserEditComponent` mantém `UserFormComponent` para perfil e `UserCollectionComponent` para coleção. O formulário emite `profileLoaded`; o wrapper só monta a gestão quando o perfil encontrado corresponde ao UID da rota. Falha, ausência ou troca do perfil não cria coleção órfã nem reutiliza dados do usuário anterior.
+
 Contrato em `model/interfaces/Users/user-profile.ts`; validação em `model/services/tools/user-validation.ts`; persistência em `model/services/cruds/users/user.service.ts`. Telas standalone em `view/admin/admin-components/users/`, com lista e formulário compartilhado por vínculo/edição. Rotas `/admin/usuarios/lista`, `/admin/usuarios/criar` e `/admin/usuarios/editar/:uid`.
 
 Edição usa transação e compara os dados/cargo e `updatedAt` da versão carregada; alterações feitas em outra sessão exigem recarregar. Vínculo recusa substituir um perfil existente. A lista inclui perfis mínimos sem nome/datas e ordena localmente por nome, contato ou UID; não há paginação nesta fase.
 
 Não acessar Firestore diretamente nos componentes nem armazenar senhas, tokens, service accounts ou dados de credenciais nos perfis. Atualizar este documento, autenticação, modelo Firestore e README no mesmo trabalho ao alterar a gestão.
+
+## Gestão da coleção
+
+Em `/admin/usuarios/editar/:uid`, a seção Coleção carrega a propriedade e oferece cartas de `CardService.list()` filtradas por `published`. Conceder/alterar define o total absoluto entre 1 e 9999, limite técnico sem relação com decks. Uma carta já presente reutiliza seu documento; não soma a quantidade informada ao valor anterior.
+
+Remover, inclusive ao definir zero, exige confirmação de remoção de todas as cópias e exclui somente `users/{uid}/collection/{cardId}`. Carta indisponível pode ser removida, mas somente publicadas recebem uma quantidade positiva. `PlayerCollectionService` executa transações e compara quantidade/datas carregadas; alteração concorrente pede recarregar. A UI não altera dados de cartas nem credenciais nessa seção.
+
+Membro consulta apenas sua coleção em `/game/colecao` e não concede, altera ou remove propriedade. Não há concessão automática no cadastro, Starter Pack ou aquisição pelo jogador. Modelo, imagens e limitações ficam em [coleção do jogador](colecao.md).

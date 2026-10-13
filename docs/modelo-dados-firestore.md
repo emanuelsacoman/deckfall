@@ -12,6 +12,22 @@ Cadastro autenticado cria somente o próprio perfil member, com e-mail de contat
 
 Admin lê/lista/vincula/edita perfis. Um autenticado lê o próprio perfil; membros não fazem update nem se promovem. Exclusão de perfis e rebaixamento do próprio admin são negados pelas Rules. `contactEmail` não altera a credencial Auth. A lista não representa todas as contas Authentication; veja [usuários](usuarios.md) e [autenticação](autenticacao-e-admin.md).
 
+## `users/{uid}/collection/{cardId}`
+
+Propriedade da carta, separada de seus dados e design. `PlayerCardCollectionEntry` acrescenta `cardId` do caminho na leitura; o documento não duplica ID, nome, raridade, atributos, arte ou canvas.
+
+| Campo persistido | Contrato |
+| --- | --- |
+| quantity | Inteiro positivo de 1 a 9999; limite técnico, sem relação com decks |
+| firstAcquiredAt | Timestamp de servidor na criação; imutável no update |
+| lastAcquiredAt | Timestamp de servidor na criação e em toda definição de quantidade |
+
+Somente esses três campos são aceitos pelas Rules. Zero remove o documento; não é persistido. Criação exige as duas datas iguais a `request.time`; update preserva a primeira e exige a última igual a `request.time`.
+
+Member com perfil válido lê/lista apenas a própria coleção; admin lê coleções de perfis existentes e é o único que escreve. Criação/update exigem `users/{uid}` existente e `cards/{cardId}` existente com `status == published`. Delete administrativo dispensa a existência da carta/perfil, para permitir limpeza de propriedade órfã. O serviço/UI exigem o perfil carregado para suas operações.
+
+`PlayerOwnedCard` é uma junção local com `card: Card | null`, nunca persistida. Carta retirada/excluída ou negada pode permanecer como propriedade indisponível, sem exposição dos dados protegidos. Cadastro não cria entradas nem concede cartas. Veja [coleção](colecao.md) para transações, concorrência e imagens publicadas.
+
 ## `cards/{cardId}`
 
 Campos base obrigatórios nas gravações: `name`, `slug`, `description`, `rarity`, `status`, `art`, `attributes`, `setId`, `createdAt`, `updatedAt`. Campos novos opcionais: `type`, `subtype`, `templateId`, `canvas`.
@@ -70,6 +86,8 @@ Salvar uma carta baseada em template preserva templateId como associação e cop
 
 Cards publicados têm leitura pública de metadados; admin lê todos e é o único que escreve. Templates exigem admin para leitura/escrita. Storage exige admin para artes/assets, aceita imagens declaradas PNG/JPEG/WebP até 5 MiB, exige documento proprietário no upload e bloqueia overwrite.
 
+Representação de apresentação fica somente no Storage em `published-cards/{cardId}/preview.png`, sem campo novo em `Card`, canvas ou coleção. PNG não vazio até 20 MiB admite overwrite administrativo, condicionado à carta publicada. Get exige sessão e perfil member/admin consistente, mais carta existente `published`; listagem do namespace e acesso anônimo são negados. Delete exige admin. Assets editáveis e templates continuam privados. Veja [cartas](cartas.md) e [coleção](colecao.md).
+
 Rules validam campos base, raridade/status, timestamps, atributos numéricos/ranges e envelope do canvas: versão, dimensões, background estrutural, até 64 elementos e 24 assets. Não fazem a validação profunda de toda union de elementos, IDs/metadados de cada asset ou todos os valores visuais. O limite de 128 KiB e validação profunda são garantias do cliente, não devem ser anunciados como enforcement completo das Rules. Ampliar limites exige testes no orçamento de expressões.
 
-Rules não filtram consultas: uma lista pública futura precisa consultar somente `status == published`. Slug não garante unicidade global. Consulte [cartas](cartas.md) para transações e compensação. Backend remoto e publicação das Rules/índices continuam sujeitos à conferência externa; nenhum deploy foi feito nesta entrega.
+Rules não filtram consultas: uma lista pública futura precisa consultar somente `status == published`. Slug não garante unicidade global. Consulte [cartas](cartas.md) para transações e compensação. As Rules de Firestore/Storage foram publicadas com autorização e conferidas contra os arquivos locais; índices e uso por sessão autenticada real continuam sujeitos à conferência externa.
