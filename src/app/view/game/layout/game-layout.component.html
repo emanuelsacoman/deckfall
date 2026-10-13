@@ -33,6 +33,7 @@
         @if (auth.isAdmin()) {
           <a class="admin-link" routerLink="/admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4v6c0 4-8 8-8 8s-8-4-8-8V7zM9 12l2 2 4-4" /></svg>Painel administrativo<span aria-hidden="true">↗</span></a>
         }
+        <a class="account-link" routerLink="/login">Gerenciar minha conta</a>
         <div class="account">
           <a class="player" routerLink="/game/perfil"><span class="player-avatar" aria-hidden="true">{{ playerInitial() }}</span><span class="player-details"><strong>{{ playerName() }}</strong><small>{{ auth.isAdmin() ? 'Administrador' : 'Membro' }}</small></span></a>
           <button class="logout" type="button" (click)="logout()" [disabled]="signingOut()" [attr.aria-busy]="signingOut()">
@@ -44,7 +45,24 @@
 
     <div class="game-main">
       <header class="game-topbar"><span>Uma nova jornada de cartas</span><span class="preview-label">Primeira versão</span></header>
-      <main id="game-content" class="game-content" tabindex="-1"><router-outlet /></main>
+      <main id="game-content" class="game-content" tabindex="-1" [attr.aria-busy]="initialization.status() === 'preparing'">
+        @if (initialization.ready()) {
+          <router-outlet />
+        } @else if (initialization.status() === 'error') {
+          <section class="journey-state journey-error" aria-labelledby="journey-error-title">
+            <p class="journey-eyebrow">Sua jornada</p>
+            <h1 id="journey-error-title">Não foi possível preparar sua jornada</h1>
+            <p role="alert">{{ initialization.error() }}</p>
+            <button type="button" (click)="retryInitialization()">Tentar novamente</button>
+          </section>
+        } @else {
+          <section class="journey-state" aria-labelledby="journey-preparing-title" role="status" aria-live="polite">
+            <span class="journey-spinner" aria-hidden="true"></span>
+            <h1 id="journey-preparing-title">Preparando sua jornada…</h1>
+            <p>Estamos conferindo seu perfil de jogador e suas cartas iniciais.</p>
+          </section>
+        }
+      </main>
       <footer class="game-footer"><span>Deckfall</span><span>Decks e partidas em desenvolvimento.</span></footer>
     </div>
   </div>

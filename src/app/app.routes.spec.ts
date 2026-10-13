@@ -9,6 +9,8 @@ import { CardStorageService } from './model/services/fire/card-storage.service';
 import { CardTemplateService } from './model/services/cruds/cards/card-template.service';
 import { PlayerCollectionService } from './model/services/cruds/collection/player-collection.service';
 import { AuthService } from './model/services/fire/auth.service';
+import { PLAYER_INITIALIZATION_CLIENT, PlayerInitializationService } from './model/services/fire/player-initialization.service';
+import { PlayerInitializationResult } from './model/interfaces/Players/player-profile';
 import { AuthSession, isAuthenticatedSession } from './model/interfaces/Auth/auth-session';
 import { LoginComponent } from './view/auth/login/login.component';
 
@@ -16,15 +18,20 @@ describe('Navegação do jogador, administração e editor', () => {
   const currentUser = signal<AuthSession | null>({ uid: 'owner', email: 'owner@example.com', displayName: 'Emanuel', role: 'admin', roleId: 'admin' });
   const member: AuthSession = { uid: 'member', email: 'member@example.com', displayName: 'Jogador', contactEmail: 'contact@example.com', role: 'member', roleId: 'member' };
   let login: jasmine.Spy;
+  let initialize: jasmine.Spy;
+  let listCollection: jasmine.Spy;
   beforeEach(() => {
     currentUser.set({ uid: 'owner', email: 'owner@example.com', displayName: 'Emanuel', role: 'admin', roleId: 'admin' });
     login = jasmine.createSpy('login').and.callFake(async () => { currentUser.set(member); });
+    initialize = jasmine.createSpy('initialize').and.resolveTo({ initialized: true, alreadyInitialized: false, cardsGranted: 3 });
+    listCollection = jasmine.createSpy('listCurrentUser').and.resolveTo([]);
     TestBed.configureTestingModule({ providers: [
       provideRouter(routes),
       { provide: CardService, useValue: {} },
       { provide: CardStorageService, useValue: {} },
       { provide: CardTemplateService, useValue: {} },
-      { provide: PlayerCollectionService, useValue: { listCurrentUser: () => Promise.resolve([]) } },
+      { provide: PlayerCollectionService, useValue: { listCurrentUser: listCollection } },
+      { provide: PLAYER_INITIALIZATION_CLIENT, useValue: { initialize } },
       { provide: AuthService, useValue: {
         currentUser, isAdmin: computed(() => currentUser()?.role === 'admin' && currentUser()?.roleId === 'admin'),
         isAuthenticated: computed(() => isAuthenticatedSession(currentUser())),
@@ -124,6 +131,47 @@ describe('Navegação do jogador, administração e editor', () => {
     await harness.navigateByUrl('/game/colecao');
     expect(TestBed.inject(Router).url).toContain('/login');
     expect(harness.routeNativeElement?.querySelector('nav')).toBeNull();
+  });
+
+  it('carrega a coleção somente depois do bootstrap e não concede novamente ao navegar', async () => {
+    let finish!: (result: PlayerInitializationResult) => void;
+    initialize.and.returnValue(new Promise<PlayerInitializationResult>(resolve => { finish = resolve; }));
+    currentUser.set(member);
+    const harness = await RouterTestingHarness.create('/game/colecao');
+    expect(initialize).toHaveBeenCalledOnceWith();
+    expect(listCollection).not.toHaveBeenCalled();
+    expect(harness.routeNativeElement?.querySelector('app-game-collection')).toBeNull();
+    expect(harness.routeNativeElement?.textContent).toContain('Preparando sua jornada');
+    finish({ initialized: true, alreadyInitialized: false, cardsGranted: 3 });
+    await TestBed.inject(PlayerInitializationService).initialize();
+    harness.detectChanges();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(listCollection).toHaveBeenCalledTimes(1);
+    expect(harness.routeNativeElement?.querySelector('app-game-collection')).not.toBeNull();
+    await harness.navigateByUrl('/game/home');
+    await harness.navigateByUrl('/game/colecao');
+    expect(initialize).toHaveBeenCalledTimes(1);
+    expect(listCollection).toHaveBeenCalledTimes(2);
+  });
+
+  it('não abre a coleção após falha crítica e carrega dados novos depois de tentar novamente', async () => {
+    initialize.and.rejectWith({ code: 'functions/failed-precondition' });
+    currentUser.set(member);
+    const harness = await RouterTestingHarness.create('/game/colecao');
+    await TestBed.inject(PlayerInitializationService).initialize();
+    harness.detectChanges();
+    expect(harness.routeNativeElement?.querySelector('app-game-collection')).toBeNull();
+    expect(listCollection).not.toHaveBeenCalled();
+    expect(harness.routeNativeElement?.textContent).toContain('Não foi possível preparar sua jornada');
+    initialize.and.resolveTo({ initialized: true, alreadyInitialized: true, cardsGranted: 0 });
+    harness.routeNativeElement?.querySelector<HTMLButtonElement>('.journey-error button')?.click();
+    await TestBed.inject(PlayerInitializationService).initialize();
+    harness.detectChanges();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(listCollection).toHaveBeenCalledTimes(1);
+    expect(harness.routeNativeElement?.querySelector('app-game-collection')).not.toBeNull();
   });
 
   it('oferece navegação entre as áreas somente para administradores', async () => {

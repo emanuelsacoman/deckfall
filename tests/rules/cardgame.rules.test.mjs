@@ -2,7 +2,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { deleteObject, getBytes, listAll, ref, uploadBytes } from 'firebase/storage';
 
 let env;
@@ -30,6 +30,20 @@ const ownedEntry = (overrides = {}) => ({
 });
 const ownedRef = (db, uid = 'member', cardId = 'published') => doc(db, 'users', uid, 'collection', cardId);
 const publishedPath = (cardId = 'published') => `published-cards/${cardId}/preview.png`;
+const playerProfile = (overrides = {}) => ({
+  createdAt: serverTimestamp(), updatedAt: serverTimestamp(), starterGrantedAt: serverTimestamp(), ...overrides
+});
+const starterCollection = (overrides = {}) => ({
+  active: true, version: 1, cards: [{ cardId: 'published', quantity: 2 }], updatedAt: serverTimestamp(), ...overrides
+});
+
+async function seedPlayer(uid, overrides = {}) {
+  await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'players', uid), playerProfile(overrides)));
+}
+
+async function seedStarter(starterId = 'default', overrides = {}) {
+  await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'starterCollections', starterId), starterCollection(overrides)));
+}
 
 async function seedOwned(uid = 'member', cardId = 'published', overrides = {}) {
   await env.withSecurityRulesDisabled(context => setDoc(ownedRef(context.firestore(), uid, cardId), ownedEntry(overrides)));
@@ -496,4 +510,161 @@ test('assets editáveis de carta published permanecem admin-only apesar da previ
     await assertFails(uploadBytes(object, new Uint8Array([2]), { contentType: 'image/png' }));
     await assertSucceeds(deleteObject(object));
   }
+});
+
+test('players: membro com perfil válido lê somente o próprio estado e não lista jogadores', async () => {
+  await seedPlayer('member');
+  await seedPlayer('admin');
+  const db = dbFor('member');
+  const own = await assertSucceeds(getDoc(doc(db, 'players/member')));
+  assert.deepEqual(Object.keys(own.data()).sort(), ['createdAt', 'starterGrantedAt', 'updatedAt']);
+  assert.ok(own.data().starterGrantedAt instanceof Timestamp);
+  await assertFails(getDoc(doc(db, 'players/admin')));
+  await assertFails(getDoc(doc(db, 'players/other')));
+  await assertFails(getDocs(collection(db, 'players')));
+});
+
+test('players: admin lê o próprio estado, consulta terceiros e lista sem permissão de escrita', async () => {
+  await seedPlayer('member');
+  await seedPlayer('admin');
+  const db = dbFor('admin');
+  await assertSucceeds(getDoc(doc(db, 'players/admin')));
+  await assertSucceeds(getDoc(doc(db, 'players/member')));
+  const players = await assertSucceeds(getDocs(collection(db, 'players')));
+  assert.deepEqual(players.docs.map(item => item.id).sort(), ['admin', 'member']);
+});
+
+test('players: anônimo e perfis ausentes, inconsistentes ou de papel desconhecido não leem estado', async () => {
+  const invalidProfiles = [
+    ['unknown-role', { role: 'owner', roleId: 'owner' }],
+    ['only-role', { role: 'member' }],
+    ['only-role-id', { roleId: 'member' }],
+    ['null-role', { role: null, roleId: null }]
+  ];
+  await env.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    for (const [uid, profile] of invalidProfiles) await setDoc(doc(db, 'users', uid), profile);
+  });
+  for (const uid of [undefined, 'missing-profile', 'partial', ...invalidProfiles.map(([uid]) => uid)]) {
+    const target = uid ?? 'member';
+    await seedPlayer(target);
+    const db = dbFor(uid);
+    await assertFails(getDoc(doc(db, 'players', target)));
+    await assertFails(getDoc(doc(db, 'players/member')));
+    await assertFails(getDocs(collection(db, 'players')));
+  }
+});
+
+test('players: nenhum cliente cria, sobrescreve, marca, reseta ou exclui estado, inclusive admin', async () => {
+  for (const uid of [undefined, 'member', 'admin', 'partial', 'missing-profile']) {
+    const target = uid ?? 'member';
+    await seedPlayer(target);
+    const db = dbFor(uid);
+    const own = doc(db, 'players', target);
+    await assertFails(setDoc(doc(db, 'players', `${target}-new`), playerProfile()));
+    await assertFails(setDoc(own, playerProfile()));
+    await assertFails(updateDoc(own, { starterGrantedAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(own, { starterGrantedAt: null, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(own, { starterGrantedAt: deleteField(), updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(own, { coins: 100, updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(own));
+    await assertFails(setDoc(doc(db, 'players/member'), playerProfile({ starterGrantedAt: null })));
+  }
+});
+
+test('starterCollections: admin gerencia somente default, com versão e timestamp de servidor', async () => {
+  const db = dbFor('admin');
+  const starter = doc(db, 'starterCollections/default');
+  await assertSucceeds(setDoc(starter, starterCollection()));
+  const initial = await assertSucceeds(getDoc(starter));
+  assert.deepEqual(Object.keys(initial.data()).sort(), ['active', 'cards', 'updatedAt', 'version']);
+  assert.equal(initial.data().version, 1);
+  await assertSucceeds(updateDoc(starter, { version: 2, cards: [{ cardId: 'published', quantity: 3 }], updatedAt: serverTimestamp() }));
+  assert.equal((await getDoc(starter)).data().cards[0].quantity, 3);
+  await assertSucceeds(updateDoc(starter, { active: false, cards: [], updatedAt: serverTimestamp() }));
+  assert.equal((await getDoc(starter)).data().active, false);
+  await assertSucceeds(deleteDoc(starter));
+  assert.equal((await getDoc(starter)).exists(), false);
+});
+
+test('starterCollections: membros, anônimos e perfis inválidos não leem nem alteram definição', async () => {
+  await seedStarter();
+  for (const uid of [undefined, 'member', 'partial', 'missing-profile']) {
+    const db = dbFor(uid);
+    const starter = doc(db, 'starterCollections/default');
+    await assertFails(getDoc(starter));
+    await assertFails(getDocs(collection(db, 'starterCollections')));
+    await assertFails(setDoc(doc(db, 'starterCollections/other'), starterCollection()));
+    await assertFails(setDoc(starter, starterCollection()));
+    await assertFails(updateDoc(starter, { version: 2, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(starter, { cards: [{ cardId: 'draft', quantity: 9999 }], updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(starter));
+  }
+});
+
+test('starterCollections: default é singleton e nem admin lista ou acessa definições alternativas', async () => {
+  await seedStarter();
+  await seedStarter('other');
+  const db = dbFor('admin');
+  const other = doc(db, 'starterCollections/other');
+  await assertFails(getDocs(collection(db, 'starterCollections')));
+  await assertFails(getDoc(other));
+  await assertFails(setDoc(other, starterCollection()));
+  await assertFails(setDoc(doc(db, 'starterCollections/new'), starterCollection()));
+  await assertFails(updateDoc(other, { version: 2, updatedAt: serverTimestamp() }));
+  await assertFails(deleteDoc(other));
+  await assertFails(setDoc(doc(db, 'starterCollections/default/config/extra'), starterCollection()));
+});
+
+test('starterCollections: envelope estrito exige quatro campos e recusa tipos, datas e campos extras', async () => {
+  const db = dbFor('admin');
+  const starter = doc(db, 'starterCollections/default');
+  await assertSucceeds(setDoc(starter, starterCollection()));
+  for (const overrides of [
+    { active: 'true' }, { active: null }, { active: 1 },
+    { cards: null }, { cards: {} }, { cards: 'published' },
+    { updatedAt: null }, { updatedAt: 'now' }, { updatedAt: Timestamp.fromMillis(1) },
+    { secret: true }
+  ]) {
+    await assertFails(setDoc(starter, starterCollection(overrides)));
+    await assertFails(updateDoc(starter, { updatedAt: serverTimestamp(), ...overrides }));
+  }
+  for (const field of ['active', 'version', 'cards', 'updatedAt']) {
+    const missing = starterCollection();
+    delete missing[field];
+    await assertFails(setDoc(starter, missing));
+    await assertFails(updateDoc(starter, { updatedAt: serverTimestamp(), [field]: deleteField() }));
+  }
+});
+
+test('starterCollections: versão inteira de 1 a 1000000 e lista de até 25 itens', async () => {
+  const db = dbFor('admin');
+  const starter = doc(db, 'starterCollections/default');
+  await assertSucceeds(setDoc(starter, starterCollection({ version: 1000000 })));
+  for (const version of [0, -1, 1.5, 1000001, '1', null]) {
+    await assertFails(setDoc(starter, starterCollection({ version })));
+    await assertFails(updateDoc(starter, { version, updatedAt: serverTimestamp() }));
+  }
+  const cards = Array.from({ length: 25 }, (_, index) => ({ cardId: `card_${index}`, quantity: 1 }));
+  await assertSucceeds(setDoc(starter, starterCollection({ cards })));
+  for (const active of [true, false]) {
+    await assertFails(setDoc(starter, starterCollection({ active, cards: [...cards, { cardId: 'extra', quantity: 1 }] })));
+    await assertFails(updateDoc(starter, { active, cards: [...cards, { cardId: 'extra', quantity: 1 }], updatedAt: serverTimestamp() }));
+  }
+  await assertFails(setDoc(starter, starterCollection({ cards: [] })));
+  await assertFails(updateDoc(starter, { active: true, cards: [], updatedAt: serverTimestamp() }));
+  await assertSucceeds(setDoc(starter, starterCollection({ active: false, cards: [] })));
+});
+
+test('starterCollections: validação profunda pertence ao backend e configuração não libera writes de membro', async () => {
+  const adminDb = dbFor('admin');
+  // Envelope administrativo aceito; initializePlayer deve rejeitar estes itens antes de conceder.
+  await assertSucceeds(setDoc(doc(adminDb, 'starterCollections/default'), starterCollection({
+    cards: [{ cardId: 'draft', quantity: -1 }, { cardId: 'draft', quantity: 2 }]
+  })));
+  await seedPlayer('member');
+  const memberDb = dbFor('member');
+  await assertFails(setDoc(ownedRef(memberDb), ownedEntry()));
+  await assertFails(setDoc(ownedRef(memberDb, 'member', 'draft'), ownedEntry()));
+  await assertFails(updateDoc(doc(memberDb, 'players/member'), { starterGrantedAt: null }));
 });

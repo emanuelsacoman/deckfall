@@ -2,7 +2,7 @@
 
 > A imagem renderizada da carta é somente uma representação visual. A fonte de verdade da carta são seus dados estruturados.
 
-Cartas alimentam a coleção persistida, concedida manualmente por admin, e seus filtros locais. Decks, batalhas, efeitos, packs, economia e marketplace continuam futuros. O design é genérico e separado do gameplay; detalhes de Konva e painéis ficam em [editor de cartas](editor-de-cartas.md).
+Cartas publicadas alimentam a coleção persistida, concedida pelo starter único no backend ou manualmente por admin, e seus filtros locais. O bootstrap valida existência e status, sem modificar dados/design da carta ou gerar sua preview. Decks, batalhas, efeitos, packs, economia e marketplace continuam futuros. O design é genérico e separado do gameplay; detalhes de Konva e painéis ficam em [editor de cartas](editor-de-cartas.md) e [Player Bootstrap](player-bootstrap.md).
 
 ## Contrato atual e compatibilidade
 

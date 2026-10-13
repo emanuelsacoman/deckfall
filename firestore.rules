@@ -36,6 +36,18 @@ service cloud.firestore {
         && data.firstAcquiredAt is timestamp && data.lastAcquiredAt is timestamp;
     }
 
+    function validStarterCollection(data) {
+      // Rules limitam o envelope administrativo. O backend valida TODOS os itens,
+      // IDs, quantidades, duplicatas e status antes de qualquer concessão.
+      return data.keys().hasAll(['active', 'version', 'cards', 'updatedAt'])
+        && data.keys().hasOnly(['active', 'version', 'cards', 'updatedAt'])
+        && data.active is bool
+        && data.version is int && data.version >= 1 && data.version <= 1000000
+        && data.cards is list && data.cards.size() <= 25
+        && (!data.active || data.cards.size() > 0)
+        && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
     function validAttribute(attribute) {
       let value = attribute.value;
       let minimum = attribute.get('min', 0);
@@ -145,6 +157,23 @@ service cloud.firestore {
         // Remover propriedade não depende da disponibilidade da carta global.
         allow delete: if isAdmin();
       }
+    }
+
+    match /players/{uid} {
+      allow get: if hasValidAccount() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      // Apenas o backend confiável (Admin SDK) grava estado e marcador do starter.
+      // Nem um cliente administrativo pode resetar ou conceder novamente.
+      allow create, update, delete: if false;
+    }
+
+    match /starterCollections/{starterId} {
+      // Há somente a definição default; membros não precisam ler sua configuração.
+      allow get: if starterId == 'default' && isAdmin();
+      allow list: if false;
+      allow create, update: if starterId == 'default' && isAdmin()
+        && validStarterCollection(request.resource.data);
+      allow delete: if starterId == 'default' && isAdmin();
     }
 
     match /cards/{cardId} {

@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { isAuthenticatedSession } from '../../../model/interfaces/Auth/auth-session';
 import { AuthService } from '../../../model/services/fire/auth.service';
+import { PlayerInitializationService } from '../../../model/services/fire/player-initialization.service';
 
 @Component({
   selector: 'app-game-layout',
@@ -13,6 +14,7 @@ import { AuthService } from '../../../model/services/fire/auth.service';
 })
 export class GameLayoutComponent {
   readonly auth = inject(AuthService);
+  readonly initialization = inject(PlayerInitializationService);
   private readonly router = inject(Router);
   readonly hasSession = computed(() => isAuthenticatedSession(this.auth.currentUser()));
   readonly signingOut = signal(false);
@@ -25,6 +27,7 @@ export class GameLayoutComponent {
       const session = this.auth.currentUser();
       if (isAuthenticatedSession(session)) {
         this.redirectingToLogin = false;
+        untracked(() => { void this.initialization.initialize(); });
       } else if (session !== undefined && !this.redirectingToLogin) {
         this.redirectingToLogin = true;
         void this.router.navigate(['/login'], {
@@ -32,8 +35,10 @@ export class GameLayoutComponent {
           queryParams: { returnUrl: this.router.url },
         });
       }
-    });
+    }, { allowSignalWrites: true });
   }
+
+  retryInitialization(): void { void this.initialization.initialize(); }
 
   async logout(): Promise<void> {
     if (this.signingOut()) return;

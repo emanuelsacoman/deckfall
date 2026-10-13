@@ -36,4 +36,8 @@ Ao terminar uma tarefa relevante, informe: `Documentação impactada: sim/não`,
 
 Use standalone, Firebase modular e serviços tipados. `view` apresenta/orquestra; persistência fica em `model/services`. Konva renderiza o estado próprio; nunca persistir `stage.toJSON()`, nós, listeners, histórico, Files ou Blob URLs no Firestore. Design e gameplay são separados, bindings são seguros e o editor permanece genérico. Guards protegem navegação; Rules protegem dados, sem prometer validação profunda de todo canvas no servidor.
 
+Operações que concedem propriedade, moeda, recompensa, resultado de partida ou qualquer valor de jogo não devem ser confiadas ao cliente Angular. Use backend confiável e valide autenticação/autorização no servidor; Admin SDK fica somente em `functions/` e seus testes, nunca no frontend.
+
+Não liberar writes de coleção para membros como atalho para funcionalidades de jogo. Bootstrap e starter são transacionais e idempotentes; não criar reset/regrant nem marcar inicialização concluída em falhas parciais.
+
 Nunca adicione senhas, tokens, chaves privadas ou service accounts. Valide testes aplicáveis, build de produção, Rules, `git diff --check` e status antes de concluir.

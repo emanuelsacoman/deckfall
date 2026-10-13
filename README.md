@@ -6,16 +6,17 @@ Cada carta combina dados estruturados de gameplay com um design editável. A ima
 
 ## Estágio atual
 
-A implementação local reúne o catálogo/editor administrativo, a área do jogador e a primeira coleção persistida de cartas. Login, cadastro por e-mail/senha e Google usam Firebase Authentication. Novas contas recebem o papel `member` e entram em `/game/home`; admins entram por padrão no painel e também podem navegar em `/game`. Somente perfis com `role` e `roleId` iguais a `admin` entram no painel.
+A implementação local reúne o catálogo/editor administrativo, a área do jogador, coleção persistida e Player Bootstrap com Starter Collection única no backend. Login, cadastro por e-mail/senha e Google usam Firebase Authentication. Novas contas recebem o papel `member` e entram em `/game/home`; admins entram por padrão no painel e também podem navegar em `/game`. Somente perfis com `role` e `roleId` iguais a `admin` entram no painel.
 
-As Rules de Firestore/Storage e o build atual foram publicados com autorização do proprietário em `cardgame-6fdcb`/`deckfall`. O domínio serve a mesma versão validada localmente; localhost usa esse mesmo Firebase remoto. CORS GET para localhost e domínio e a integração Storage → Firestore foram conferidos, sem alterar cartas ou contas. Provedores Auth, domínios autorizados e índices continuam sujeitos à conferência do proprietário. A área do jogador oferece navegação, perfil e consulta da própria coleção; decks e modos de jogo continuam como placeholders. Concessão de cartas é manual por admin, sem Starter Pack ou aquisição pelo jogador. Gameplay, PvP, partidas, packs, economia, trocas e marketplace continuam para etapas futuras.
+Rules e Hosting da coleção/preview foram publicados em uma etapa anterior autorizada. **O novo bootstrap, Functions e alterações de Rules desta etapa permanecem locais, sem deploy.** O domínio continua na versão anteriormente publicada. O fluxo completo pode ser exercitado em emuladores; no Firebase real, exige configuração do starter e publicação autorizada do backend. CORS GET para localhost/domínio e a integração Storage → Firestore foram conferidos anteriormente. Provedores Auth, domínios autorizados e índices continuam sujeitos à conferência do proprietário. Decks, gameplay, PvP, partidas, packs, economia, trocas e marketplace continuam para etapas futuras.
 
 O CORS do Storage permite `GET` em `http://localhost:4200` e `https://deckfall.web.app`. A resposta real de uma imagem foi conferida nas duas origens; o teste usou a identidade OAuth da CLI e não substitui a verificação da sessão no editor. Para outras origens ou diagnóstico de imagens, siga [a configuração do Storage](docs/configuracao-cors-storage.md), preservando as entradas existentes do bucket.
 
 ## Recursos implementados
 
 - **Área do jogador:** layout próprio responsivo em `/game`, com Início, Coleção, Decks, Jogar e Perfil; identidade da conta, logout e acesso ao painel para admins. Decks e partidas permanecem em desenvolvimento.
-- **Coleção persistida:** cartas concedidas pelo admin, quantidades, busca local e filtro por raridade em `/game/colecao`; o membro consulta somente a própria coleção, sem writes. A carta inteira aparece em PNG publicado separado dos assets privados do editor.
+- **Player Bootstrap:** ao entrar em `/game`, uma Callable autenticada valida a conta e concede a Starter Collection default uma única vez, mesmo entre abas. Preparação e erro com nova tentativa precedem o acesso às páginas do jogador.
+- **Coleção persistida:** starter somado pelo backend ou concessões manuais pelo admin, quantidades, busca local e filtro por raridade em `/game/colecao`; o membro consulta somente a própria coleção, sem writes. A carta inteira aparece em PNG publicado separado dos assets privados do editor.
 - **Editor Konva:** texto, imagens, arte principal, formas, ícones, molduras, emblemas, atributos e barras; seleção, movimento, resize, rotação, bloqueio, visibilidade e camadas.
 - **Ateliê de molduras:** seis temas, bordas ornamentais/rúnicas/simples, doze símbolos vetoriais e emblemas com medalhão, escudo ou sem suporte. Cores, detalhes, largura, cantos, relevo e semente são editáveis; criar uma composição pode ser desfeito.
 - **PNG transparente:** imagens já sem fundo preservam a transparência no editor, no salvamento e na exportação PNG, mostrando as camadas da carta por baixo.
@@ -38,13 +39,15 @@ Molduras e emblemas vetoriais combinam cores e formas sem depender de emojis. Pa
 
 ### Permissões e contas
 
-Guards distinguem a sessão autenticada com perfil válido (`member` ou `admin`) do acesso administrativo. Firestore e Storage Rules protegem os dados. Metadados de cartas `published` podem ser lidos publicamente; artes/assets editáveis e templates permanecem administrativos. A coleção persiste somente quantidade e datas em `users/{uid}/collection/{cardId}`. Membros leem a própria coleção; somente admin altera propriedade. Cadastro público cria apenas o perfil de membro, sem cartas iniciais nem autopromoção.
+Guards distinguem a sessão autenticada com perfil válido (`member` ou `admin`) do acesso administrativo. Firestore e Storage Rules protegem os dados. Metadados de cartas `published` podem ser lidos publicamente; artes/assets editáveis e templates permanecem administrativos. Cadastro público cria apenas identidade/acesso em `users/{uid}`, sem autopromoção. A entrada em `/game` solicita o bootstrap: `players/{uid}` guarda estado mínimo/marcador, e `users/{uid}/collection/{cardId}` conserva somente quantidade e datas. Membros leem os próprios dados, sem writes de coleção/player.
+
+**Angular solicita; o servidor decide.** `initializePlayer` usa o UID autenticado e valida perfil, starter, cartas publicadas, limites e datas existentes dentro de uma transação. Soma quantidades, preserva a primeira aquisição e grava o marcador no mesmo commit. Admin SDK ignora Rules, portanto o backend repete suas próprias verificações. A gestão manual administrativa continua disponível; versão nova do starter não permite concedê-lo novamente. Veja [o Player Bootstrap](docs/player-bootstrap.md).
 
 A imagem completa fica em `published-cards/{cardId}/preview.png`, acessível por download autenticado somente enquanto a carta está publicada. Salvar com status Publicada gera/atualiza o PNG; Rascunho/Arquivada tenta remover uma representação anterior. Falhas posteriores são avisadas sem desfazer o documento salvo. Cartas publicadas antigas precisam ser reabertas/salvas para gerar essa representação. Veja [coleção, gestão e imagens publicadas](docs/colecao.md).
 
 Um destino interno válido em `returnUrl` tem prioridade após entrar: membros podem voltar às páginas de `/game`, e admins também às rotas de `/admin`. `/login` continua sendo Minha conta com sessão ativa; o Perfil do jogador aponta para essa experiência existente.
 
-A gestão lista **perfis em `users/{uid}`**, não todas as contas Authentication. O primeiro admin é configurado no Console; outros papéis podem ser administrados pelo painel. Cada titular vincula seus métodos e solicita a recuperação da própria senha; o painel não altera credenciais de terceiros nem exclui contas. Não há backend Admin SDK. Veja [autenticação e admin](docs/autenticacao-e-admin.md).
+A gestão lista **perfis em `users/{uid}`**, não todas as contas Authentication. O primeiro admin é configurado no Console; outros papéis podem ser administrados pelo painel. Cada titular vincula seus métodos e solicita a recuperação da própria senha; o painel não altera credenciais de terceiros nem exclui contas. O novo backend Admin SDK atende somente ao bootstrap do jogador. Veja [autenticação e admin](docs/autenticacao-e-admin.md).
 
 ## Stack e organização
 
@@ -53,8 +56,9 @@ A gestão lista **perfis em `users/{uid}`**, não todas as contas Authentication
 | Frontend | Angular 18.2.14, TypeScript 5.5.4, standalone e CSS |
 | Editor | Konva 10.7.1 diretamente, signals e modelo próprio |
 | Firebase | AngularFire 18.0.1 e Firebase SDK 10.14.1, APIs modulares |
+| Backend separado | Firebase Functions 7.4.0 Gen 2, Admin SDK 14.5.0, Node.js 22 e TypeScript 5.9.3 |
 | Interface | Reactive Forms, RxJS e rotas carregadas sob demanda |
-| Validação | Jasmine/Karma e Security Rules em emuladores |
+| Validação | Jasmine/Karma, backend com Node Test Runner e Security Rules/emuladores |
 
 `view/` apresenta e orquestra; `model/interfaces/` define contratos; `model/services/` concentra estado, domínio, persistência e infraestrutura. As versões Angular/Firebase foram preservadas. Consulte [a arquitetura](docs/arquitetura-frontend.md) e [o editor](docs/editor-de-cartas.md).
 
@@ -62,6 +66,7 @@ A gestão lista **perfis em `users/{uid}`**, não todas as contas Authentication
 
 ```powershell
 npm.cmd ci
+npm.cmd --prefix functions ci
 ```
 
 Copie [o exemplo de environment](docs/config/environment.example.ts) para `src/environments/environment.ts` e `src/environments/environment.development.ts`. Preencha os valores públicos do Web App Firebase e use `production: false` no desenvolvimento. Os environments reais são ignorados pelo Git; não adicione credenciais administrativas.
@@ -74,7 +79,9 @@ npm.cmd start
 
 Abra `http://localhost:4200/`. Após registrar ou entrar como membro, navegue em `/game/home`. Como admin, acesse `/admin/cartas/criar` ou `/admin/cartas/lista`; o painel também oferece um atalho para a área do jogador.
 
-Para popular uma coleção, salve uma carta como publicada, abra `/admin/usuarios/editar/:uid` de um perfil existente e defina a quantidade total na seção Coleção. Entre com esse usuário e consulte `/game/colecao`; sem concessões, a coleção permanece vazia.
+Antes do primeiro acesso ao novo `/game`, configure `starterCollections/default` com cartas publicadas e quantidades válidas. Sem Function disponível ou starter ativo válido, a preparação mostra erro e oferece nova tentativa. Não há configuração remota criada automaticamente. Para executar o fluxo completo isolado em localhost, use [o environment exclusivo de emuladores](docs/config/environment.emulators.example.ts) e siga [os emuladores e a configuração do starter](docs/player-bootstrap.md).
+
+A gestão manual permanece em `/admin/usuarios/editar/:uid`: salve a carta como publicada e defina a quantidade total na seção Coleção de um perfil existente. O starter soma à quantidade já concedida, preservando a primeira data de aquisição.
 
 O gerador inicial já foi executado. Não repita `npm run setup`: ele pode sobrescrever configurações auxiliares.
 
@@ -84,14 +91,15 @@ O gerador inicial já foi executado. Não repita `npm run setup`: ele pode sobre
 npm.cmd test -- --watch=false --browsers=ChromeHeadless
 npm.cmd run build -- --configuration production
 npm.cmd run test:rules
+npm.cmd run build:functions
+npm.cmd run test:functions
+npm.cmd run test:functions:emulator
 git diff --check
 ```
 
-Os testes Angular precisam do Chrome. Os testes de Rules precisam da Firebase CLI e Java compatíveis; nesta máquina, CLI 15.9.0 e Java 21 são usados para essa validação. `test:rules` executa Firestore/Storage no projeto isolado `demo-cardgame`.
+Os testes Angular precisam do Chrome. Backend usa Node.js 22; emuladores precisam da Firebase CLI e Java compatíveis. Nesta máquina, CLI 15.9.0 e Java 21 são usados para essa validação. `test:rules` executa Firestore/Storage em `demo-cardgame`; `test:functions:emulator` integra Auth/Firestore/Callable no mesmo projeto isolado.
 
-Resultados finais e detalhes do ambiente ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Verificações locais não confirmam a configuração nem a publicação do backend remoto.
-
-Validação local: **373 testes Angular, 30 cenários de Security Rules e build de produção aprovados**, incluindo coleção, quantidades, concorrência, busca/raridade, gestão administrativa, imagem publicada, avisos de permissão/limpeza e regressões de autenticação, catálogo e editor. O fluxo de salvamento → PNG real → concessão de duas cópias → consulta pelo membro foi exercitado com clientes de persistência substituídos; as permissões foram verificadas nos emuladores. Coleção e gestão administrativa foram conferidas com dados/PNGs sintéticos em larguras de 320, 390, 768 e 1440 pixels, sem overflow horizontal da página. Após a publicação, Rules remotas, HTML e todos os 30 JavaScripts servidos coincidiram com os arquivos locais; CORS/IAM necessários foram conferidos. Sessão Firebase real/OAuth não foram exercitados nessa verificação.
+O bootstrap possui testes de primeira concessão, repetição/concorrência, soma com inventário prévio, limites e falhas sem gravação parcial. Frontend cobre preparação, sucesso, erro/retry e troca de sessão; Rules preservam coleção read-only para member e isolam players/configuração. Resultados finais e limites da verificação desta etapa ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Validação em emuladores não equivale a Function publicada, starter configurado ou sessão Firebase real.
 
 ## Documentação e desenvolvimento
 
@@ -99,6 +107,7 @@ Validação local: **373 testes Angular, 30 cenários de Security Rules e build 
 - [Editor visual, histórico e templates](docs/editor-de-cartas.md)
 - [Cartas, assets e persistência](docs/cartas.md)
 - [Coleção do jogador e imagens publicadas](docs/colecao.md)
+- [Player Bootstrap, starter e Functions](docs/player-bootstrap.md)
 - [Modelo Firestore](docs/modelo-dados-firestore.md)
 - [Arquitetura frontend](docs/arquitetura-frontend.md)
 - [Autenticação e administração](docs/autenticacao-e-admin.md)

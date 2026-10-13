@@ -1,6 +1,6 @@
 # Coleção do jogador
 
-`/game/colecao` consulta a propriedade de cartas concedidas manualmente por administradores. O jogador consulta a própria coleção; não há aquisição automática, Starter Pack, packs, recompensas, economia, decks funcionais ou gameplay.
+`/game/colecao` consulta a propriedade de cartas concedidas pelo Player Bootstrap ou manualmente por administradores. Ao entrar em `/game`, o backend concede uma única vez a Starter Collection default configurada. O jogador continua sem escrita direta na própria coleção; não há packs, recompensas periódicas, economia, decks funcionais ou gameplay. Veja [Player Bootstrap](player-bootstrap.md).
 
 ## Propriedade e autorização
 
@@ -22,6 +22,16 @@ Firestore Rules exigem perfil do proprietário existente e carta `published` par
 
 `setQuantity(uid, cardId, quantity, original)` define o total absoluto. A transação lê perfil, carta quando necessário e entrada antes de escrever. Compara quantidade e as duas datas da entrada carregada; se outra sessão criou, alterou ou removeu a entrada, exige recarregar. A primeira concessão usa `original: null`; remoção dispensa leitura da carta global. Uma operação simultânea para o mesmo UID/carta é recusada na instância local do serviço, sem lock global entre abas.
 
+## Starter Collection e soma única
+
+`PlayerInitializationService` não grava coleção: solicita a Callable `initializePlayer` com dados vazios. O backend lê o UID autenticado, perfil, player, definição default, cartas publicadas e entradas correspondentes numa transação Firestore. Somente depois de validar tudo grava quantidades e `players/{uid}.starterGrantedAt` no mesmo commit.
+
+Starter **soma** à propriedade existente. Se uma carta tinha uma cópia e o starter concede duas, o novo total é três. A primeira data existente é preservada; `lastAcquiredAt` recebe a data do commit. Entradas fora do starter permanecem intactas. Se qualquer soma ultrapassar 9999 ou houver configuração/carta/entrada inválida, nenhum item nem o marcador são gravados.
+
+Nova chamada, retry ou duas abas não concedem novamente. O marcador é verificado no backend; transações concorrentes são repetidas pelo Firestore e a segunda observa o estado inicializado. Mudança da versão do starter não permite nova concessão. A gestão manual continua definindo **total absoluto**, diferente dessa soma inicial.
+
+O layout monta `/game/colecao` somente depois de inicialização bem-sucedida ou `alreadyInitialized`; a leitura sob demanda do serviço existente já observa o commit confirmado. Não há duplicação de inventário no estado global. Logout/troca de UID descarta respostas antigas na apresentação, sem cancelar uma transação que já foi aceita no servidor.
+
 ## Carta indisponível e falha de leitura
 
 Se a carta foi retirada de publicação, excluída ou sua leitura foi negada, a entrada de propriedade permanece e a junção retorna `card: null`. A UI informa indisponibilidade sem revelar nome, raridade, arte ou outros dados protegidos. Admin pode remover essa entrada; alterar sua quantidade positiva exige que a carta esteja publicada.
@@ -40,7 +50,7 @@ Busca é local por nome/tipo/subtipo, desconsiderando caixa e diacríticos; comb
 
 Em `/admin/usuarios/editar/:uid`, a seção de coleção é separada do formulário de perfil e só aparece após encontrar `users/{uid}`. O administrador escolhe uma carta publicada e define a quantidade total possuída: mudar de 2 para 3 resulta em 3, sem somar mais 3 cópias. Pode alterar o total ou remover a entrada após confirmação; a remoção não exclui `cards/{cardId}`.
 
-Novos usuários começam com coleção vazia. Nesta versão, apenas a gestão administrativa concede cartas; não existe botão de obter cartas na área do jogador. Veja [gestão de usuários](usuarios.md).
+Cadastro prepara identidade/perfil. A primeira entrada em `/game` solicita o starter ao backend e exige configuração ativa válida; não existe botão arbitrário de obter cartas ou conceder o starter novamente. Correções de propriedade continuam disponíveis na gestão manual, sem apagar o marcador. A definição default é gerida no Console, sem nova tela administrativa nesta fase. Veja [gestão de usuários](usuarios.md) e [configuração do starter](player-bootstrap.md).
 
 ## Imagem publicada e assets privados
 
@@ -68,7 +78,7 @@ Leitura integral da coleção, uma resolução de carta por entrada, downloads/m
 
 ## Localhost, domínio e erro de permissão
 
-`npm start` troca o environment de desenvolvimento, mas não conecta emuladores: localhost e `https://deckfall.web.app` usam o mesmo projeto `cardgame-6fdcb` e bucket. Alterar um arquivo `.rules` local não muda a autorização remota. Publicações devem permanecer dentro do escopo autorizado; futuras mudanças que afetem dados ou imagens precisam considerar as duas origens.
+Por padrão, o desenvolvimento utiliza o Firebase configurado no environment, como o domínio publicado; emuladores exigem opção explícita e projeto `demo-` em localhost. O fluxo isolado de Auth/Firestore/Storage/Functions está em [Player Bootstrap](player-bootstrap.md). Alterar um arquivo `.rules` local não muda a autorização remota. As novas Functions e Rules desta fase não foram publicadas; antes de deploy autorizado, o frontend apontado ao Firebase real apresenta erro honesto ao não encontrar o backend.
 
 Em 12/10/2026, a leitura das releases confirmou que as Rules ativas ainda eram anteriores à coleção e não continham `published-cards`. A carta do relato estava em `draft`: o save foi confirmado no Firestore, mas o cleanup da preview recebeu `storage/unauthorized`, mesmo podendo não existir arquivo. Depois da autorização, as duas Rules e o Hosting foram publicados; a conferência posterior confirmou o conteúdo esperado.
 

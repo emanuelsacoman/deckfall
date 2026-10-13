@@ -8,6 +8,10 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-cardgame \"node --test tests/rules/cardgame.rules.test.mjs\"",
+    "build:functions": "npm --prefix functions run build",
+    "test:functions": "npm --prefix functions test",
+    "test:functions:emulator": "npm --prefix functions run build && firebase emulators:exec --only auth,firestore,functions --project demo-cardgame \"npm --prefix functions run test:integration\"",
+    "emulators:start": "npm --prefix functions run build && firebase emulators:start --only auth,firestore,storage,functions --project demo-cardgame",
     "setup": "node setup-structure.js"
   },
   "private": true,

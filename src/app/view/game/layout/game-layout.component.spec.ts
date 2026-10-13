@@ -3,6 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { AuthSession, isAdminSession } from '../../../model/interfaces/Auth/auth-session';
 import { AuthService } from '../../../model/services/fire/auth.service';
+import { PLAYER_INITIALIZATION_CLIENT, PlayerInitializationService } from '../../../model/services/fire/player-initialization.service';
+import { PlayerInitializationResult } from '../../../model/interfaces/Players/player-profile';
 import { GameLayoutComponent } from './game-layout.component';
 
 describe('GameLayoutComponent session lifecycle', () => {
@@ -10,13 +12,15 @@ describe('GameLayoutComponent session lifecycle', () => {
   let currentUser: ReturnType<typeof signal<AuthSession | null | undefined>>;
   let logout: jasmine.Spy;
   let navigate: jasmine.Spy;
+  let initialize: jasmine.Spy;
 
   beforeEach(() => {
     currentUser = signal<AuthSession | null | undefined>(member);
     logout = jasmine.createSpy('logout').and.resolveTo();
+    initialize = jasmine.createSpy('initialize').and.resolveTo({ initialized: true, alreadyInitialized: false, cardsGranted: 3 });
     TestBed.configureTestingModule({
       imports: [GameLayoutComponent],
-      providers: [provideRouter([]), {
+      providers: [provideRouter([]), { provide: PLAYER_INITIALIZATION_CLIENT, useValue: { initialize } }, {
         provide: AuthService,
         useValue: { currentUser, isAdmin: computed(() => isAdminSession(currentUser())), logout },
       }],
@@ -33,6 +37,53 @@ describe('GameLayoutComponent session lifecycle', () => {
     expect(fixture.nativeElement.querySelector('nav')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Verificando acesso');
     expect(navigate).not.toHaveBeenCalled();
+    expect(initialize).not.toHaveBeenCalled();
+  });
+
+  it('requests bootstrap on game entry and gates the outlet until it succeeds', async () => {
+    let finish!: (result: PlayerInitializationResult) => void;
+    initialize.and.returnValue(new Promise<PlayerInitializationResult>(resolve => { finish = resolve; }));
+    const fixture = TestBed.createComponent(GameLayoutComponent);
+    fixture.detectChanges();
+    expect(initialize).toHaveBeenCalledOnceWith();
+    expect(fixture.nativeElement.textContent).toContain('Preparando sua jornada');
+    expect(fixture.nativeElement.querySelector('router-outlet')).toBeNull();
+    expect(fixture.nativeElement.querySelector('a[href="/login"]')?.textContent).toContain('Gerenciar minha conta');
+    expect(fixture.nativeElement.querySelector('button.logout')).not.toBeNull();
+    finish({ initialized: true, alreadyInitialized: false, cardsGranted: 3 });
+    await TestBed.inject(PlayerInitializationService).initialize();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Preparando sua jornada');
+  });
+
+  it('renders a critical error with retry and retains admin and account navigation', async () => {
+    currentUser.set({ ...member, role: 'admin', roleId: 'admin' });
+    initialize.and.rejectWith({ code: 'functions/failed-precondition' });
+    const fixture = TestBed.createComponent(GameLayoutComponent);
+    fixture.detectChanges();
+    await TestBed.inject(PlayerInitializationService).initialize();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('coleção inicial');
+    expect(fixture.nativeElement.querySelector('router-outlet')).toBeNull();
+    expect(fixture.nativeElement.querySelector('a[href="/admin"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('a[href="/login"]')).not.toBeNull();
+    initialize.and.resolveTo({ initialized: true, alreadyInitialized: true, cardsGranted: 0 });
+    fixture.nativeElement.querySelector('.journey-error button').click();
+    await TestBed.inject(PlayerInitializationService).initialize();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
+    expect(initialize).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not repeat bootstrap during ordinary navigation or profile name changes', async () => {
+    const fixture = TestBed.createComponent(GameLayoutComponent);
+    fixture.detectChanges();
+    await TestBed.inject(PlayerInitializationService).initialize();
+    currentUser.set({ ...member, displayName: 'Nome atualizado' });
+    fixture.detectChanges();
+    expect(initialize).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
   });
 
   it('removes the shell and preserves the current route when the profile becomes invalid', () => {

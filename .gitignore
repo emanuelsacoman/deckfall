@@ -52,3 +52,7 @@ environments/
 /coverage
 /out-tsc
 /tmp
+
+# Saídas TypeScript do backend Functions
+/functions/lib/
+/functions/lib-test/

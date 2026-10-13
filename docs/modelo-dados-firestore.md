@@ -24,9 +24,45 @@ Propriedade da carta, separada de seus dados e design. `PlayerCardCollectionEntr
 
 Somente esses três campos são aceitos pelas Rules. Zero remove o documento; não é persistido. Criação exige as duas datas iguais a `request.time`; update preserva a primeira e exige a última igual a `request.time`.
 
-Member com perfil válido lê/lista apenas a própria coleção; admin lê coleções de perfis existentes e é o único que escreve. Criação/update exigem `users/{uid}` existente e `cards/{cardId}` existente com `status == published`. Delete administrativo dispensa a existência da carta/perfil, para permitir limpeza de propriedade órfã. O serviço/UI exigem o perfil carregado para suas operações.
+Member com perfil válido lê/lista apenas a própria coleção; admin lê coleções de perfis existentes e é o único cliente com writes permitidos pelas Rules. Criação/update pelo SDK cliente exigem `users/{uid}` existente e `cards/{cardId}` existente com `status == published`. Delete administrativo dispensa a existência da carta/perfil, para permitir limpeza de propriedade órfã. O serviço/UI exigem o perfil carregado para suas operações.
 
-`PlayerOwnedCard` é uma junção local com `card: Card | null`, nunca persistida. Carta retirada/excluída ou negada pode permanecer como propriedade indisponível, sem exposição dos dados protegidos. Cadastro não cria entradas nem concede cartas. Veja [coleção](colecao.md) para transações, concorrência e imagens publicadas.
+`PlayerOwnedCard` é uma junção local com `card: Card | null`, nunca persistida. Carta retirada/excluída ou negada pode permanecer como propriedade indisponível, sem exposição dos dados protegidos. Cadastro não grava entradas: o backend concede o starter ao entrar em `/game`, conforme [Player Bootstrap](player-bootstrap.md). O Admin SDK ignora Rules; a operação repete validação de perfil, carta, quantidade e datas no servidor. A gestão manual administrativa permanece pelo contrato atual. Veja [coleção](colecao.md) para transações, concorrência e imagens publicadas.
+
+Antes de somar uma entrada existente do starter, o backend exige os três campos exatos, datas Timestamp e `firstAcquiredAt <= lastAcquiredAt <= relógio do backend`. Datas futuras ou fora de ordem impedem toda a concessão. Não há varredura de entradas fora do starter.
+
+## `players/{uid}`
+
+Estado mínimo do jogador, separado de identidade/autorização em `users/{uid}`. O UID vem do caminho; não é duplicado. Não há moedas, XP, nível, placar, deck selecionado ou outros campos de sistemas futuros.
+
+| Campo persistido | Contrato |
+| --- | --- |
+| createdAt | Timestamp de servidor na criação; preservado na inicialização de documento existente válido |
+| updatedAt | Timestamp de servidor do commit da primeira concessão |
+| starterGrantedAt | Timestamp do commit da concessão; null em estado válido ainda não concedido |
+| starterVersion | Versão inteira da definição efetivamente concedida, entre 1 e 1000000; presente após concessão |
+
+`initializePlayer` cria o documento já com o starter concedido no mesmo commit das entradas de coleção. Não cria player vazio quando configuração/carta/quantidade for inválida. `starterVersion` registra a concessão para auditoria; uma versão nova da definição não concede outro starter a quem já tem `starterGrantedAt`.
+
+Ao ler player existente, a operação exige campos exatos e `createdAt <= updatedAt <= relógio confiável do backend`. Sem concessão, `starterGrantedAt` é null e `starterVersion` deve estar ausente. Com concessão, a versão é obrigatória e `createdAt <= starterGrantedAt <= updatedAt`. Um estado inválido, inclusive com data futura, falha sem writes; não é tratado como inicialização concluída.
+
+Rules permitem get próprio para member/admin com perfil válido e get/list administrativo. Create/update/delete são negados a todos os clientes, inclusive admin; a escrita pertence ao backend Admin SDK. Anônimo, perfil ausente/inválido e leitura de outro jogador por member são negados. Não há endpoint de reset/regrant.
+
+## `starterCollections/default`
+
+Existe uma única definição administrativa declarativa. Não há múltiplos starters, seleção por facção ou aleatoriedade. Gerenciamento atual ocorre no Firestore Console ou ferramenta administrativa autorizada, sem nova tela Angular.
+
+| Campo persistido | Contrato |
+| --- | --- |
+| active | Boolean; precisa ser true para conceder |
+| version | Inteiro entre 1 e 1000000 |
+| cards | Lista de até 25 mapas `{cardId, quantity}`; de 1 a 25 para concessão ativa |
+| updatedAt | Timestamp; clientes administrativos usam serverTimestamp |
+
+Cada item usa ID existente de carta no padrão `[a-zA-Z0-9_-]{1,128}` e quantidade inteira entre 1 e 9999. O backend exige campos exatos, não aceita duplicatas, valida todos os itens e lê as cartas para confirmar `status == published`. A soma com quantidade já possuída não pode ultrapassar 9999.
+
+Rules permitem somente admin ler/criar/atualizar/excluir `default`, negando listagem e documentos com outro ID. Validam o envelope, tamanho máximo da lista, versão e data de servidor; definição ativa vazia é recusada. Definição inativa vazia pode ser armazenada, mas não inicializa jogadores. Rules não validam profundamente cada item, duplicatas ou status de todas as cartas: essas invariantes são responsabilidade obrigatória da Callable, pois Admin SDK e Console ignoram Rules.
+
+Membros/anônimos não leem nem escrevem a configuração. Configuração inexistente, inativa, vazia ou inválida impede a primeira inicialização, sem writes parciais. Alterar a definição não exige redeploy, mas afeta somente jogadores ainda não inicializados. Veja [configuração e falhas](player-bootstrap.md).
 
 ## `cards/{cardId}`
 
@@ -90,4 +126,4 @@ Representação de apresentação fica somente no Storage em `published-cards/{c
 
 Rules validam campos base, raridade/status, timestamps, atributos numéricos/ranges e envelope do canvas: versão, dimensões, background estrutural, até 64 elementos e 24 assets. Não fazem a validação profunda de toda union de elementos, IDs/metadados de cada asset ou todos os valores visuais. O limite de 128 KiB e validação profunda são garantias do cliente, não devem ser anunciados como enforcement completo das Rules. Ampliar limites exige testes no orçamento de expressões.
 
-Rules não filtram consultas: uma lista pública futura precisa consultar somente `status == published`. Slug não garante unicidade global. Consulte [cartas](cartas.md) para transações e compensação. As Rules de Firestore/Storage foram publicadas com autorização e conferidas contra os arquivos locais; índices e uso por sessão autenticada real continuam sujeitos à conferência externa.
+Rules não filtram consultas: uma lista pública futura precisa consultar somente `status == published`. Slug não garante unicidade global. Consulte [cartas](cartas.md) para transações e compensação. As Rules de Firestore/Storage da coleção/preview foram publicadas em uma etapa anterior; as alterações de players/starter desta etapa permanecem locais. Índices e uso por sessão autenticada real continuam sujeitos à conferência externa.

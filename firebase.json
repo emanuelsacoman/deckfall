@@ -6,11 +6,19 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "functions": {
+    "source": "functions",
+    "codebase": "default",
+    "runtime": "nodejs22",
+    "ignore": ["node_modules", ".git", "lib-test", "tests", "*.log"],
+    "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]
+  },
   "emulators": {
-    "auth": { "port": 9099 },
-    "firestore": { "port": 8080 },
-    "storage": { "port": 9199 },
-    "ui": { "enabled": false },
+    "auth": { "host": "127.0.0.1", "port": 9099 },
+    "firestore": { "host": "127.0.0.1", "port": 8080 },
+    "storage": { "host": "127.0.0.1", "port": 9199 },
+    "functions": { "host": "127.0.0.1", "port": 5001 },
+    "ui": { "enabled": true, "host": "127.0.0.1", "port": 4000 },
     "singleProjectMode": true
   },
   "hosting": {

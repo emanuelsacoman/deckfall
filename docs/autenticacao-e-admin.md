@@ -2,7 +2,7 @@
 
 ## Fluxos implementados
 
-`/login` oferece entrar por e-mail/senha, registrar, recuperar senha e entrar com Google via popup, com fallback por redirecionamento quando o popup está bloqueado ou o ambiente não suporta essa operação. Com sessão ativa, apresenta **Minha conta** e os métodos de acesso. Cadastro por e-mail usa senha mínima local de seis caracteres e nome opcional até 120. Não persistir senhas em Firestore nem arquivos. `app.config.ts` fornece Firebase App, Auth, Firestore e Storage.
+`/login` oferece entrar por e-mail/senha, registrar, recuperar senha e entrar com Google via popup, com fallback por redirecionamento quando o popup está bloqueado ou o ambiente não suporta essa operação. Com sessão ativa, apresenta **Minha conta** e os métodos de acesso. Cadastro por e-mail usa senha mínima local de seis caracteres e nome opcional até 120. Não persistir senhas em Firestore nem arquivos. `app.config.ts` fornece Firebase App, Auth, Firestore, Storage e Functions.
 
 `AuthService` observa Authentication, prepara um perfil mínimo se ainda não existe e acompanha `users/{uid}` em tempo real. Novos perfis recebem displayName/contactEmail da identidade, `role:member`, `roleId:member` e timestamps de servidor. Perfil existente não é sobrescrito pelo login ou Google. Cadastro nunca concede admin.
 
@@ -52,7 +52,11 @@ Ao entrar ou registrar sem destino válido, member segue para `/game/home` e adm
 
 Rules são a barreira dos dados. Cadastro autenticado pode criar somente o próprio perfil member, com contactEmail igual ao e-mail do token. Membros leem o próprio perfil e não fazem update ou autopromoção. Admin gerencia cards, templates e perfis; exclusão de perfil e próprio rebaixamento são bloqueados.
 
-A área do jogador consulta a própria coleção persistida, concedida manualmente por admin. Cadastro prepara somente o perfil: não cria entradas de coleção nem documentos iniciais de gameplay. Decks e jogar permanecem placeholders. Firestore permite leitura da coleção ao titular com perfil válido e escrita somente administrativa; artes/assets editáveis do Storage e templates continuam administrativos.
+Cadastro prepara somente `users/{uid}`, sem concessão no navegador. Ao entrar em `/game`, inclusive com conta antiga ou admin, `GameLayoutComponent` solicita `initializePlayer` via `PlayerInitializationService`. A Callable identifica o titular por `request.auth.uid`, exige perfil existente com `role == roleId` em member/admin e concede o starter válido uma única vez em transação. Não utiliza e-mail como autorização. O estado mínimo e o marcador ficam em `players/{uid}`, separados do perfil de identidade/acesso.
+
+Preparação mostra estado próprio; erro crítico mantém as páginas de `/game` fechadas e oferece nova tentativa. A resposta de uma sessão encerrada ou outro UID é ignorada. Login, Minha conta e administração continuam disponíveis. Callable ausente, starter inativo/inválido ou perfil inválido não geram sucesso fictício nem coleção parcial. Veja [Player Bootstrap](player-bootstrap.md) para configuração, limites e fluxo local.
+
+Decks e jogar permanecem placeholders. Firestore permite leitura da coleção ao titular com perfil válido e preserva a gestão administrativa existente; membros continuam sem writes. `players` não permite create/update/delete pelo cliente, inclusive admin. `starterCollections/default` pode ser gerido por admin, sem leitura/escrita por member. Admin SDK ignora Rules e aplica as próprias verificações dentro da Function; artes/assets editáveis do Storage e templates continuam administrativos.
 
 O PNG final em `published-cards/{cardId}/preview.png` permite get para member/admin com perfil consistente e carta existente publicada, sem acesso anônimo ou listagem. Esse acesso não libera o catálogo administrativo nem assets privados. Novos downloads são negados após retirar/excluir a carta mesmo se cleanup falhar; bytes já baixados não são apagados remotamente. Veja [coleção](colecao.md) para contratos e fluxo administrativo.
 
@@ -68,7 +72,7 @@ Nenhum botão da aplicação promove a primeira conta. Rules de Firestore/Storag
 4. Crie a conta do proprietário em Authentication ou cadastre-a pela aplicação depois de configurar as Rules. Copie o UID; a tela da conta sem acesso também mostra esse identificador.
 5. Confirme o Firestore padrão e sua região. Crie/edite `users/{UID_EXATO}` com strings `role = admin` e `roleId = admin`. Nome/contato/datas podem ser completados depois; o perfil mínimo é compatível.
 6. Confirme Storage, bucket e integração IAM de Rules Storage → Firestore quando solicitada.
-7. Em outro projeto ou ao alterar configuração, publique Rules/índices revisados apenas no escopo autorizado. Nesta instalação, as Rules da coleção/preview já foram publicadas e conferidas; índices não foram alterados nessa publicação.
+7. Em outro projeto ou ao alterar configuração, publique Rules/índices revisados apenas no escopo autorizado. Nesta instalação, as Rules da coleção/preview foram publicadas em etapa anterior; as novas Rules de players/starter e Functions ainda precisam de publicação autorizada. Índices não foram alterados nesta etapa.
 8. Entre novamente se o perfil anterior falhou; confira acesso às rotas, operações de dados e logout. O listener reconhece alterações de papel em uma sessão com perfil observado.
 
 Criar a conta Auth, conhecer seu e-mail ou vincular um perfil não concede admin. Depois do bootstrap, administradores podem atribuir papéis a outros perfis pelo painel, sujeitos às Rules.
@@ -77,7 +81,7 @@ O redirect depende da configuração de `authDomain` e das políticas de armazen
 
 ## Perfis e credenciais
 
-`/admin/usuarios/lista` trabalha com perfis Firestore. Vincular por UID não cria nem verifica contas Auth de terceiros; copie o UID exato no Console. `contactEmail` é contato administrativo, separado do e-mail de login. Editá-lo não altera senha, e-mail Auth ou métodos de acesso. O próprio titular vincula métodos em Minha conta; administradores não vinculam Google nem definem senhas de terceiros pelo painel. Não há backend Admin SDK nesta fase.
+`/admin/usuarios/lista` trabalha com perfis Firestore. Vincular por UID não cria nem verifica contas Auth de terceiros; copie o UID exato no Console. `contactEmail` é contato administrativo, separado do e-mail de login. Editá-lo não altera senha, e-mail Auth ou métodos de acesso. O próprio titular vincula métodos em Minha conta; administradores não vinculam Google nem definem senhas de terceiros pelo painel. O backend Admin SDK introduzido nesta fase executa somente o Player Bootstrap, sem gestão de credenciais ou listagem de contas Auth.
 
 ## Configuração local e imagens
 
