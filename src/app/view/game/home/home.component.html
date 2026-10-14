@@ -2,6 +2,12 @@
   <div><p class="game-eyebrow">Início da jornada</p><h1>{{ greeting() }}</h1><p>Seu espaço no universo Deckfall. Explore o que está por vir.</p></div>
 </header>
 
+@if (starter(); as pack) {
+  <section class="starter-arrival" aria-labelledby="starter-title"><div><p class="game-eyebrow">Uma nova descoberta</p><h2 id="starter-title">Seu Starter Pack chegou!</h2><p>Seu pacote está lacrado. Abra quando quiser para começar sua coleção.</p></div><a class="game-link" [routerLink]="['/game/pacotes/abrir', pack.id]">Abrir Starter Pack <span aria-hidden="true">↗</span></a></section>
+} @else if (packError()) {
+  <div class="starter-check"><p role="alert">{{ packError() }}</p><button type="button" (click)="loadStarter()">Tentar novamente</button><a routerLink="/game/pacotes">Ver meus pacotes</a></div>
+}
+
 <section class="home-hero" aria-labelledby="hero-title">
   <div class="hero-copy">
     <span class="coming-soon">Em desenvolvimento</span>
@@ -37,4 +43,4 @@
   </div>
 </section>
 
-<div class="page-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10v1" /></svg><p>Consulte suas cartas iniciais e as concessões da administração. Decks e modos de jogo continuam em desenvolvimento.</p></div>
+<div class="page-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10v1" /></svg><p>Suas cartas iniciais chegam em um Starter Pack lacrado. Abra em Pacotes para adicioná-las à coleção. Decks e modos de jogo continuam em desenvolvimento.</p></div>

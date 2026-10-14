@@ -1,0 +1,23 @@
+<header class="game-page-header"><div><p class="game-eyebrow">Uma surpresa à sua espera</p><h1>Meus pacotes</h1><p>Abra seu Starter Pack e descubra as cartas que começam sua coleção.</p></div></header>
+@if (loading()) {
+  <section class="game-panel empty-state" role="status" aria-live="polite"><p>Carregando seus pacotes…</p></section>
+} @else if (error()) {
+  <section class="game-panel empty-state"><p role="alert">{{ error() }}</p><button type="button" class="game-link" (click)="loadPacks()">Tentar novamente</button></section>
+} @else if (!packs().length) {
+  <section class="game-panel empty-state"><h2>Nenhum pacote por aqui</h2><p>Quando você receber um pacote, ele aparecerá neste espaço.</p></section>
+} @else {
+  @if (sealed().length) {
+    <section aria-labelledby="sealed-title"><div class="section-heading"><h2 id="sealed-title">Prontos para abrir</h2><span>{{ sealed().length }} pacote(s) lacrado(s)</span></div><div class="packs-grid">
+      @for (pack of sealed(); track pack.id) {
+        <article class="game-panel pack-tile"><app-pack-shell /><div class="pack-copy"><span class="pack-state">Lacrado</span><h3>Starter Pack</h3><p>As primeiras cartas da sua jornada, esperando por você.</p><a class="game-link" [routerLink]="['/game/pacotes/abrir', pack.id]">Abrir pacote <span aria-hidden="true">↗</span></a></div></article>
+      }
+    </div></section>
+  }
+  @if (opened().length) {
+    <section class="opened-section" aria-labelledby="opened-title"><div class="section-heading"><h2 id="opened-title">Abertos recentemente</h2><span>Reveja suas descobertas</span></div>
+      @for (pack of opened(); track pack.id) {
+        <article class="game-panel opened-pack"><div><span class="pack-state">Aberto</span><h3>Starter Pack</h3><p>{{ pack.openedAt?.toDate() | date:'dd/MM/yyyy HH:mm' }}</p></div><a class="game-link subtle" [routerLink]="['/game/pacotes/abrir', pack.id]">Rever cartas</a></article>
+      }
+    </section>
+  }
+}

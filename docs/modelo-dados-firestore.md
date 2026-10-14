@@ -26,9 +26,9 @@ Somente esses três campos são aceitos pelas Rules. Zero remove o documento; n�
 
 Member com perfil válido lê/lista apenas a própria coleção; admin lê coleções de perfis existentes e é o único cliente com writes permitidos pelas Rules. Criação/update pelo SDK cliente exigem `users/{uid}` existente e `cards/{cardId}` existente com `status == published`. Delete administrativo dispensa a existência da carta/perfil, para permitir limpeza de propriedade órfã. O serviço/UI exigem o perfil carregado para suas operações.
 
-`PlayerOwnedCard` é uma junção local com `card: Card | null`, nunca persistida. Carta retirada/excluída ou negada pode permanecer como propriedade indisponível, sem exposição dos dados protegidos. Cadastro não grava entradas: o backend concede o starter ao entrar em `/game`, conforme [Player Bootstrap](player-bootstrap.md). O Admin SDK ignora Rules; a operação repete validação de perfil, carta, quantidade e datas no servidor. A gestão manual administrativa permanece pelo contrato atual. Veja [coleção](colecao.md) para transações, concorrência e imagens publicadas.
+`PlayerOwnedCard` é uma junção local com `card: Card | null`, nunca persistida. Carta retirada/excluída ou negada pode permanecer como propriedade indisponível, sem exposição dos dados protegidos. Cadastro/bootstrap não gravam entradas: `initializePlayer` concede um Starter Pack lacrado e `openPack` soma cartas em transação, conforme [pacotes](pacotes.md). O Admin SDK ignora Rules; a operação repete validação de perfil, carta, quantidade e datas no servidor. A gestão manual administrativa permanece pelo contrato atual. Veja [coleção](colecao.md) para transações, concorrência e imagens publicadas.
 
-Antes de somar uma entrada existente do starter, o backend exige os três campos exatos, datas Timestamp e `firstAcquiredAt <= lastAcquiredAt <= relógio do backend`. Datas futuras ou fora de ordem impedem toda a concessão. Não há varredura de entradas fora do starter.
+Antes de somar uma entrada existente na abertura, o backend exige os três campos exatos, datas Timestamp e `firstAcquiredAt <= lastAcquiredAt <= relógio do backend`. Datas futuras, fora de ordem ou soma acima de 9999 impedem toda a abertura, mantendo o pacote lacrado. Não há varredura de entradas fora do conteúdo do pack.
 
 ## `players/{uid}`
 
@@ -37,32 +37,62 @@ Estado mínimo do jogador, separado de identidade/autorização em `users/{uid}`
 | Campo persistido | Contrato |
 | --- | --- |
 | createdAt | Timestamp de servidor na criação; preservado na inicialização de documento existente válido |
-| updatedAt | Timestamp de servidor do commit da primeira concessão |
-| starterGrantedAt | Timestamp do commit da concessão; null em estado válido ainda não concedido |
-| starterVersion | Versão inteira da definição efetivamente concedida, entre 1 e 1000000; presente após concessão |
+| updatedAt | Timestamp de servidor do commit da primeira concessão do pack |
+| starterGrantedAt | Timestamp do commit da concessão da instância; null em estado válido ainda não concedido |
+| starterVersion | Versão inteira do Starter Pack concedido, entre 1 e 1000000; presente após concessão |
+| starterPackInstanceId | `starter`, ID da instância no caminho do titular; presente após concessão |
 
-`initializePlayer` cria o documento já com o starter concedido no mesmo commit das entradas de coleção. Não cria player vazio quando configuração/carta/quantidade for inválida. `starterVersion` registra a concessão para auditoria; uma versão nova da definição não concede outro starter a quem já tem `starterGrantedAt`.
+`initializePlayer` cria o documento com marcador no mesmo commit de `users/{uid}/packs/starter` lacrado, sem ler/escrever coleção. Não cria player vazio quando configuração/carta for inválida. Versão, instância e `starterGrantedAt` auditam a concessão; versão nova da definição não concede outro starter. A abertura não altera esse marcador.
 
-Ao ler player existente, a operação exige campos exatos e `createdAt <= updatedAt <= relógio confiável do backend`. Sem concessão, `starterGrantedAt` é null e `starterVersion` deve estar ausente. Com concessão, a versão é obrigatória e `createdAt <= starterGrantedAt <= updatedAt`. Um estado inválido, inclusive com data futura, falha sem writes; não é tratado como inicialização concluída.
+Ao ler player existente, a operação exige campos exatos e `createdAt <= updatedAt <= relógio confiável do backend`. Sem concessão, `starterGrantedAt` é null e versão/instância devem estar ausentes. Com concessão, ambos são obrigatórios e `createdAt <= starterGrantedAt <= updatedAt`. A instância precisa existir com a mesma versão e `acquiredAt == starterGrantedAt`. Um estado inválido, inclusive antigo sem ID de pack ou com data futura, falha sem writes; não é tratado como inicialização concluída nem reconcedido automaticamente.
 
 Rules permitem get próprio para member/admin com perfil válido e get/list administrativo. Create/update/delete são negados a todos os clientes, inclusive admin; a escrita pertence ao backend Admin SDK. Anônimo, perfil ausente/inválido e leitura de outro jogador por member são negados. Não há endpoint de reset/regrant.
 
-## `starterCollections/default`
+## `packDefinitions/{packId}`
 
-Existe uma única definição administrativa declarativa. Não há múltiplos starters, seleção por facção ou aleatoriedade. Gerenciamento atual ocorre no Firestore Console ou ferramenta administrativa autorizada, sem nova tela Angular.
+Configuração administrativa gerenciada em `/admin/pacotes`, atualmente consumida pelo jogador somente com `packId == starter`, sem loja ou preço. Outras definições permanecem no catálogo administrativo, sem concessão/distribuição implementada.
 
 | Campo persistido | Contrato |
 | --- | --- |
-| active | Boolean; precisa ser true para conceder |
-| version | Inteiro entre 1 e 1000000 |
-| cards | Lista de até 25 mapas `{cardId, quantity}`; de 1 a 25 para concessão ativa |
-| updatedAt | Timestamp; clientes administrativos usam serverTimestamp |
+| name | String não vazia, até 120 caracteres |
+| description | String até 1000; pode ser vazia |
+| active | Boolean; true permite novas concessões |
+| currentVersion | Inteiro de 1 a 1000000; escolhe versão para novas instâncias |
+| createdAt / updatedAt | Timestamps ordenados; createdAt preservado na edição |
 
-Cada item usa ID existente de carta no padrão `[a-zA-Z0-9_-]{1,128}` e quantidade inteira entre 1 e 9999. O backend exige campos exatos, não aceita duplicatas, valida todos os itens e lê as cartas para confirmar `status == published`. A soma com quantidade já possuída não pode ultrapassar 9999.
+Rules permitem somente admin get/list/create/update, com campos exatos e timestamps de servidor de escrita. A definição `starter` exige nome exato `StarterPack`; outras não podem usar variantes desse nome com caixa, espaços, `_` e `-`. O ID não é renomeado. Delete é negado. Members/anônimos não precisam ler a definição para mostrar suas instâncias. Inexistência/inatividade/configuração inválida impede bootstrap, sem writes. Desativar definição não revoga um pack concedido; abertura usa sua versão fixa e ainda exige definição válida. `/admin/pacotes` administra essas configurações sem criar instâncias nem conceder conteúdo.
 
-Rules permitem somente admin ler/criar/atualizar/excluir `default`, negando listagem e documentos com outro ID. Validam o envelope, tamanho máximo da lista, versão e data de servidor; definição ativa vazia é recusada. Definição inativa vazia pode ser armazenada, mas não inicializa jogadores. Rules não validam profundamente cada item, duplicatas ou status de todas as cartas: essas invariantes são responsabilidade obrigatória da Callable, pois Admin SDK e Console ignoram Rules.
+## `packDefinitions/{packId}/versions/{version}`
 
-Membros/anônimos não leem nem escrevem a configuração. Configuração inexistente, inativa, vazia ou inválida impede a primeira inicialização, sem writes parciais. Alterar a definição não exige redeploy, mas afeta somente jogadores ainda não inicializados. Veja [configuração e falhas](player-bootstrap.md).
+| Campo persistido | Contrato |
+| --- | --- |
+| version | Inteiro de 1 a 1000000, igual ao ID decimal canônico do documento |
+| cards | De 1 a 25 mapas contendo somente `{cardId, quantity}` |
+| createdAt | Timestamp de criação |
+
+Cada `cardId` segue `[a-zA-Z0-9_-]{1,128}` e `quantity` é inteiro de 1 a 9999. IDs únicos; múltiplas cópias usam quantity. Functions validam todos os itens, campos exatos, duplicatas, existência e `published` das cartas, tanto ao conceder quanto ao abrir. Sem randomização. Nome/raridade são capturados da carta corrente na abertura, não da versão.
+
+Admin cliente lê/lista/cria versões somente sob definição existente após o commit (`existsAfter`), com Timestamp de servidor. Isso permite criar definição e versão 1 em uma transação. Update/delete são negados para todas as versões, inclusive admin. Rules validam envelope, limite da lista, versão/caminho/data, sem validação profunda de cada item ou carta. `PackDefinitionService` verifica conteúdo/cartas publicadas, versão de origem ainda atual e colisões de versão e cria uma nova versão junto do avanço de `currentVersion`; metadados ou rascunhos de versão desatualizados são recusados. Console e Admin SDK ignoram Rules: preservar conteúdo histórico é obrigação operacional; revalidação não substitui um hash/cópia imutável. Nunca editar uma versão histórica para alterar instâncias existentes.
+
+## `users/{uid}/packs/{packInstanceId}`
+
+| Campo persistido | Contrato |
+| --- | --- |
+| packId | `starter` nesta etapa |
+| definitionVersion | Versão inteira concedida; nunca substituída por currentVersion ao abrir |
+| source | `starter` |
+| state | `sealed` ou `opened` |
+| acquiredAt | Timestamp de servidor da concessão; preservado |
+| openedAt | null enquanto lacrado; Timestamp de servidor da abertura |
+| revealedCards | Ausente em sealed; lista de 1 a 25 snapshots em opened |
+
+Cada snapshot contém somente `{cardId, name, rarity, quantity}`. Raridade usa common/rare/epic/legendary; nome até 120, quantidade de 1 a 9999, IDs sem duplicatas. Não persiste preview, assets, canvas ou atributos. O ID acrescentado como `PlayerPack.id` na leitura não é duplicado no documento.
+
+A instância starter tem ID determinístico `starter`, isolado por UID. `openPack` consulta a instância exclusivamente no caminho autenticado; valida auditoria com player e, antes da primeira abertura, definição/versão/cartas/entradas existentes. Coleção e estado/data/snapshot da abertura são gravados no mesmo commit. Retry/concorrência retornam o resultado persistido sem somar novamente. Pacote já aberto pode ser revisto mesmo após retirar uma carta; novo download de sua preview continua sujeito ao status atual.
+
+Member válido get/list somente próprios; admin lê packs de perfis existentes. Create/update/delete são negados a todos os clientes, inclusive admin. Escrita pelo backend Admin SDK exige validação própria. Anônimo/perfil inválido e acesso de member a outro UID são negados. Veja [pacotes](pacotes.md) para payload, abertura e erros.
+
+O caminho antigo `starterCollections/default` não é mais lido/escrito, não possui match de acesso e não concorre com o starter novo. Não houve migração de produção: o bootstrap anterior ainda era local. Dados antigos dos emuladores podem ser descartados/recriados; não existe reset/regrant remoto.
 
 ## `cards/{cardId}`
 
@@ -126,4 +156,4 @@ Representação de apresentação fica somente no Storage em `published-cards/{c
 
 Rules validam campos base, raridade/status, timestamps, atributos numéricos/ranges e envelope do canvas: versão, dimensões, background estrutural, até 64 elementos e 24 assets. Não fazem a validação profunda de toda union de elementos, IDs/metadados de cada asset ou todos os valores visuais. O limite de 128 KiB e validação profunda são garantias do cliente, não devem ser anunciados como enforcement completo das Rules. Ampliar limites exige testes no orçamento de expressões.
 
-Rules não filtram consultas: uma lista pública futura precisa consultar somente `status == published`. Slug não garante unicidade global. Consulte [cartas](cartas.md) para transações e compensação. As Rules de Firestore/Storage da coleção/preview foram publicadas em uma etapa anterior; as alterações de players/starter desta etapa permanecem locais. Índices e uso por sessão autenticada real continuam sujeitos à conferência externa.
+Rules não filtram consultas: uma lista pública futura precisa consultar somente `status == published`. Slug não garante unicidade global. Consulte [cartas](cartas.md) para transações e compensação. As Rules de players/packs/definições foram publicadas com autorização em 13/10/2026, com conteúdo remoto igual ao arquivo local. Storage Rules da coleção/preview já publicadas e índices não mudaram. Nenhuma definição, carta ou concessão real foi criada automaticamente; configuração inicial e uso por sessão autenticada real continuam sujeitos ao administrador e à conferência posterior.

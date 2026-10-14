@@ -1,0 +1,10 @@
+.packs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1.2rem; }
+.pack-tile { display: flex; gap: 2rem; align-items: center; max-width: 720px; padding: 2rem; }
+.pack-tile app-pack-shell { width: 145px; flex: 0 0 145px; }
+.pack-copy h3, .opened-pack h3 { margin: .7rem 0; font: 1.6rem Georgia, serif; }
+.pack-copy p, .opened-pack p { color: var(--text-muted); font-size: .85rem; }
+.pack-state { display: inline-block; padding: .3rem .55rem; color: #d4c29b; border: 1px solid #625936; border-radius: 4px; font-size: .65rem; }
+.opened-section { margin-top: 2.5rem; }
+.opened-pack { display: flex; gap: 1rem; justify-content: space-between; align-items: center; padding: 1.25rem; margin-bottom: 1rem; }
+.empty-state button { margin-top: 1rem; }
+@media (max-width: 600px) { .pack-tile { flex-direction: column; padding: 1.5rem; text-align: center; gap: 1.2rem; } .pack-tile app-pack-shell { flex-basis: auto; } .opened-pack { flex-direction: column; align-items: stretch; } }

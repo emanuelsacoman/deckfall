@@ -2,7 +2,7 @@
 
 > A imagem renderizada da carta é somente uma representação visual. A fonte de verdade da carta são seus dados estruturados.
 
-Cartas publicadas alimentam a coleção persistida, concedida pelo starter único no backend ou manualmente por admin, e seus filtros locais. O bootstrap valida existência e status, sem modificar dados/design da carta ou gerar sua preview. Decks, batalhas, efeitos, packs, economia e marketplace continuam futuros. O design é genérico e separado do gameplay; detalhes de Konva e painéis ficam em [editor de cartas](editor-de-cartas.md) e [Player Bootstrap](player-bootstrap.md).
+Cartas publicadas alimentam a coleção persistida, concedida pela abertura única do Starter Pack no backend ou manualmente por admin, e seus filtros locais. Bootstrap concede somente pack lacrado; concessão e abertura validam existência/publicação, sem modificar dados/design da carta ou gerar preview. A abertura guarda snapshot mínimo de ID/nome/raridade/quantidade e reutiliza PNG publicado no reveal. Retirada antes de abrir mantém pacote lacrado; histórico aberto conserva resultado, mas novos downloads da imagem seguem o status atual. Decks, batalhas, efeitos, loja, economia e marketplace continuam futuros. O design é genérico e separado do gameplay; veja [editor](editor-de-cartas.md), [bootstrap](player-bootstrap.md) e [pacotes](pacotes.md).
 
 ## Contrato atual e compatibilidade
 

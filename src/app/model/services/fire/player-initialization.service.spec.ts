@@ -14,7 +14,7 @@ function deferred<T>(): { promise: Promise<T>; resolve(value: T): void; reject(e
 
 describe('PlayerInitializationService', () => {
   const member: AuthSession = { uid: 'player', email: null, displayName: 'Jogador', role: 'member', roleId: 'member' };
-  const granted: PlayerInitializationResult = { initialized: true, alreadyInitialized: false, cardsGranted: 8 };
+  const granted: PlayerInitializationResult = { initialized: true, alreadyInitialized: false, starterPackGranted: true, starterPackInstanceId: 'starter' };
   let currentUser: ReturnType<typeof signal<AuthSession | null | undefined>>;
   let initialize: jasmine.Spy;
   let service: PlayerInitializationService;
@@ -62,12 +62,13 @@ describe('PlayerInitializationService', () => {
     expect(initialize).not.toHaveBeenCalled();
   });
 
-  it('accepts an already initialized player without granting more cards', async () => {
-    const result: PlayerInitializationResult = { initialized: true, alreadyInitialized: true, cardsGranted: 0 };
+  it('accepts an already initialized player without granting another pack', async () => {
+    const result: PlayerInitializationResult = { initialized: true, alreadyInitialized: true, starterPackGranted: false, starterPackInstanceId: 'starter' };
     initialize.and.resolveTo(result);
     expect(await service.initialize()).toEqual(result);
     expect(service.ready()).toBeTrue();
-    expect(service.result()?.cardsGranted).toBe(0);
+    expect(service.result()?.starterPackGranted).toBeFalse();
+    expect(service.result()?.starterPackInstanceId).toBe('starter');
   });
 
   it('reuses the same promise for simultaneous local requests', async () => {
@@ -105,7 +106,7 @@ describe('PlayerInitializationService', () => {
     expect(service.status()).toBe('error');
     expect(service.result()).toBeNull();
     expect(service.ready()).toBeFalse();
-    expect(service.error()).toContain('coleção inicial');
+    expect(service.error()).toContain('Starter Pack');
     expect(service.error()).not.toContain('Private starter');
     initialize.and.resolveTo(granted);
     const retry = service.initialize();
@@ -114,6 +115,17 @@ describe('PlayerInitializationService', () => {
     await retry;
     expect(initialize).toHaveBeenCalledTimes(2);
     expect(service.ready()).toBeTrue();
+  });
+
+  it('explains a missing starter using only the bounded backend reason', async () => {
+    initialize.and.rejectWith({ code: 'functions/failed-precondition', message: 'Private details', details: { reason: 'starter-not-configured' } });
+    await service.initialize();
+    expect(service.error()).toBe('O pacote inicial ainda não foi configurado por um administrador.');
+    expect(service.ready()).toBeFalse();
+    initialize.and.rejectWith({ code: 'functions/failed-precondition', details: { reason: 'unknown-private-reason', message: 'Private details' } });
+    await service.initialize();
+    expect(service.error()).toContain('Não foi possível preparar seu Starter Pack');
+    expect(service.error()).not.toContain('Private');
   });
 
   it('handles synchronous client failure and allows a later retry', async () => {
@@ -153,7 +165,7 @@ describe('PlayerInitializationService', () => {
     currentUser.set({ ...member, uid: 'another-player' });
     TestBed.flushEffects();
     const requestB = service.initialize();
-    const resultB: PlayerInitializationResult = { initialized: true, alreadyInitialized: true, cardsGranted: 0 };
+    const resultB: PlayerInitializationResult = { initialized: true, alreadyInitialized: true, starterPackGranted: false, starterPackInstanceId: 'starter' };
     second.resolve(resultB);
     await requestB;
     first.resolve(granted);
@@ -206,7 +218,9 @@ describe('PlayerInitializationService', () => {
   });
 
   it('rejects malformed success responses', async () => {
-    for (const result of [null, {}, { ...granted, initialized: false }, { ...granted, cardsGranted: -1 }, { ...granted, cardsGranted: 1.5 }, { ...granted, alreadyInitialized: true }]) {
+    for (const result of [null, {}, { ...granted, initialized: false }, { ...granted, starterPackGranted: false },
+      { ...granted, starterPackInstanceId: '' }, { ...granted, starterPackInstanceId: '../another' },
+      { ...granted, alreadyInitialized: true }, { ...granted, cardsGranted: 8 }]) {
       initialize.and.resolveTo(result);
       expect(await service.initialize()).toBeNull();
       expect(service.ready()).toBeFalse();

@@ -13,7 +13,7 @@ Antes de editar, execute `git status --short`, inspecione a estrutura e leia as 
 
 Se houver divergência, use o código atual, não invente comportamento, corrija a documentação e registre a dívida/incerteza em `docs/riscos-e-dividas-tecnicas.md`. Separe fatos verificados de decisões e pendências externas.
 
-Estado atual: editor Konva com modelo próprio, login/cadastro por e-mail/senha e Google, guards administrativos e Rules. Cadastro cria membro; primeiro admin é provisionado no Console. Não enfraqueça Rules nem use e-mail como autorização.
+Estado atual: editor Konva com modelo próprio, login/cadastro por e-mail/senha e Google, guards, coleção persistida e Starter Pack lacrado com abertura backend/reveal. Cadastro cria membro; primeiro admin é provisionado no Console. Não enfraqueça Rules nem use e-mail como autorização.
 
 ## Leia apenas o contexto necessário
 
@@ -21,6 +21,7 @@ Estado atual: editor Konva com modelo próprio, login/cadastro por e-mail/senha 
 - Pastas, componentes e rotas: [arquitetura frontend](docs/arquitetura-frontend.md).
 - Login, cadastro, Google, papéis e bootstrap: [autenticação e admin](docs/autenticacao-e-admin.md).
 - Coleções e campos persistidos: [modelo Firestore](docs/modelo-dados-firestore.md).
+- Starter Pack, instâncias, abertura e reveal: [pacotes](docs/pacotes.md).
 - Gameplay, CRUD, arte e assets: [cartas](docs/cartas.md).
 - Canvas, Konva, histórico, bindings, templates e exportação: [editor de cartas](docs/editor-de-cartas.md).
 - Perfis de usuários e cargos: [usuários](docs/usuarios.md).
@@ -39,5 +40,11 @@ Use standalone, Firebase modular e serviços tipados. `view` apresenta/orquestra
 Operações que concedem propriedade, moeda, recompensa, resultado de partida ou qualquer valor de jogo não devem ser confiadas ao cliente Angular. Use backend confiável e valide autenticação/autorização no servidor; Admin SDK fica somente em `functions/` e seus testes, nunca no frontend.
 
 Não liberar writes de coleção para membros como atalho para funcionalidades de jogo. Bootstrap e starter são transacionais e idempotentes; não criar reset/regrant nem marcar inicialização concluída em falhas parciais.
+
+Instâncias de pack, abertura e concessão de cartas são server-authoritative. O frontend nunca cria packs, marca abertura ou concede conteúdo. `initializePlayer` concede uma instância lacrada; somente `openPack` soma cartas e marca abertura em um commit atômico.
+
+Um PlayerPack preserva `definitionVersion`; nunca usar automaticamente a versão atual ao abrir uma instância histórica. Versões existentes são imutáveis; criar outra versão e avançar a definição para futuras concessões.
+
+O nome `StarterPack` é reservado à definição `packDefinitions/starter`, usada exclusivamente pelo bootstrap inicial. Seu nome não pode ser alterado; outros pacotes não podem usar variantes que normalizem para esse nome (caixa, espaços, `_` e `-`). A administração de definições/versões não cria instâncias nem concede cartas. Criar definição e primeira versão, ou nova versão e avanço do ponteiro, em um commit atômico; nunca reescrever versões existentes.
 
 Nunca adicione senhas, tokens, chaves privadas ou service accounts. Valide testes aplicáveis, build de produção, Rules, `git diff --check` e status antes de concluir.

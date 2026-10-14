@@ -35,3 +35,9 @@
 @media (max-width: 1080px) { .hero-copy { padding: 2rem 1.6rem; }.hero-copy h2 { font-size: 2.4rem; }.decorative-card { width: 120px; height: 180px; }.orbit { width: 250px; height: 250px; }.orbit-two { width: 320px; height: 320px; }.shortcut-grid { gap: .75rem; }.shortcut-card { padding: 1.1rem; } }
 @media (max-width: 600px) { .home-hero { grid-template-columns: minmax(0, 1fr); }.hero-copy { padding: 1.6rem 1.5rem 0; }.hero-copy h2 { font-size: 2.5rem; }.hero-copy > p { max-width: none; }.hero-art { min-height: 270px; }.orbit { width: 220px; height: 220px; }.orbit-two { width: 270px; height: 270px; }.decorative-card { width: 112px; height: 162px; }.card-seal { width: 51px; height: 51px; }.card-seal span { font-size: 2.1rem; }.card-wordmark { font-size: .65rem; }.card-border { gap: 1.35rem; }.shortcut-grid { grid-template-columns: minmax(0, 1fr); }.shortcut-top { margin-bottom: .8rem; }.shortcut-card p { margin-bottom: .9rem; }.home-shortcuts { margin-top: 1.5rem; } }
 @media (prefers-reduced-motion: reduce) { .shortcut-card { transition: none; } }
+.starter-arrival { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #8a7548; border-radius: 9px; background: radial-gradient(ellipse at 90% 60%, #bd99431a, transparent 65%), #202b22; }
+.starter-arrival h2 { margin: .6rem 0; font: 1.7rem Georgia, serif; }
+.starter-arrival p:last-child { margin: 0; color: var(--text-muted); font-size: .85rem; }
+.starter-arrival .game-link { flex-shrink: 0; }
+.starter-check { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-bottom: 1.5rem; color: var(--text-muted); font-size: .8rem; }
+@media (max-width: 600px) { .starter-arrival { flex-direction: column; align-items: stretch; padding: 1.25rem; } .starter-arrival h2 { font-size: 1.4rem; } }

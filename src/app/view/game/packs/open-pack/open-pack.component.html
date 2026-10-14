@@ -1,0 +1,30 @@
+<header class="game-page-header"><div><p class="game-eyebrow">Um novo capítulo</p><h1>{{ cards().length ? (completed() ? 'Starter Pack aberto!' : 'Suas primeiras descobertas') : 'Starter Pack' }}</h1><p>{{ cards().length ? (reviewing() ? 'Resultado recuperado. Estas cartas já foram adicionadas à sua coleção.' : 'A abertura foi confirmada. Suas cartas já estão na coleção.') : 'Um pacote lacrado guarda o começo da sua coleção.' }}</p></div><a class="game-link subtle" routerLink="/game/pacotes">Meus pacotes</a></header>
+@if (loading()) {
+  <section class="game-panel empty-state" role="status">Carregando pacote…</section>
+} @else if (cards().length) {
+  @if (completed()) {
+    <section class="pack-summary" aria-labelledby="summary-title"><div class="section-heading"><h2 id="summary-title">{{ cards().length }} cartas diferentes · {{ totalCopies() }} cópias recebidas</h2></div><div class="summary-grid">
+      @for (card of cards(); track card.cardId) {
+        <article class="summary-card" [attr.data-rarity]="card.rarity"><app-player-card-preview [card]="card.preview" /><div><h3>{{ card.name }}</h3><p>{{ rarityLabels[card.rarity] }} <strong>×{{ card.quantity }}</strong></p></div></article>
+      }
+    </div><div class="summary-actions"><a class="game-link" routerLink="/game/colecao">Ver minha coleção</a><a class="game-link subtle" routerLink="/game/pacotes">Voltar aos pacotes</a></div></section>
+  } @else {
+    <section class="reveal-stage" aria-label="Revelação das cartas">
+      <p class="reveal-count" role="status" aria-live="polite">Carta {{ index() + 1 }} de {{ cards().length }}</p>
+      @for (card of currentCard(); track card.cardId) {
+        <article class="reveal-card" [attr.data-rarity]="card.rarity"><span class="reveal-aura" aria-hidden="true"></span><app-player-card-preview [card]="card.preview" /><h2>{{ card.name }}</h2><p class="rarity">{{ rarityLabels[card.rarity] }} <span>×{{ card.quantity }}</span></p></article>
+      }
+      <button class="game-link next-card" type="button" (click)="nextCard()">{{ index() === cards().length - 1 ? 'Ver resumo' : 'Próxima carta' }} <span aria-hidden="true">→</span></button>
+    </section>
+  }
+} @else if (pack()) {
+  <section class="sealed-stage" [attr.aria-busy]="opening()"><app-pack-shell /><h2>Sua jornada está prestes a começar.</h2><p>Abra o pacote para receber suas primeiras cartas.</p>
+    @if (error()) { <p class="open-error" role="alert">{{ error() }}</p> }
+    <button class="game-link open-button" type="button" (click)="open()" [disabled]="opening()">{{ opening() ? 'Confirmando abertura…' : (error() ? 'Tentar abrir novamente' : 'Abrir pacote') }}</button>
+    @if (opening()) { <p role="status" aria-live="polite">Estamos confirmando seu pacote. Aguarde um instante.</p> }
+  </section>
+} @else if (error()) {
+  <section class="game-panel empty-state"><p role="alert">{{ error() }}</p><button class="game-link" type="button" (click)="loadPack()">Tentar novamente</button></section>
+} @else {
+  <section class="game-panel empty-state"><h2>Pacote não encontrado</h2><p>Confira seus pacotes disponíveis. Este pacote pode não pertencer à sua conta.</p><a class="game-link subtle" routerLink="/game/pacotes">Voltar aos pacotes</a></section>
+}

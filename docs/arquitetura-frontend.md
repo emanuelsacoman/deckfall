@@ -12,13 +12,13 @@ model/guards = autorização de navegação e proteção de saída
 functions/src = backend confiável, Admin SDK e operações de jogo
 ```
 
-Componentes não acessam Firestore diretamente. `AuthService` resolve sessão/perfil; `CardService`, `CardTemplateService`, `UserService` e `PlayerCollectionService` persistem seus domínios. `CardStorageService` organiza arquivos editáveis e materializa uploads/cópias; `PublishedCardStorageService` trata a imagem final publicada em namespace separado. Guard não substitui Rules.
+Componentes não acessam Firestore diretamente. `AuthService` resolve sessão/perfil; `CardService`, `CardTemplateService`, `UserService`, `PlayerCollectionService` e `PackDefinitionService` persistem seus domínios. `CardStorageService` organiza arquivos editáveis e materializa uploads/cópias; `PublishedCardStorageService` trata a imagem final publicada em namespace separado. Guard não substitui Rules.
 
 ## Autoridade backend
 
-O cliente pode solicitar operações de jogo, mas somente o backend confiável pode conceder propriedade ou valor ao jogador. `PlayerInitializationService` solicita a Callable `initializePlayer` sem enviar UID; a Function usa `request.auth.uid`, valida identidade/perfil/configuração e decide a concessão. O Admin SDK existe apenas em `functions/`, separado do build Angular, e ignora Security Rules: autenticação, autorização e invariantes são verificadas novamente no servidor.
+O cliente pode solicitar operações de jogo, mas somente o backend confiável pode conceder propriedade ou valor ao jogador. `PlayerInitializationService` solicita `initializePlayer` sem enviar UID; `PlayerPackService` consulta instâncias próprias e solicita `openPack` somente com `packInstanceId`. Functions usam `request.auth.uid` e validam perfil/configuração/invariantes. O Admin SDK existe apenas em `functions/`, separado do build Angular, e ignora Security Rules: autenticação, autorização e invariantes são verificadas novamente no servidor.
 
-`users/{uid}` conserva identidade e acesso. `players/{uid}` contém o estado mínimo e o marcador da concessão única. `starterCollections/default` é configuração administrativa declarativa; a propriedade continua em `users/{uid}/collection/{cardId}`. A transação do backend soma o starter e grava o marcador no mesmo commit, impedindo concessão duplicada entre abas. A gestão manual administrativa existente continua sujeita às Rules; membros continuam sem writes de coleção. Leia [Player Bootstrap](player-bootstrap.md).
+`users/{uid}` conserva identidade e acesso. `players/{uid}` contém estado mínimo e auditoria da concessão única; `packDefinitions/starter` e `versions/{version}` definem conteúdo. Bootstrap grava somente uma instância lacrada em `users/{uid}/packs/starter` e marcador num commit único. Abertura consulta sua `definitionVersion` e soma propriedade em `users/{uid}/collection/{cardId}` atomicamente com estado/resultado. Não há starter direto ou escolha de conteúdo no frontend. Gestão manual administrativa conserva Rules; membros não escrevem coleção/player/packs, nem admin cliente escreve player/instância. Leia [bootstrap](player-bootstrap.md) e [pacotes](pacotes.md).
 
 ## Rotas e layout
 
@@ -29,6 +29,8 @@ Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`,
 | `/game` | Redireciona para `/game/home` |
 | `/game/home` | Início e atalhos do jogador |
 | `/game/colecao` | Coleção persistida, busca/filtro local e PNG completo publicado |
+| `/game/pacotes` | Instâncias próprias lacradas e histórico de abertos |
+| `/game/pacotes/abrir/:id` | Abertura autenticada, reveal manual e revisão do resultado |
 | `/game/decks` | Meus decks, com placeholder |
 | `/game/jogar` | Modos de jogo em desenvolvimento |
 | `/game/perfil` | Nome, contato e papel já existentes; atalho para Minha conta |
@@ -38,24 +40,31 @@ Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`,
 | `/admin/cartas/lista` | Catálogo e ações |
 | `/admin/cartas/criar` | Editor de nova carta |
 | `/admin/cartas/editar/:id` | Editor com documento carregado |
+| `/admin/pacotes` | Definições, configuração dedicada StarterPack, informações e novas versões imutáveis |
 | `/admin/usuarios` | Redireciona para `/admin/usuarios/lista` |
 | `/admin/usuarios/lista` | Perfis Firestore |
 | `/admin/usuarios/criar` | Vínculo por UID de conta existente |
 | `/admin/usuarios/editar/:uid` | Consulta/edição do perfil e gestão separada da coleção |
 
-O shell administrativo possui `adminGuard` no pai e `adminChildGuard` nos filhos, observa revogação de acesso e oferece logout. O menu inclui Painel, Todas as cartas, Criar carta, Todos os usuários, Vincular perfil e os atalhos Minha conta e Área do jogador. Criação/edição de cartas usam wrappers pequenos; `cardEditorLeaveGuard` consulta alterações pendentes antes da saída. A raiz contém o router outlet; `app.config.ts` fornece App, Auth, Firestore, Storage e Functions.
+O shell administrativo possui `adminGuard` no pai e `adminChildGuard` nos filhos, observa revogação de acesso e oferece logout. O menu inclui Painel, Todas as cartas, Criar carta, Pacotes, Todos os usuários, Vincular perfil e os atalhos Minha conta e Área do jogador. Criação/edição de cartas usam wrappers pequenos; `cardEditorLeaveGuard` consulta alterações pendentes antes da saída. A raiz contém o router outlet; `app.config.ts` fornece App, Auth, Firestore, Storage e Functions.
+
+`view/admin/admin-components/packs/` apresenta uma página de definições e formulários de configuração. `PackDefinitionService` concentra consultas, validação, datas e transações: definição + versão 1 são criadas juntas; versão nova + avanço do ponteiro também. A edição de metadados não reescreve conteúdo histórico. `StarterPack` é nome fixo da definição `starter`; demais pacotes recebem nomes que não normalizem para o reservado. O painel não concede instâncias/cartas, e definições adicionais ainda não possuem distribuição ao jogador. Leia [administração de pacotes](pacotes.md#administração-de-pacotes).
 
 ## Área do jogador
 
-`view/game/` reúne `layout`, `home`, `collection`, `decks`, `play` e `profile`. O layout é separado do administrativo, com identidade Deckfall, navegação Início/Coleção/Decks/Jogar/Perfil, indicação da conta e logout. Admins veem também Painel administrativo. As telas usam standalone, `loadComponent` e CSS próprio, sem nova biblioteca de UI.
+`view/game/` reúne `layout`, `home`, `collection`, `packs`, `decks`, `play` e `profile`. O layout é separado do administrativo, com identidade Deckfall, navegação Início/Coleção/Pacotes/Decks/Jogar/Perfil, indicação da conta e logout. Admins veem também Painel administrativo. As telas usam standalone, `loadComponent` e CSS próprio, sem nova biblioteca de UI.
 
-`GameLayoutComponent` acompanha revogação de sessão/perfil e solicita o bootstrap pelo serviço ao entrar em `/game`. Mostra preparação ou erro com nova tentativa; monta o outlet somente depois de uma resposta de inicialização válida. A coleção então consulta normalmente o servidor pelo serviço existente, já após o commit do starter. Sua sidebar no desktop se adapta a cabeçalho e navegação horizontal em telas menores; o CSS do tema fica no layout e os estilos comuns das páginas em `game-page.css`, sem substituir o tema administrativo.
+`GameLayoutComponent` acompanha revogação de sessão/perfil e solicita o bootstrap pelo serviço ao entrar em `/game`. Mostra preparação ou erro com nova tentativa; monta o outlet somente depois de uma resposta válida. A ausência da definição inicial é diferenciada pelo detalhe seguro `starter-not-configured` da Callable; admins recebem link para configurar pacotes, sem afrouxar o gate. A coleção consulta normalmente pelo serviço existente e pode estar vazia enquanto o pack está lacrado. Sua sidebar no desktop se adapta a cabeçalho e navegação horizontal em telas menores; o CSS do tema fica no layout e os estilos comuns em `game-page.css`, sem substituir o tema administrativo.
 
 `PlayerInitializationService` expõe estado, resultado e erro por signals, compartilha chamadas pendentes para o mesmo UID e reutiliza sucesso enquanto essa sessão permanecer ativa. Logout/perfil inválido/troca de UID limpa esse estado e respostas antigas não liberam a interface de outra conta. O SDK usa timeout de 30 segundos. Uma transação já aceita pelo servidor pode terminar depois do logout; a idempotência continua sendo a garantia backend, independente do cache local.
 
 `authenticatedGuard` e `authenticatedChildGuard` aguardam a sessão e aceitam um UID com `role`/`roleId` consistentes em `member` ou `admin`. Perfil ausente, inválido ou não resolvido não libera `/game`; o destino solicitado segue em `returnUrl` para `/login`. Guards protegem navegação, sem ampliar permissões de Firestore/Storage.
 
-Início oferece saudação e atalhos. Coleção consulta a propriedade persistida pelo `PlayerCollectionService`, resolve as cartas publicadas e aplica busca/raridade localmente. `PlayerCardPreviewComponent` baixa somente o PNG final pelo `PublishedCardStorageService`, com carregamento sob demanda, retry e liberação de object URLs; não usa renderer Konva ou assets privados. Decks e jogar permanecem placeholders, sem infraestrutura de gameplay. Perfil consome a sessão de `AuthService` e encaminha gerenciamento de credenciais para `/login`. Veja [coleção](colecao.md), [autenticação](autenticacao-e-admin.md) e [riscos](riscos-e-dividas-tecnicas.md).
+Início oferece saudação/atalhos e consulta o starter próprio para destacar somente uma instância lacrada. Pacotes lista instâncias pelo `PlayerPackService`; a tela de abertura aguarda `openPack`, revela uma entrada por vez e mostra resumo. Um pacote aberto reconstrói o resultado persistido sem nova concessão. O serviço valida documentos/resposta e descarta retorno de sessão anterior; deduplica chamadas locais de abertura por UID/instância. Não contém writes Firestore.
+
+Coleção consulta propriedade pelo `PlayerCollectionService`, resolve cartas publicadas e aplica busca/raridade localmente. `PlayerCardPreviewComponent` aceita a identidade da carta/snapshot usada na coleção e reveal, baixa somente PNG pelo `PublishedCardStorageService`, com loading, retry e liberação de object URLs; não usa renderer Konva ou assets privados. CSS de pacotes respeita `prefers-reduced-motion`. Decks/jogar permanecem placeholders. Perfil usa `AuthService` e encaminha credenciais para `/login`. Veja [coleção](colecao.md), [pacotes](pacotes.md), [autenticação](autenticacao-e-admin.md) e [riscos](riscos-e-dividas-tecnicas.md).
+
+`model/routing/auth-return-url.ts` centraliza os destinos internos existentes, incluindo `/game/pacotes`, abertura com ID validado e `/admin/pacotes` apenas para admin. Login mantém prioridade do destino autorizado por papel; URLs externas, rotas desconhecidas e outlets auxiliares continuam recusados.
 
 Na edição de usuário, `UserEditComponent` orquestra `UserFormComponent` e `UserCollectionComponent`. O formulário comunica o perfil encontrado; o componente de coleção só é montado para esse perfil. Gestão de quantidade/propriedade permanece em domínio próprio, sem writes de coleção no formulário nem nos componentes.
 
@@ -97,6 +106,8 @@ model/interfaces/Cards/{card,card-canvas,card-template}.ts
 model/interfaces/Users/user-profile.ts
 model/interfaces/Collection/player-card-collection.ts
 model/interfaces/Players/player-profile.ts
+model/interfaces/Packs/player-pack.ts
+model/routing/auth-return-url.ts
 model/guards/{auth,card-editor-leave}.guard.ts
 model/services/fire/{auth,card-storage}.service.ts
 model/services/fire/published-card-storage.service.ts
@@ -108,6 +119,7 @@ model/services/cruds/cards/published-card-preview.service.ts
 model/services/cruds/cards/card-persistence.ts
 model/services/cruds/users/user.service.ts
 model/services/cruds/collection/player-collection.service.ts
+model/services/cruds/packs/player-pack.service.ts
 model/services/tools/card-editor-state.service.ts
 model/services/tools/card-editor-assets.service.ts
 model/services/tools/card-local-draft.service.ts
@@ -124,6 +136,8 @@ model/services/tools/card-saved-document.ts
 functions/src/index.ts
 functions/src/config.ts
 functions/src/player-bootstrap.ts
+functions/src/pack-domain.ts
+functions/src/open-pack.ts
 functions/src/firestore-bootstrap-store.ts
 ```
 

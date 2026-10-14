@@ -36,16 +36,29 @@ service cloud.firestore {
         && data.firstAcquiredAt is timestamp && data.lastAcquiredAt is timestamp;
     }
 
-    function validStarterCollection(data) {
-      // Rules limitam o envelope administrativo. O backend valida TODOS os itens,
-      // IDs, quantidades, duplicatas e status antes de qualquer concessão.
-      return data.keys().hasAll(['active', 'version', 'cards', 'updatedAt'])
-        && data.keys().hasOnly(['active', 'version', 'cards', 'updatedAt'])
+    function validPackDefinition(data, packId) {
+      return packId.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && data.keys().hasAll(['name', 'description', 'active', 'currentVersion', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'description', 'active', 'currentVersion', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 120
+        // RE2 \s é ASCII; a classe explícita acompanha whitespace do domínio JS.
+        && (packId == 'starter' ? data.name == 'StarterPack'
+          : data.name.lower().replace('[\\s\\x{000B}\\x{00A0}\\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}_-]', '') != 'starterpack')
+        && data.description is string && data.description.size() <= 1000
         && data.active is bool
+        && data.currentVersion is int && data.currentVersion >= 1 && data.currentVersion <= 1000000
+        && data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validPackDefinitionVersion(data, version) {
+      // O envelope é validado nas Rules; o backend revalida TODOS os itens,
+      // IDs, quantidade máxima 9999, duplicatas e status published das cartas.
+      return data.keys().hasAll(['version', 'cards', 'createdAt'])
+        && data.keys().hasOnly(['version', 'cards', 'createdAt'])
         && data.version is int && data.version >= 1 && data.version <= 1000000
-        && data.cards is list && data.cards.size() <= 25
-        && (!data.active || data.cards.size() > 0)
-        && data.updatedAt is timestamp && data.updatedAt == request.time;
+        && version == string(data.version)
+        && data.cards is list && data.cards.size() >= 1 && data.cards.size() <= 25
+        && data.createdAt is timestamp && data.createdAt == request.time;
     }
 
     function validAttribute(attribute) {
@@ -157,6 +170,14 @@ service cloud.firestore {
         // Remover propriedade não depende da disponibilidade da carta global.
         allow delete: if isAdmin();
       }
+
+      match /packs/{packInstanceId} {
+        allow get, list: if collectionOwnerExists(uid)
+          && (isAdmin() || (request.auth != null && request.auth.uid == uid && hasValidAccount()));
+        // Packs, abertura e resultado são propriedade decidida pelo backend.
+        // Não existe exceção para um cliente administrativo.
+        allow create, update, delete: if false;
+      }
     }
 
     match /players/{uid} {
@@ -167,13 +188,28 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
-    match /starterCollections/{starterId} {
-      // Há somente a definição default; membros não precisam ler sua configuração.
-      allow get: if starterId == 'default' && isAdmin();
-      allow list: if false;
-      allow create, update: if starterId == 'default' && isAdmin()
-        && validStarterCollection(request.resource.data);
-      allow delete: if starterId == 'default' && isAdmin();
+    match /packDefinitions/{packId} {
+      // Somente administração lê a configuração; jogadores leem suas instâncias.
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && validPackDefinition(request.resource.data, packId)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin() && validPackDefinition(request.resource.data, packId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
+      // Preservar definições e versões referidas por instâncias históricas.
+      allow delete: if false;
+
+      match /versions/{version} {
+        allow get, list: if isAdmin();
+        allow create: if isAdmin() && packId.matches('^[a-zA-Z0-9_-]{1,128}$')
+          // Aceita definição e primeira versão no mesmo commit atômico.
+          && existsAfter(/databases/$(database)/documents/packDefinitions/$(packId))
+          && validPackDefinitionVersion(request.resource.data, version);
+        // Todas as versões são imutáveis pelo SDK cliente, inclusive admin.
+        // Console e Admin SDK ignoram Rules; o backend revalida o conteúdo.
+        allow update, delete: if false;
+      }
     }
 
     match /cards/{cardId} {

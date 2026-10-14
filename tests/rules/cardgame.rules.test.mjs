@@ -2,7 +2,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { deleteObject, getBytes, listAll, ref, uploadBytes } from 'firebase/storage';
 
 let env;
@@ -33,16 +33,32 @@ const publishedPath = (cardId = 'published') => `published-cards/${cardId}/previ
 const playerProfile = (overrides = {}) => ({
   createdAt: serverTimestamp(), updatedAt: serverTimestamp(), starterGrantedAt: serverTimestamp(), ...overrides
 });
-const starterCollection = (overrides = {}) => ({
-  active: true, version: 1, cards: [{ cardId: 'published', quantity: 2 }], updatedAt: serverTimestamp(), ...overrides
+const packDefinition = (overrides = {}) => ({
+  name: 'StarterPack', description: 'Pacote inicial', active: true, currentVersion: 1,
+  createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...overrides
+});
+const packDefinitionVersion = (overrides = {}) => ({
+  version: 1, cards: [{ cardId: 'published', quantity: 2 }], createdAt: serverTimestamp(), ...overrides
+});
+const playerPack = (overrides = {}) => ({
+  packId: 'starter', definitionVersion: 1, source: 'starter', state: 'sealed',
+  acquiredAt: serverTimestamp(), openedAt: null, ...overrides
 });
 
 async function seedPlayer(uid, overrides = {}) {
   await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'players', uid), playerProfile(overrides)));
 }
 
-async function seedStarter(starterId = 'default', overrides = {}) {
-  await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'starterCollections', starterId), starterCollection(overrides)));
+async function seedPackDefinition(packId = 'starter', overrides = {}) {
+  await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'packDefinitions', packId), packDefinition(overrides)));
+}
+
+async function seedPackVersion(packId = 'starter', version = '1', overrides = {}) {
+  await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'packDefinitions', packId, 'versions', version), packDefinitionVersion(overrides)));
+}
+
+async function seedPack(uid = 'member', packInstanceId = 'starter-v1', overrides = {}) {
+  await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'users', uid, 'packs', packInstanceId), playerPack(overrides)));
 }
 
 async function seedOwned(uid = 'member', cardId = 'published', overrides = {}) {
@@ -572,99 +588,294 @@ test('players: nenhum cliente cria, sobrescreve, marca, reseta ou exclui estado,
   }
 });
 
-test('starterCollections: admin gerencia somente default, com versão e timestamp de servidor', async () => {
-  const db = dbFor('admin');
-  const starter = doc(db, 'starterCollections/default');
-  await assertSucceeds(setDoc(starter, starterCollection()));
-  const initial = await assertSucceeds(getDoc(starter));
-  assert.deepEqual(Object.keys(initial.data()).sort(), ['active', 'cards', 'updatedAt', 'version']);
-  assert.equal(initial.data().version, 1);
-  await assertSucceeds(updateDoc(starter, { version: 2, cards: [{ cardId: 'published', quantity: 3 }], updatedAt: serverTimestamp() }));
-  assert.equal((await getDoc(starter)).data().cards[0].quantity, 3);
-  await assertSucceeds(updateDoc(starter, { active: false, cards: [], updatedAt: serverTimestamp() }));
-  assert.equal((await getDoc(starter)).data().active, false);
-  await assertSucceeds(deleteDoc(starter));
-  assert.equal((await getDoc(starter)).exists(), false);
+test('packs: membro lista e lê seus lacrados/abertos, sem acesso a outro UID', async () => {
+  await seedPack();
+  await seedPack('member', 'opened-v1', {
+    state: 'opened', openedAt: serverTimestamp(),
+    revealedCards: [{ cardId: 'published', name: 'Dragão', rarity: 'rare', quantity: 2 }]
+  });
+  await seedPack('admin');
+  const db = dbFor('member');
+  const sealed = await assertSucceeds(getDoc(doc(db, 'users/member/packs/starter-v1')));
+  assert.equal(sealed.data().state, 'sealed');
+  assert.equal(Object.hasOwn(sealed.data(), 'revealedCards'), false);
+  const opened = await assertSucceeds(getDoc(doc(db, 'users/member/packs/opened-v1')));
+  assert.equal(opened.data().revealedCards[0].quantity, 2);
+  const packs = await assertSucceeds(getDocs(collection(db, 'users/member/packs')));
+  assert.deepEqual(packs.docs.map(item => item.id).sort(), ['opened-v1', 'starter-v1']);
+  await assertFails(getDoc(doc(db, 'users/admin/packs/starter-v1')));
+  await assertFails(getDocs(collection(db, 'users/admin/packs')));
 });
 
-test('starterCollections: membros, anônimos e perfis inválidos não leem nem alteram definição', async () => {
-  await seedStarter();
+test('packs: admin lê e lista instâncias de perfis existentes sem escrita', async () => {
+  await seedPack();
+  await seedPack('admin');
+  const db = dbFor('admin');
+  await assertSucceeds(getDoc(doc(db, 'users/member/packs/starter-v1')));
+  await assertSucceeds(getDocs(collection(db, 'users/member/packs')));
+  await assertSucceeds(getDoc(doc(db, 'users/admin/packs/starter-v1')));
+  await assertSucceeds(getDocs(collection(db, 'users/admin/packs')));
+});
+
+test('packs: anônimo, perfil ausente, inconsistente ou de papel desconhecido não acessam', async () => {
+  await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'users/unknown-role'), { role: 'owner', roleId: 'owner' }));
+  for (const uid of [undefined, 'partial', 'missing-profile', 'unknown-role']) {
+    const target = uid ?? 'member';
+    await seedPack(target);
+    const db = dbFor(uid);
+    await assertFails(getDoc(doc(db, `users/${target}/packs/starter-v1`)));
+    await assertFails(getDocs(collection(db, `users/${target}/packs`)));
+    await assertFails(getDoc(doc(db, 'users/member/packs/starter-v1')));
+  }
+});
+
+test('packs: nenhum cliente cria, sobrescreve ou exclui instância, inclusive admin', async () => {
+  for (const uid of [undefined, 'member', 'admin', 'partial', 'missing-profile']) {
+    const target = uid ?? 'member';
+    await seedPack(target);
+    const db = dbFor(uid);
+    const own = doc(db, `users/${target}/packs/starter-v1`);
+    await assertFails(setDoc(doc(db, `users/${target}/packs/new-pack`), playerPack()));
+    await assertFails(setDoc(own, playerPack()));
+    await assertFails(deleteDoc(own));
+    await assertFails(setDoc(doc(db, 'users/member/packs/injected'), playerPack()));
+  }
+});
+
+test('packs: clientes não marcam opened, escolhem versão/cartas nem alteram resultado', async () => {
+  for (const uid of ['member', 'admin']) {
+    await seedPack(uid);
+    await seedPack(uid, 'opened-v1', {
+      state: 'opened', openedAt: serverTimestamp(),
+      revealedCards: [{ cardId: 'published', name: 'Dragão', rarity: 'rare', quantity: 2 }]
+    });
+    const db = dbFor(uid);
+    const sealed = doc(db, `users/${uid}/packs/starter-v1`);
+    for (const mutation of [
+      { state: 'opened', openedAt: serverTimestamp() }, { packId: 'other' }, { source: 'reward' },
+      { definitionVersion: 2 }, { acquiredAt: serverTimestamp() },
+      { revealedCards: [{ cardId: 'published', name: 'Escolhida', rarity: 'legendary', quantity: 9999 }] }
+    ]) await assertFails(updateDoc(sealed, mutation));
+    const opened = doc(db, `users/${uid}/packs/opened-v1`);
+    await assertFails(updateDoc(opened, { state: 'sealed', openedAt: null, revealedCards: deleteField() }));
+    await assertFails(updateDoc(opened, { revealedCards: [] }));
+    await assertFails(updateDoc(opened, { 'revealedCards.0.quantity': 9999 }));
+  }
+});
+
+test('packs: concessão de pack não libera coleção/player e caminhos extras seguem negados', async () => {
+  await seedPack();
+  await seedPlayer('member');
+  const db = dbFor('member');
+  await assertFails(setDoc(ownedRef(db), ownedEntry()));
+  await assertFails(updateDoc(doc(db, 'players/member'), { starterGrantedAt: null }));
+  await assertFails(setDoc(doc(db, 'users/member/packs/starter-v1/results/extra'), { quantity: 9999 }));
+  await assertFails(getDocs(collection(db, 'users/member/packs/starter-v1/results')));
+});
+
+test('packDefinitions: admin cria, lê/lista e atualiza envelope preservando createdAt', async () => {
+  const db = dbFor('admin');
+  const definition = doc(db, 'packDefinitions/starter');
+  await assertSucceeds(setDoc(definition, packDefinition()));
+  const initial = (await assertSucceeds(getDoc(definition))).data();
+  assert.deepEqual(Object.keys(initial).sort(), ['active', 'createdAt', 'currentVersion', 'description', 'name', 'updatedAt']);
+  await assertSucceeds(getDocs(collection(db, 'packDefinitions')));
+  await assertSucceeds(updateDoc(definition, { description: '', active: false, currentVersion: 2, updatedAt: serverTimestamp() }));
+  const current = (await getDoc(definition)).data();
+  assert.equal(current.currentVersion, 2);
+  assert.ok(current.createdAt.isEqual(initial.createdAt));
+  await assertFails(updateDoc(definition, { createdAt: Timestamp.fromMillis(1), updatedAt: serverTimestamp() }));
+  await assertFails(deleteDoc(definition));
+});
+
+test('packDefinitions: membro/anônimo/perfil inválido não lê configuração nem versões', async () => {
+  await seedPackDefinition();
+  await seedPackVersion();
   for (const uid of [undefined, 'member', 'partial', 'missing-profile']) {
     const db = dbFor(uid);
-    const starter = doc(db, 'starterCollections/default');
-    await assertFails(getDoc(starter));
-    await assertFails(getDocs(collection(db, 'starterCollections')));
-    await assertFails(setDoc(doc(db, 'starterCollections/other'), starterCollection()));
-    await assertFails(setDoc(starter, starterCollection()));
-    await assertFails(updateDoc(starter, { version: 2, updatedAt: serverTimestamp() }));
-    await assertFails(updateDoc(starter, { cards: [{ cardId: 'draft', quantity: 9999 }], updatedAt: serverTimestamp() }));
-    await assertFails(deleteDoc(starter));
+    const definition = doc(db, 'packDefinitions/starter');
+    const version = doc(db, 'packDefinitions/starter/versions/1');
+    await assertFails(getDoc(definition));
+    await assertFails(getDocs(collection(db, 'packDefinitions')));
+    await assertFails(getDoc(version));
+    await assertFails(getDocs(collection(db, 'packDefinitions/starter/versions')));
+    await assertFails(setDoc(doc(db, 'packDefinitions/other'), packDefinition()));
+    await assertFails(updateDoc(definition, { currentVersion: 2, updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(definition));
+    await assertFails(setDoc(doc(db, 'packDefinitions/starter/versions/2'), packDefinitionVersion({ version: 2 })));
+    await assertFails(updateDoc(version, { cards: [] }));
+    await assertFails(deleteDoc(version));
   }
 });
 
-test('starterCollections: default é singleton e nem admin lista ou acessa definições alternativas', async () => {
-  await seedStarter();
-  await seedStarter('other');
+test('packDefinitions: StarterPack pertence somente à definição starter e seu nome não pode mudar', async () => {
   const db = dbFor('admin');
-  const other = doc(db, 'starterCollections/other');
-  await assertFails(getDocs(collection(db, 'starterCollections')));
-  await assertFails(getDoc(other));
-  await assertFails(setDoc(other, starterCollection()));
-  await assertFails(setDoc(doc(db, 'starterCollections/new'), starterCollection()));
-  await assertFails(updateDoc(other, { version: 2, updatedAt: serverTimestamp() }));
-  await assertFails(deleteDoc(other));
-  await assertFails(setDoc(doc(db, 'starterCollections/default/config/extra'), starterCollection()));
+  const starter = doc(db, 'packDefinitions/starter');
+  for (const name of ['Starter Pack', 'starterpack', 'Starter', 'Outro pacote', ' StarterPack ']) {
+    await assertFails(setDoc(starter, packDefinition({ name })));
+  }
+  await assertSucceeds(setDoc(starter, packDefinition()));
+  for (const name of ['Starter Pack', 'starterpack', 'Outro pacote']) {
+    await assertFails(updateDoc(starter, { name, updatedAt: serverTimestamp() }));
+  }
+  await assertSucceeds(updateDoc(starter, { name: 'StarterPack', description: 'Novo texto', active: false, updatedAt: serverTimestamp() }));
 });
 
-test('starterCollections: envelope estrito exige quatro campos e recusa tipos, datas e campos extras', async () => {
+test('packDefinitions: outros pacotes não usam variantes do nome reservado StarterPack', async () => {
   const db = dbFor('admin');
-  const starter = doc(db, 'starterCollections/default');
-  await assertSucceeds(setDoc(starter, starterCollection()));
-  for (const overrides of [
-    { active: 'true' }, { active: null }, { active: 1 },
-    { cards: null }, { cards: {} }, { cards: 'published' },
-    { updatedAt: null }, { updatedAt: 'now' }, { updatedAt: Timestamp.fromMillis(1) },
-    { secret: true }
+  const other = doc(db, 'packDefinitions/other');
+  const variants = ['StarterPack', 'starterpack', 'STARTERPACK', 'Starter Pack', ' StarterPack ',
+    'starter_pack', 'Starter-Pack', '\tStarter\nPack\t', 'S_t-a r_t_e_r P_a_c_k',
+    ...[0x000B, 0x00A0, 0x1680, 0x2000, 0x200A, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF]
+      .map(codePoint => `Starter${String.fromCodePoint(codePoint)}Pack`)];
+  for (const name of variants) await assertFails(setDoc(other, packDefinition({ name })));
+  await assertSucceeds(setDoc(other, packDefinition({ name: 'Pacote de dragões' })));
+  for (const name of variants) await assertFails(updateDoc(other, { name, updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(other, { name: 'Pacote inicial de dragões', updatedAt: serverTimestamp() }));
+  await assertSucceeds(setDoc(doc(db, 'packDefinitions/StarterPack'), packDefinition({ name: 'Outro pacote' })));
+});
+
+test('packDefinitions: definição e primeira versão podem ser criadas atomicamente por admin', async () => {
+  const db = dbFor('admin');
+  for (const [packId, name] of [['starter', 'StarterPack'], ['dragons', 'Pacote de dragões']]) {
+    const definition = doc(db, 'packDefinitions', packId);
+    const version = doc(db, 'packDefinitions', packId, 'versions', '1');
+    await assertSucceeds(runTransaction(db, async transaction => {
+      assert.equal((await transaction.get(definition)).exists(), false);
+      assert.equal((await transaction.get(version)).exists(), false);
+      transaction.set(definition, packDefinition({ name }));
+      transaction.set(version, packDefinitionVersion());
+    }));
+    assert.equal((await getDoc(definition)).data().currentVersion, 1);
+    assert.equal((await getDoc(version)).data().version, 1);
+  }
+});
+
+test('packDefinitions: primeira versão inválida ou nome reservado indevido aborta o commit inteiro', async () => {
+  const db = dbFor('admin');
+  const invalidVersionBatch = writeBatch(db);
+  invalidVersionBatch.set(doc(db, 'packDefinitions/invalid-version'), packDefinition({ name: 'Pacote teste' }));
+  invalidVersionBatch.set(doc(db, 'packDefinitions/invalid-version/versions/1'), packDefinitionVersion({ cards: [] }));
+  await assertFails(invalidVersionBatch.commit());
+  assert.equal((await getDoc(doc(db, 'packDefinitions/invalid-version'))).exists(), false);
+  const reservedBatch = writeBatch(db);
+  reservedBatch.set(doc(db, 'packDefinitions/impostor'), packDefinition());
+  reservedBatch.set(doc(db, 'packDefinitions/impostor/versions/1'), packDefinitionVersion());
+  await assertFails(reservedBatch.commit());
+  assert.equal((await getDoc(doc(db, 'packDefinitions/impostor/versions/1'))).exists(), false);
+});
+
+test('packDefinitions: campos exatos, tipos e limites de nome/descrição são exigidos', async () => {
+  const db = dbFor('admin');
+  const definition = doc(db, 'packDefinitions/generic');
+  await assertSucceeds(setDoc(definition, packDefinition({ name: 'x'.repeat(120), description: 'x'.repeat(1000) })));
+  for (const override of [
+    { name: '' }, { name: null }, { name: 1 }, { name: 'x'.repeat(121) },
+    { description: null }, { description: 1 }, { description: 'x'.repeat(1001) },
+    { active: 'true' }, { active: 1 }, { active: null },
+    { createdAt: null }, { createdAt: 'now' }, { updatedAt: null }, { updatedAt: 'now' },
+    { updatedAt: Timestamp.fromMillis(1) }, { price: 1 }, { cards: [] }
   ]) {
-    await assertFails(setDoc(starter, starterCollection(overrides)));
-    await assertFails(updateDoc(starter, { updatedAt: serverTimestamp(), ...overrides }));
+    await assertFails(setDoc(definition, packDefinition(override)));
+    await assertFails(updateDoc(definition, { updatedAt: serverTimestamp(), ...override }));
   }
-  for (const field of ['active', 'version', 'cards', 'updatedAt']) {
-    const missing = starterCollection();
+  for (const field of ['name', 'description', 'active', 'currentVersion', 'createdAt', 'updatedAt']) {
+    const missing = packDefinition();
     delete missing[field];
-    await assertFails(setDoc(starter, missing));
-    await assertFails(updateDoc(starter, { updatedAt: serverTimestamp(), [field]: deleteField() }));
+    await assertFails(setDoc(definition, missing));
+    await assertFails(updateDoc(definition, { updatedAt: serverTimestamp(), [field]: deleteField() }));
   }
 });
 
-test('starterCollections: versão inteira de 1 a 1000000 e lista de até 25 itens', async () => {
+test('packDefinitions: currentVersion inteiro de 1 a 1000000 e IDs técnicos são exigidos', async () => {
   const db = dbFor('admin');
-  const starter = doc(db, 'starterCollections/default');
-  await assertSucceeds(setDoc(starter, starterCollection({ version: 1000000 })));
-  for (const version of [0, -1, 1.5, 1000001, '1', null]) {
-    await assertFails(setDoc(starter, starterCollection({ version })));
-    await assertFails(updateDoc(starter, { version, updatedAt: serverTimestamp() }));
+  const definition = doc(db, 'packDefinitions/starter');
+  await assertSucceeds(setDoc(definition, packDefinition({ currentVersion: 1000000 })));
+  for (const currentVersion of [0, -1, 1.5, 1000001, '1', null]) {
+    await assertFails(setDoc(definition, packDefinition({ currentVersion })));
+    await assertFails(updateDoc(definition, { currentVersion, updatedAt: serverTimestamp() }));
   }
-  const cards = Array.from({ length: 25 }, (_, index) => ({ cardId: `card_${index}`, quantity: 1 }));
-  await assertSucceeds(setDoc(starter, starterCollection({ cards })));
-  for (const active of [true, false]) {
-    await assertFails(setDoc(starter, starterCollection({ active, cards: [...cards, { cardId: 'extra', quantity: 1 }] })));
-    await assertFails(updateDoc(starter, { active, cards: [...cards, { cardId: 'extra', quantity: 1 }], updatedAt: serverTimestamp() }));
+  await assertSucceeds(setDoc(doc(db, 'packDefinitions/valid_ID-2'), packDefinition({ name: 'Pacote válido' })));
+  await assertSucceeds(setDoc(doc(db, 'packDefinitions', 'x'.repeat(128)), packDefinition({ name: 'Outro pacote' })));
+  for (const id of ['invalid.id', 'invalid id', 'x'.repeat(129)]) {
+    await assertFails(setDoc(doc(db, 'packDefinitions', id), packDefinition({ name: 'Pacote de teste' })));
   }
-  await assertFails(setDoc(starter, starterCollection({ cards: [] })));
-  await assertFails(updateDoc(starter, { active: true, cards: [], updatedAt: serverTimestamp() }));
-  await assertSucceeds(setDoc(starter, starterCollection({ active: false, cards: [] })));
 });
 
-test('starterCollections: validação profunda pertence ao backend e configuração não libera writes de membro', async () => {
-  const adminDb = dbFor('admin');
-  // Envelope administrativo aceito; initializePlayer deve rejeitar estes itens antes de conceder.
-  await assertSucceeds(setDoc(doc(adminDb, 'starterCollections/default'), starterCollection({
-    cards: [{ cardId: 'draft', quantity: -1 }, { cardId: 'draft', quantity: 2 }]
+test('packDefinitions: versões são criadas/listadas por admin e nunca atualizadas/excluídas', async () => {
+  await seedPackDefinition();
+  const db = dbFor('admin');
+  const version = doc(db, 'packDefinitions/starter/versions/1');
+  await assertSucceeds(setDoc(version, packDefinitionVersion()));
+  const result = (await assertSucceeds(getDoc(version))).data();
+  assert.deepEqual(Object.keys(result).sort(), ['cards', 'createdAt', 'version']);
+  await assertSucceeds(getDocs(collection(db, 'packDefinitions/starter/versions')));
+  await assertSucceeds(setDoc(doc(db, 'packDefinitions/starter/versions/2'), packDefinitionVersion({ version: 2 })));
+  await assertFails(setDoc(version, packDefinitionVersion()));
+  await assertFails(updateDoc(version, { cards: [{ cardId: 'published', quantity: 3 }] }));
+  await assertFails(updateDoc(version, { version: 2 }));
+  await assertFails(updateDoc(version, { createdAt: serverTimestamp() }));
+  await assertFails(deleteDoc(version));
+  await assertFails(deleteDoc(doc(db, 'packDefinitions/starter')));
+});
+
+test('packDefinitions: versão exige definição existente e caminho decimal canônico igual ao campo', async () => {
+  await seedPackDefinition();
+  const db = dbFor('admin');
+  await assertFails(setDoc(doc(db, 'packDefinitions/missing/versions/1'), packDefinitionVersion()));
+  await assertSucceeds(setDoc(doc(db, 'packDefinitions/starter/versions/1000000'), packDefinitionVersion({ version: 1000000 })));
+  for (const [path, version] of [
+    ['01', 1], ['+1', 1], ['1.0', 1], ['two', 2], ['2', 1], ['0', 0], ['-1', -1],
+    ['1.5', 1.5], ['1000001', 1000001], ['3', '3'], ['4', null]
+  ]) await assertFails(setDoc(doc(db, 'packDefinitions/starter/versions', path), packDefinitionVersion({ version })));
+  await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'packDefinitions/invalid.id'), packDefinition()));
+  await assertFails(setDoc(doc(db, 'packDefinitions/invalid.id/versions/1'), packDefinitionVersion()));
+});
+
+test('packDefinitions: versão exige três campos exatos, data do servidor e lista de 1 a 25', async () => {
+  await seedPackDefinition();
+  const db = dbFor('admin');
+  const version = doc(db, 'packDefinitions/starter/versions/1');
+  for (const override of [
+    { cards: [] }, { cards: null }, { cards: {} }, { cards: 'published' },
+    { cards: Array.from({ length: 26 }, (_, index) => ({ cardId: `card_${index}`, quantity: 1 })) },
+    { createdAt: null }, { createdAt: 'now' }, { createdAt: Timestamp.fromMillis(1) }, { updatedAt: serverTimestamp() }
+  ]) await assertFails(setDoc(version, packDefinitionVersion(override)));
+  for (const field of ['version', 'cards', 'createdAt']) {
+    const missing = packDefinitionVersion();
+    delete missing[field];
+    await assertFails(setDoc(version, missing));
+  }
+  await assertSucceeds(setDoc(version, packDefinitionVersion({
+    cards: Array.from({ length: 25 }, (_, index) => ({ cardId: `card_${index}`, quantity: 1 }))
   })));
+});
+
+test('packDefinitions: conteúdo profundo é revalidado pelo backend, sem liberar propriedade ao cliente', async () => {
+  await seedPackDefinition();
+  const adminDb = dbFor('admin');
+  // Envelope administrativo aceito; initializePlayer/openPack devem rejeitar estes itens.
+  await assertSucceeds(setDoc(doc(adminDb, 'packDefinitions/starter/versions/1'), packDefinitionVersion({
+    cards: [{ cardId: 'draft', quantity: -1 }, { cardId: 'draft', quantity: 10000 }]
+  })));
+  await seedPack();
   await seedPlayer('member');
   const memberDb = dbFor('member');
   await assertFails(setDoc(ownedRef(memberDb), ownedEntry()));
-  await assertFails(setDoc(ownedRef(memberDb, 'member', 'draft'), ownedEntry()));
   await assertFails(updateDoc(doc(memberDb, 'players/member'), { starterGrantedAt: null }));
+  await assertFails(updateDoc(doc(memberDb, 'users/member/packs/starter-v1'), { state: 'opened' }));
+});
+
+test('starterCollections: domínio anterior fica integralmente negado, inclusive admin', async () => {
+  const legacy = { active: true, version: 1, cards: [{ cardId: 'published', quantity: 2 }], updatedAt: serverTimestamp() };
+  await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'starterCollections/default'), legacy));
+  for (const uid of [undefined, 'member', 'admin', 'partial', 'missing-profile']) {
+    const db = dbFor(uid);
+    const reference = doc(db, 'starterCollections/default');
+    await assertFails(getDoc(reference));
+    await assertFails(getDocs(collection(db, 'starterCollections')));
+    await assertFails(setDoc(doc(db, 'starterCollections/other'), legacy));
+    await assertFails(updateDoc(reference, { version: 2, updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(reference));
+  }
 });

@@ -3,6 +3,7 @@ import { Functions } from '@angular/fire/functions';
 import { httpsCallable } from 'firebase/functions';
 import { isAuthenticatedSession } from '../../interfaces/Auth/auth-session';
 import { PlayerInitializationResult, PlayerInitializationStatus } from '../../interfaces/Players/player-profile';
+import { PACK_INSTANCE_ID_PATTERN } from '../../interfaces/Packs/player-pack';
 import { AuthService } from './auth.service';
 
 export const PLAYER_INITIALIZATION_TIMEOUT_MS = 30_000;
@@ -114,9 +115,10 @@ export class PlayerInitializationService {
 function isInitializationResult(value: unknown): value is PlayerInitializationResult {
   if (typeof value !== 'object' || value === null) return false;
   const result = value as Record<string, unknown>;
-  return result['initialized'] === true && typeof result['alreadyInitialized'] === 'boolean'
-    && typeof result['cardsGranted'] === 'number' && Number.isSafeInteger(result['cardsGranted'])
-    && result['cardsGranted'] >= 0 && (result['alreadyInitialized'] === false || result['cardsGranted'] === 0);
+  return Object.keys(result).length === 4 && result['initialized'] === true
+    && typeof result['alreadyInitialized'] === 'boolean' && typeof result['starterPackGranted'] === 'boolean'
+    && result['starterPackGranted'] === !result['alreadyInitialized']
+    && typeof result['starterPackInstanceId'] === 'string' && PACK_INSTANCE_ID_PATTERN.test(result['starterPackInstanceId']);
 }
 
 function initializationErrorMessage(error: unknown): string {
@@ -126,7 +128,11 @@ function initializationErrorMessage(error: unknown): string {
     case 'functions/permission-denied':
       return 'Não foi possível confirmar o acesso da sua conta. Entre novamente ou contate um administrador.';
     case 'functions/failed-precondition':
-      return 'Não foi possível preparar sua coleção inicial. Contate um administrador ou tente novamente mais tarde.';
+      if (typeof error === 'object' && error !== null && 'details' in error && typeof error.details === 'object'
+          && error.details !== null && 'reason' in error.details && error.details.reason === 'starter-not-configured') {
+        return 'O pacote inicial ainda não foi configurado por um administrador.';
+      }
+      return 'Não foi possível preparar seu Starter Pack. Contate um administrador ou tente novamente mais tarde.';
     case 'functions/deadline-exceeded':
       return 'A preparação demorou mais que o esperado. Confira sua conexão e tente novamente.';
     case 'functions/unavailable':

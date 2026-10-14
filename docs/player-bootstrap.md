@@ -1,164 +1,88 @@
-# Player Bootstrap e Starter Collection
+# Player Bootstrap e Starter Pack
 
-O cliente solicita operações de jogo; o backend confiável decide a concessão de propriedade. A primeira operação é `initializePlayer`, Callable Firebase Functions Gen 2 escrita em TypeScript e executada com Admin SDK somente em `functions/`.
-
-## Identidade, jogador e propriedade
+`initializePlayer` prepara o jogador e concede exatamente **um Starter Pack lacrado**. Não lê nem escreve a coleção. A concessão das cartas pertence à operação separada `openPack`, descrita em [pacotes](pacotes.md).
 
 ```text
-Firebase Authentication
-          ↓
-users/{uid} — identidade e acesso
-          ↓
-initializePlayer — UID autenticado, validação e transação
-          ↓
-players/{uid} — estado mínimo e marcador da concessão única
-          ↓
-starterCollections/default — definição administrativa
-          ↓
-users/{uid}/collection/{cardId} — quantidade e datas
+Authentication → users/{uid} → initializePlayer
+                                     ↓ commit único
+                     players/{uid} + users/{uid}/packs/starter
+                                     ↓ sealed
+                     Home → abrir pacote → openPack
+                                     ↓ commit único
+                     coleção + pacote opened + resultado
+                                     ↓
+                     reveal visual carta por carta
 ```
 
-`users/{uid}` continua guardando nome, contato e papéis; não recebe moedas, XP, nível, resultados ou estado de jogo. `players/{uid}` tem `createdAt`, `updatedAt`, `starterGrantedAt` e, após conceder, `starterVersion`. UID pertence ao caminho. `starterVersion` registra qual definição foi concedida, sem transformar versão nova em direito de ganhar cartas novamente.
+`users/{uid}` conserva identidade e autorização. `players/{uid}` conserva estado mínimo e auditoria da concessão. Nenhum desses contratos inclui moedas, XP, nível, placar ou deck selecionado. O frontend solicita; o servidor decide; Firestore persiste; Rules protegem.
 
-Não há decks, gameplay, packs, aleatoriedade, economia, reset ou regrant. A gestão manual de coleção existente continua disponível para correções administrativas.
+## Contrato da Callable
 
-## Contrato da operação
+O Angular chama `initializePlayer` com `{}`. A identidade vem exclusivamente de `request.auth.uid`; campos adicionais, UID e escolha de conteúdo são recusados. O perfil deve existir com `role == roleId` em `member` ou `admin`. E-mail não é autorização.
 
-O Angular chama `initializePlayer` com dados vazios. A identidade vem exclusivamente de `request.auth.uid`; não é aceito UID ou escolha de cartas no payload. O backend exige Authentication e `users/{uid}` existente, com `role == roleId` em `member` ou `admin`. E-mail não concede autorização.
-
-Resultado mínimo de primeira inicialização:
+Primeira resposta:
 
 ```ts
-{ initialized: true, alreadyInitialized: false, cardsGranted: 3 }
+{
+  initialized: true,
+  alreadyInitialized: false,
+  starterPackGranted: true,
+  starterPackInstanceId: 'starter'
+}
 ```
 
-`cardsGranted` representa cópias somadas, não o número de IDs diferentes. Outra chamada retorna:
+Uma repetição retorna `alreadyInitialized: true`, `starterPackGranted: false` e o mesmo `starterPackInstanceId`. Não há `cardsGranted` nem cartas no retorno.
 
-```ts
-{ initialized: true, alreadyInitialized: true, cardsGranted: 0 }
-```
+O ID constante `starter` pertence ao caminho do usuário: `users/{uid}/packs/starter`. Contas diferentes têm instâncias diferentes, e uma nova versão da definição não cria outro ID para o mesmo titular.
 
-Essa resposta não inclui documentos administrativos, tokens, assets ou detalhes internos do SDK. Erros de validação usam códigos Callable; falhas inesperadas retornam mensagem genérica sem expor dados administrativos.
+## Validação e commit
 
-## Transação e idempotência
+A transação lê perfil, player e instância. Player existente exige campos exatos, `createdAt <= updatedAt <= relógio confiável do backend` e marcador consistente. Sem concessão, `starterGrantedAt` é null e os campos de versão/instância estão ausentes. Depois da concessão, `starterVersion` e `starterPackInstanceId` são obrigatórios, com `createdAt <= starterGrantedAt <= updatedAt`.
 
-Uma transação Firestore lê perfil e player. Se o player válido já possui `starterGrantedAt`, retorna sem writes, antes de consultar a definição atual. Uma configuração posteriormente desativada não impede o acesso de jogador já inicializado nem renova a concessão.
+Se o marcador válido já existe, a operação verifica a instância registrada e sua auditoria, retornando sem writes nem consulta à definição atual. Instância ausente/inconsistente não produz reconcessão automática. Pacote órfão sem marcador também é recusado.
 
-Para a primeira concessão, a mesma transação lê `starterCollections/default`, todas as cartas referidas e as entradas correspondentes do inventário. Valida tudo antes de escrever. Grava quantidades, datas e marcador de player no mesmo commit com timestamps de servidor. Erro em qualquer item cancela toda a concessão, inclusive a criação do player.
+Na primeira concessão, lê `packDefinitions/starter`, exige `active: true`, lê `versions/{currentVersion}` e valida todos os IDs/quantidades e cartas publicadas. Nome/raridade usados pela futura abertura também precisam ser válidos. Configuração inexistente/inativa/vazia, carta draft/archived/ausente ou datas inválidas impedem toda a operação.
 
-O backend exige campos exatos e datas ordenadas no player: `createdAt <= updatedAt`, e, quando concedido, `createdAt <= starterGrantedAt <= updatedAt`. `starterVersion` deve estar ausente antes da concessão e ser um inteiro válido depois dela. `updatedAt` posterior ao relógio confiável do backend é inválido; nem um marcador com data futura libera acesso como já inicializado.
+Somente após validar tudo, grava no mesmo commit:
 
-Duas solicitações concorrentes podem ler o estado ainda não inicializado. Ao disputar o commit, o Firestore repete a transação em conflito e ela passa a observar o marcador já concedido, sem somar novamente. O cache/deduplicação Angular melhora a UX, mas não é a garantia de idempotência.
+- instância com `packId: 'starter'`, `definitionVersion`, `source: 'starter'`, `state: 'sealed'`, `acquiredAt` de servidor e `openedAt: null`, sem `revealedCards`;
+- player com datas de servidor, `starterGrantedAt`, `starterVersion` e `starterPackInstanceId: 'starter'`, preservando `createdAt` anterior válido.
 
-## Soma com coleção existente
+Nenhuma carta entra na coleção nessa etapa, mesmo se ela já contém concessões administrativas. Duas abas concorrentes disputam a mesma transação/caminhos; o Firestore repete a transação em conflito e ela observa a concessão concluída. Cache Angular melhora a experiência, mas a garantia de uma instância é do backend.
 
-O starter adiciona quantidades às concedidas manualmente antes do bootstrap. Se a carta possuída tem uma cópia e o starter fornece duas, o total passa a três. Entradas fora do starter não são alteradas.
+## Configuração única e dados antigos
 
-Para cartas já possuídas, `firstAcquiredAt` permanece igual e `lastAcquiredAt` recebe o timestamp do commit. Uma entrada nova recebe as duas datas do mesmo commit. A soma não pode exceder `PLAYER_COLLECTION_MAX_QUANTITY = 9999`; uma única ultrapassagem impede todo o bootstrap. Datas/quantidades inválidas em uma entrada que será somada também impedem writes.
+A configuração ativa é `packDefinitions/starter` com nome reservado `StarterPack` e sua subcoleção `versions`. `starterCollections/default` foi removida do fluxo e não possui permissões nas Rules atuais. Não existem dois sistemas concorrentes de starter nem leitura de fallback. A gestão é pela página administrativa `/admin/pacotes`; contratos, limites e sequência segura de versionamento estão em [pacotes](pacotes.md#configurar-o-starter).
 
-Uma entrada existente precisa conter somente os três campos previstos, com `firstAcquiredAt <= lastAcquiredAt`. O backend recusa `lastAcquiredAt` posterior ao seu relógio confiável, evitando preservar uma primeira aquisição futura ou gravar datas fora de ordem. Essa verificação se aplica às entradas do starter que serão somadas, não ao inventário inteiro.
-
-A gestão manual `PlayerCollectionService.setQuantity` continua definindo o **total absoluto**. Ela não altera o marcador de player nem transforma remoção manual de cartas em permissão de receber o starter novamente.
-
-## Configuração administrativa default
-
-Crie `starterCollections/default` no Firestore Console ou numa ferramenta administrativa autorizada. Nesta fase não há tela Angular para o starter. Use IDs de cartas existentes escolhidas pelo administrador; a implementação não contém IDs fictícios nem seleciona cartas arbitrariamente.
-
-| Campo | Tipo e valor exigido |
-| --- | --- |
-| active | Boolean true para conceder; false desativa novas concessões |
-| version | Inteiro de 1 a 1000000 |
-| cards | Lista de 1 a 25 mapas, cada um contendo somente `cardId` e `quantity` |
-| updatedAt | Timestamp, não string; escrita por SDK cliente administrativo usa serverTimestamp |
-| cards[].cardId | ID existente em `cards`, no padrão `[a-zA-Z0-9_-]{1,128}` |
-| cards[].quantity | Inteiro de 1 a 9999 |
-
-Cada ID aparece uma única vez e precisa referenciar carta com `status == published`. Carta inexistente, draft ou archived impede toda a operação. A definição valida também campos desconhecidos e tipos; nenhuma inicialização parcial é aceita.
-
-Rules permitem armazenar definição inativa vazia, mas ela não inicializa jogadores. Definição inexistente, inativa, ativa vazia ou inválida falha de forma segura, sem marcar player como inicializado. Configurar versão/cartas afeta somente quem ainda não recebeu o starter; não exige novo deploy de Functions.
-
-O Console e Admin SDK ignoram Security Rules. Não presumir que uma edição aceita no Console esteja válida: a Function revalida toda a definição. Rules limitam o envelope de writes administrativos, mas não prometem validação profunda de todos os itens/duplicatas/status.
-
-Salvar cartas como Publicada gera a imagem final pelo fluxo existente. O bootstrap concede propriedade; não gera PNG nem modifica o modelo das cartas. Cartas publicadas antigas podem precisar ser salvas novamente para criar a preview.
+O diagnóstico de 13/10/2026 às 18h43 de São Paulo encontrou `initializePlayer` ativa remotamente, mas não `openPack`, configuração do starter ou players. Depois, o proprietário autorizou a correção: as duas Functions, Firestore Rules e Hosting foram publicados e conferidos. A configuração de cartas/conteúdo permanece decisão do administrador em `/admin/pacotes`. Não há migração de produção, reset ou regrant automático. **Dados locais gerados pelo bootstrap anterior podem ser descartados/recriados nos emuladores.** Seu player antigo sem `starterPackInstanceId` é inválido no contrato novo; a mensagem orienta recriar o ambiente local. Não apagar marcadores em produção para tentar obter outro starter.
 
 ## Entrada em /game
 
-`GameLayoutComponent` solicita a operação pelo `PlayerInitializationService` ao reconhecer sessão válida. Isso atende novos cadastros, contas antigas e admins que acessam o jogo. Não depende somente do cadastro.
+`GameLayoutComponent` solicita `initializePlayer` pelo `PlayerInitializationService` quando reconhece uma sessão válida, inclusive para contas antigas/admins que entram no jogo. Não depende somente do cadastro.
 
-O serviço expõe `idle`, `preparing`, `ready` e `error`. Compartilha chamadas locais pendentes do mesmo UID e reutiliza o sucesso enquanto essa sessão estiver ativa. Logout/perfil inválido/troca de UID limpa o resultado; callbacks antigos não liberam outra conta. O SDK usa timeout de 30 segundos.
+O serviço expõe `idle`, `preparing`, `ready` e `error`, compartilha chamadas locais pendentes do mesmo UID e reutiliza sucesso enquanto a sessão permanecer ativa. Logout/perfil inválido/troca de UID limpa o resultado; callbacks antigos não liberam outra conta. O timeout do SDK é de 30 segundos.
 
-Durante a preparação, o layout mostra **Preparando sua jornada...**. Um erro crítico mostra mensagem e **Tentar novamente**; o outlet só é montado em `ready`. Login, Minha conta, logout e administração continuam disponíveis. Não há cartas locais falsas nem sucesso sem resposta backend válida.
+Durante a preparação, o layout mostra **Preparando sua jornada...**. Erro crítico mantém o outlet fechado e oferece **Tentar novamente**. Quando a definição inicial está ausente, a Function retorna o motivo seguro `starter-not-configured` e o frontend informa **O pacote inicial ainda não foi configurado por um administrador.** Admin também recebe **Configurar pacotes**, apontando para `/admin/pacotes`. Login, Minha conta, logout e administração continuam disponíveis. Não há sucesso sem resposta backend válida.
 
-Depois do commit, `/game/colecao` usa `PlayerCollectionService` normalmente, lendo a propriedade já persistida. Não há cache paralelo de inventário para invalidar. A operação aceita pelo servidor pode concluir depois de logout ou perda da resposta; retry permanece seguro graças ao marcador atômico.
+Depois do commit, a Home consulta a instância própria: enquanto lacrada, mostra **Seu Starter Pack chegou!** e um link para `/game/pacotes/abrir/starter`. Não abre automaticamente, e um pacote já aberto não reaparece como novo por causa do resultado cached do bootstrap. `/game/colecao` pode estar vazia até a abertura; a gestão administrativa anterior continua preservada.
 
-## Regras de acesso
+Timeout, logout ou perda da resposta não cancelam uma transação já aceita pelo servidor. Retry recupera o estado sem conceder outra instância. A abertura também é idempotente, com resultado persistido recuperável.
 
-| Domínio | Member com perfil válido | Admin pelo SDK cliente | Backend Admin SDK |
-| --- | --- | --- | --- |
-| players | Get próprio; nenhuma escrita | Get/list; nenhuma escrita | Leitura/escrita validada pela operação |
-| starterCollections/default | Nenhum acesso | Get e gestão; sem listagem/outros IDs | Lê configuração e revalida |
-| collection | Get/list própria; nenhuma escrita | Gestão manual já existente | Soma inicial em transação |
+## Acesso e região
 
-Anônimos e perfis inválidos não acessam players/starter/coleção. A política de Storage não muda: jogador baixa somente PNG final autenticado de carta publicada; assets editáveis continuam administrativos.
+| Domínio | Member válido | Admin pelo SDK cliente |
+| --- | --- | --- |
+| players | Get próprio; sem writes | Get/list; sem writes |
+| packs | Get/list próprios; sem writes | Leitura de perfis existentes; sem writes |
+| packDefinitions e versions | Sem acesso | Ler/criar/editar definição; criar versões imutáveis |
+| collection | Get/list própria; sem writes | Gestão manual existente |
 
-## Região e runtime
+Anônimos e perfis inválidos não acessam esses dados. Admin SDK ignora Rules, por isso a Function verifica autenticação, autorização e invariantes antes do commit. Assets editáveis permanecem privados; somente PNG publicado pode ser baixado pelo jogador autenticado.
 
-A região da Function é explicitamente `southamerica-east1`, igual à localização da base Firestore `(default)` de `cardgame-6fdcb`, confirmada por consulta somente leitura nesta etapa. O provider Angular usa a mesma região. Não houve criação/alteração de serviço remoto nessa consulta.
+Functions Gen 2 `initializePlayer` e `openPack` e o provider Angular usam `southamerica-east1`, igual à localização Firestore `(default)` confirmada por consulta somente leitura em `cardgame-6fdcb`. Backend mantém Node.js 22, TypeScript 5.9.3, Firebase Functions 7.4.0 e Admin SDK 14.5.0 em package/lock separados. Angular/Firebase Web SDK/Konva foram preservados; não há service account versionada.
 
-Backend: Node.js 22, TypeScript 5.9.3, Firebase Functions 7.4.0 e Admin SDK 14.5.0, com package/lock próprios. Angular 18, Firebase Web SDK e Konva foram preservados. Não há service account no repositório; a Function publicada utiliza identidade do ambiente gerenciado.
+## Localhost e publicação posterior
 
-## Executar isolado em localhost
+Use [o guia de pacotes](pacotes.md#localhost-isolado) para Auth/Firestore/Storage/Functions isolados em `demo-cardgame`, configuração do Starter Pack e o fluxo completo cadastro → lacrado → abertura → coleção. A proteção do environment continua recusando emuladores em produção, projeto real ou host fora de loopback.
 
-Instale dependências frontend/backend com `npm.cmd ci` e `npm.cmd --prefix functions ci`. Use Node.js 22, Firebase CLI e Java 21 compatíveis para os emuladores. Os runtimes portáteis usados nesta máquina estão descritos no [contexto operacional](contexto-operacional-para-ias.md), sem modificar o Node/Java do sistema.
-
-No environment de desenvolvimento, use `production: false`, `firebaseEmulators: true` e configuração pública de projeto `demo-`, como `demo-cardgame`; copie [o exemplo exclusivo de emuladores](config/environment.emulators.example.ts). Essa opção conecta Auth, Firestore, Storage e Functions somente em localhost/loopback. Produção ou projeto fora de `demo-` não aceita a opção, evitando mistura de serviços locais e reais. Por padrão, emuladores estão desabilitados.
-
-Para `demo-cardgame`, os campos locais podem usar esta configuração de teste, sem credenciais e sem projeto real:
-
-```ts
-export const environment = {
-  production: false,
-  firebaseEmulators: true,
-  firebase: {
-    apiKey: 'demo-api-key',
-    authDomain: 'demo-cardgame.firebaseapp.com',
-    projectId: 'demo-cardgame',
-    storageBucket: 'demo-cardgame.appspot.com',
-    appId: 'demo-cardgame'
-  }
-};
-```
-
-Esse bloco pertence somente a `environment.development.ts`. Preserve o environment de produção com emuladores desabilitados e os valores públicos do Web App real.
-
-Em um terminal, inicie:
-
-```powershell
-npm.cmd run emulators:start
-```
-
-Em outro terminal, execute `npm.cmd start`. A interface dos emuladores fica em `http://127.0.0.1:4000`; Auth usa 9099, Firestore 8080, Storage 9199 e Functions 5001, conforme `firebase.json`. Esses serviços são locais e isolados do Firebase remoto.
-
-1. Cadastre uma conta local pela aplicação. No Firestore do Emulator UI, promova somente o perfil dessa conta para `role: admin` e `roleId: admin`, preservando os outros campos. Isso é o bootstrap do admin local, sem mudar produção.
-2. Entre como admin, crie/salve cartas com status Publicada e confira suas previews. Copie os IDs reais dessas cartas da lista/rotas administrativas.
-3. No Firestore do Emulator UI, configure `starterCollections/default` conforme o contrato, com esses IDs, quantidades e Timestamp. Não crie players ou coleções manualmente para simular a concessão.
-4. Cadastre um member local, entre em `/game` e abra Coleção. Confira player/entradas no Emulator UI; repita o acesso e confirme quantidades inalteradas.
-
-Os scripts não importam nem populam dados remotos. Os emuladores são temporários; sem export/import explícito, reiniciá-los não preserva o inventário local.
-
-## Testes e pendências antes de deploy
-
-```powershell
-npm.cmd run build:functions
-npm.cmd run test:functions
-npm.cmd run test:functions:emulator
-npm.cmd run test:rules
-npm.cmd test -- --watch=false --browsers=ChromeHeadless
-npm.cmd run build -- --configuration production
-```
-
-`test:functions` verifica o domínio com store substituível; `test:functions:emulator` integra Callable/Auth/Firestore no projeto isolado `demo-cardgame`. Os testes de Rules continuam separados e incluem Storage. Resultados finais ficam no [contexto operacional](contexto-operacional-para-ias.md).
-
-**Não houve deploy nesta etapa.** Rules/Hosting publicados anteriormente não incluem o bootstrap novo. Antes de disponibilizá-lo no Firebase real, o proprietário precisa conferir plano/faturamento e serviços exigidos por Functions Gen 2, identidade/IAM de execução, região, providers/domínios Auth e configurar starter default com IDs reais. A publicação de Function, Rules e frontend exige escopo autorizado e verificação autenticada posterior em localhost/domínio. Sem Function disponível, o novo frontend apontado ao backend real informa falha de preparação.
-
-App Check, rate limiting, monitoramento e controles de abuso permanecem pendências explícitas; a idempotência não elimina custo de chamadas abusivas. Contadores reais na Home e leitura administrativa do status de inicialização ficaram como melhorias posteriores. Não há ação de reset/regrant; futuras operações de valor precisam da mesma autoridade e validação backend. Veja [riscos e dívidas](riscos-e-dividas-tecnicas.md).
+**Publicação autorizada conferida em 13/10/2026:** `initializePlayer` e `openPack` estão ACTIVE em Node.js 22, Rules remotas coincidem com o arquivo local e `deckfall.web.app` entrega o build com administração de pacotes. Esse domínio foi adicionado ao Auth preservando os anteriores; CORS Storage não precisou de alteração. Nenhuma carta, configuração StarterPack ou concessão foi criada por essa publicação. Até o administrador publicar suas cartas e criar/ativar o inicial, o gate continua fechado com orientação e retry. [Pacotes](pacotes.md#publicação-posterior) registra o escopo verificado; [riscos](riscos-e-dividas-tecnicas.md) distingue configuração restante, sessão real, App Check e abuso.

@@ -3,13 +3,16 @@ import { Card } from '../../../../model/interfaces/Cards/card';
 import { CARD_CANVAS_CONFIG } from '../../../../model/interfaces/Cards/card-canvas';
 import { PublishedCardStorageService } from '../../../../model/services/fire/published-card-storage.service';
 
+/** Published PNG needs only identity/name; pack snapshots never contain editor data. */
+export type PlayerCardPreviewInput = Pick<Card, 'id' | 'name'> & { canvas?: Pick<NonNullable<Card['canvas']>, 'width' | 'height'> };
+
 @Component({
   selector: 'app-player-card-preview', standalone: true,
   templateUrl: './player-card-preview.component.html', styleUrl: './player-card-preview.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PlayerCardPreviewComponent implements AfterViewInit, OnChanges, OnDestroy {
-  @Input({ required: true }) card!: Card;
+  @Input({ required: true }) card!: PlayerCardPreviewInput;
   @ViewChild('frame', { static: true }) private frame!: ElementRef<HTMLDivElement>;
   private readonly storage = inject(PublishedCardStorageService);
   private observer?: IntersectionObserver;

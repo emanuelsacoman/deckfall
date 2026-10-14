@@ -4,6 +4,7 @@ import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { createFirestoreBootstrapStore } from './firestore-bootstrap-store';
 import { initializePlayerOperation, PlayerBootstrapError } from './player-bootstrap';
+import { openPackOperation } from './open-pack';
 import { PLAYER_FUNCTIONS_REGION } from './config';
 
 const app = getApps()[0] ?? initializeApp();
@@ -15,12 +16,29 @@ export const initializePlayer = onCall(
     try {
       return await initializePlayerOperation(request, store);
     } catch (error: unknown) {
-      if (error instanceof PlayerBootstrapError) throw new HttpsError(error.code, error.message);
+      if (error instanceof PlayerBootstrapError) throw new HttpsError(error.code, error.message,
+        error.reason === 'starter-not-configured' ? { reason: error.reason } : undefined);
       // Do not expose SDK internals, identity data, or administrative documents.
       logger.error('initializePlayer transaction failed.', {
         name: error instanceof Error ? error.name : 'UnknownError'
       });
       throw new HttpsError('internal', 'Não foi possível preparar sua jornada. Tente novamente.');
+    }
+  }
+);
+
+export const openPack = onCall(
+  { region: PLAYER_FUNCTIONS_REGION, timeoutSeconds: 30, memory: '256MiB' },
+  async request => {
+    try {
+      return await openPackOperation(request, store);
+    } catch (error: unknown) {
+      if (error instanceof PlayerBootstrapError) throw new HttpsError(error.code, error.message,
+        error.reason === 'starter-not-configured' ? { reason: error.reason } : undefined);
+      logger.error('openPack transaction failed.', {
+        name: error instanceof Error ? error.name : 'UnknownError'
+      });
+      throw new HttpsError('internal', 'Não foi possível confirmar a abertura. Tente novamente para recuperar o resultado.');
     }
   }
 );

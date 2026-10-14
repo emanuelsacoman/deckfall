@@ -17,7 +17,7 @@ describe('GameLayoutComponent session lifecycle', () => {
   beforeEach(() => {
     currentUser = signal<AuthSession | null | undefined>(member);
     logout = jasmine.createSpy('logout').and.resolveTo();
-    initialize = jasmine.createSpy('initialize').and.resolveTo({ initialized: true, alreadyInitialized: false, cardsGranted: 3 });
+    initialize = jasmine.createSpy('initialize').and.resolveTo({ initialized: true, alreadyInitialized: false, starterPackGranted: true, starterPackInstanceId: 'starter' });
     TestBed.configureTestingModule({
       imports: [GameLayoutComponent],
       providers: [provideRouter([]), { provide: PLAYER_INITIALIZATION_CLIENT, useValue: { initialize } }, {
@@ -50,7 +50,7 @@ describe('GameLayoutComponent session lifecycle', () => {
     expect(fixture.nativeElement.querySelector('router-outlet')).toBeNull();
     expect(fixture.nativeElement.querySelector('a[href="/login"]')?.textContent).toContain('Gerenciar minha conta');
     expect(fixture.nativeElement.querySelector('button.logout')).not.toBeNull();
-    finish({ initialized: true, alreadyInitialized: false, cardsGranted: 3 });
+    finish({ initialized: true, alreadyInitialized: false, starterPackGranted: true, starterPackInstanceId: 'starter' });
     await TestBed.inject(PlayerInitializationService).initialize();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
@@ -64,16 +64,24 @@ describe('GameLayoutComponent session lifecycle', () => {
     fixture.detectChanges();
     await TestBed.inject(PlayerInitializationService).initialize();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('coleção inicial');
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('Starter Pack');
     expect(fixture.nativeElement.querySelector('router-outlet')).toBeNull();
     expect(fixture.nativeElement.querySelector('a[href="/admin"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('a[href="/login"]')).not.toBeNull();
-    initialize.and.resolveTo({ initialized: true, alreadyInitialized: true, cardsGranted: 0 });
+    expect(fixture.nativeElement.querySelector('a[href="/admin/pacotes"]')?.textContent).toContain('Configurar pacotes');
+    initialize.and.resolveTo({ initialized: true, alreadyInitialized: true, starterPackGranted: false, starterPackInstanceId: 'starter' });
     fixture.nativeElement.querySelector('.journey-error button').click();
     await TestBed.inject(PlayerInitializationService).initialize();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
     expect(initialize).toHaveBeenCalledTimes(2);
+  });
+
+  it('includes packages in the player menu', () => {
+    const fixture = TestBed.createComponent(GameLayoutComponent);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('nav a[href="/game/pacotes"]')?.textContent).toContain('Pacotes');
+    expect(fixture.nativeElement.querySelectorAll('nav a').length).toBe(6);
   });
 
   it('does not repeat bootstrap during ordinary navigation or profile name changes', async () => {

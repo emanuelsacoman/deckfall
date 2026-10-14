@@ -26,6 +26,16 @@ export const routes: Routes = [
         loadComponent: () => import('./view/game/collection/collection.component').then((m) => m.CollectionComponent),
       },
       {
+        path: 'pacotes',
+        title: 'Meus pacotes | Deckfall',
+        loadComponent: () => import('./view/game/packs/packs.component').then((m) => m.PacksComponent),
+      },
+      {
+        path: 'pacotes/abrir/:id',
+        title: 'Abrir pacote | Deckfall',
+        loadComponent: () => import('./view/game/packs/open-pack/open-pack.component').then((m) => m.OpenPackComponent),
+      },
+      {
         path: 'decks',
         title: 'Meus decks | Deckfall',
         loadComponent: () => import('./view/game/decks/decks.component').then((m) => m.DecksComponent),
@@ -53,6 +63,11 @@ export const routes: Routes = [
         path: 'dashboard',
         title: 'Painel | Deckfall',
         loadComponent: () => import('./view/admin/admin-components/dashboard/dashboard.component').then((m) => m.DashboardComponent),
+      },
+      {
+        path: 'pacotes',
+        title: 'Gerenciar pacotes | Deckfall',
+        loadComponent: () => import('./view/admin/admin-components/packs/pack-admin.component').then((m) => m.PackAdminComponent),
       },
       { path: 'cartas', pathMatch: 'full', redirectTo: 'cartas/lista' },
       {

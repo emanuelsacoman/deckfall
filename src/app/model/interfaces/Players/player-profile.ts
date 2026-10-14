@@ -6,14 +6,15 @@ export interface PlayerProfile {
   updatedAt: Timestamp;
   starterGrantedAt: Timestamp | null;
   starterVersion?: number;
+  starterPackInstanceId?: string;
 }
 
 /** Only the UX result of the trusted initializePlayer operation. */
 export interface PlayerInitializationResult {
   initialized: true;
   alreadyInitialized: boolean;
-  /** Total copies added, not the number of different card IDs. */
-  cardsGranted: number;
+  starterPackGranted: boolean;
+  starterPackInstanceId: string;
 }
 
 export type PlayerInitializationStatus = 'idle' | 'preparing' | 'ready' | 'error';

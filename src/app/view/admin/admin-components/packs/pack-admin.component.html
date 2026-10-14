@@ -1,0 +1,110 @@
+<header class="page-header">
+  <div><p class="eyebrow">Administração</p><h1>Pacotes</h1><p class="muted">Defina o conteúdo dos pacotes e prepare a chegada dos jogadores.</p></div>
+  <div class="actions">
+    <button class="button secondary" type="button" (click)="load()" [disabled]="loading() || saving()">Atualizar</button>
+    <button class="button secondary" type="button" (click)="configureStarter()" [disabled]="loading() || saving() || !!loadError()">Configurar StarterPack</button>
+    <button class="button" type="button" (click)="startCreate()" [disabled]="loading() || saving() || !!loadError()">Criar pacote</button>
+  </div>
+</header>
+
+@if (feedback()) { <p class="notice success" role="status">{{ feedback() }}</p> }
+@if (loadError()) {
+  <div class="notice error" role="alert"><p>{{ loadError() }}</p><button class="button secondary" type="button" (click)="load()">Tentar novamente</button></div>
+}
+@if (loading()) {
+  <p class="notice" role="status">Carregando pacotes e cartas publicadas…</p>
+} @else if (!loadError()) {
+  @if (!starter() || !starter()?.active) {
+    <section class="notice starter-notice" aria-label="Configuração inicial dos jogadores">
+      <strong>{{ starter() ? 'O StarterPack está desativado.' : 'Configure o StarterPack dos novos jogadores.' }}</strong>
+      <p>O nome StarterPack é reservado ao pacote inicial. Escolha cartas publicadas, salve seu conteúdo e ative o pacote para habilitar novas concessões.</p>
+      <button class="button secondary" type="button" (click)="configureStarter()" [disabled]="saving()">{{ starter() ? 'Gerenciar StarterPack' : 'Configurar StarterPack' }}</button>
+    </section>
+  }
+  @if (!publishedCards().length) {
+    <section class="notice" aria-label="Catálogo necessário">
+      <strong>Nenhuma carta publicada disponível</strong>
+      <p>Crie ou revise uma carta e salve com o status Publicada. Depois, atualize esta página para montar o conteúdo dos pacotes.</p>
+      <div class="actions"><a class="button" routerLink="/admin/cartas/criar">Criar carta</a><a class="button secondary" routerLink="/admin/cartas/lista">Ver catálogo</a></div>
+    </section>
+  }
+  <div class="pack-workspace" [class.editing]="!!mode()">
+    <section class="panel pack-list" aria-label="Pacotes cadastrados">
+      <h2>Pacotes cadastrados</h2>
+      @if (!packs().length) {
+        <p class="muted">Nenhum pacote criado. Comece pelo StarterPack ou crie uma definição para uso futuro.</p>
+      } @else {
+        @for (pack of packs(); track pack.id) {
+          <article class="pack-list-item" [class.selected]="selected()?.id === pack.id">
+            <div class="pack-heading"><h3>{{ pack.id === 'starter' ? starterName : pack.name }}</h3><span class="badge" [class.inactive]="!pack.active">{{ pack.active ? 'Ativo' : 'Desativado' }}</span></div>
+            @if (pack.id === 'starter') { <p class="starter-label">Pacote inicial dos jogadores</p> }
+            <p class="muted pack-description">{{ pack.description || 'Sem descrição' }}</p>
+            <div class="pack-bottom"><span class="muted">Versão atual {{ pack.currentVersion }}</span><button class="button secondary" type="button" (click)="select(pack)" [disabled]="saving()" [attr.aria-label]="'Gerenciar ' + pack.name">Gerenciar</button></div>
+          </article>
+        }
+      }
+      <p class="muted catalog-note">Outros pacotes ficam no catálogo administrativo. A concessão automática atual usa somente o StarterPack.</p>
+    </section>
+    @if (mode()) {
+      <section class="panel pack-editor" aria-label="Editor do pacote">
+        <div class="editor-heading"><h2>{{ mode() === 'edit' ? 'Gerenciar pacote' : (isStarter() ? 'Configurar StarterPack' : 'Criar pacote') }}</h2><button class="button secondary" type="button" (click)="cancel()" [disabled]="saving()">Fechar</button></div>
+        @if (operationError()) { <div class="notice error" role="alert"><p>{{ operationError() }}</p><button class="button secondary" type="button" (click)="load()" [disabled]="saving()">Recarregar dados</button></div> }
+        <form [formGroup]="form" (ngSubmit)="save()">
+          <fieldset [disabled]="saving() || addingVersion()">
+            <label for="pack-name">Nome</label>
+            <input id="pack-name" formControlName="name" [maxlength]="limits.name" [readonly]="isStarter()" [attr.aria-describedby]="isStarter() ? 'starter-name-help' : 'pack-name-help'">
+            @if (isStarter()) { <p id="starter-name-help" class="field-help">StarterPack é o nome exclusivo do pacote inicial concedido uma vez por jogador.</p> }
+            @else { <p id="pack-name-help" class="field-help">Até {{ limits.name }} caracteres. StarterPack e suas variações são reservados.</p> }
+            <label for="pack-description">Descrição</label>
+            <textarea id="pack-description" formControlName="description" rows="3" [maxlength]="limits.description"></textarea>
+            <label class="checkbox-label"><input type="checkbox" formControlName="active"> Ativo para futuras concessões</label>
+            @if (mode() !== 'edit') {
+              <h3>Conteúdo da versão 1</h3>
+              <ng-container [ngTemplateOutlet]="contentEditor" />
+            }
+            <button class="button" type="submit" [disabled]="saving() || (mode() !== 'edit' && !publishedCards().length)">{{ saving() ? 'Salvando…' : (mode() === 'edit' ? 'Salvar informações' : 'Criar pacote e versão 1') }}</button>
+          </fieldset>
+        </form>
+        @if (mode() === 'edit') {
+          <section class="versions" aria-label="Versões do pacote">
+            <div class="editor-heading"><h3>Conteúdo e versões</h3><button class="button secondary" type="button" (click)="beginVersion()" [disabled]="saving() || versionsLoading() || !!versionsError() || !currentVersion() || addingVersion() || !publishedCards().length || selected()!.currentVersion >= limits.version">Criar próxima versão</button></div>
+            <p class="field-help">Cada versão é imutável. Uma nova versão vale para futuras concessões; pacotes já entregues conservam seu conteúdo original.</p>
+            @if (versionsLoading()) { <p class="notice" role="status">Carregando versões…</p> }
+            @else if (versionsError()) { <div class="notice error" role="alert"><p>{{ versionsError() }}</p><button class="button secondary" type="button" (click)="loadVersions()">Tentar novamente</button></div> }
+            @else {
+              @if (addingVersion()) {
+                <fieldset class="new-version" [disabled]="saving()">
+                  <h4>Nova versão {{ selected()!.currentVersion + 1 }}</h4>
+                  <ng-container [ngTemplateOutlet]="contentEditor" />
+                  <div class="actions"><button class="button" type="button" (click)="saveVersion()" [disabled]="saving()">{{ saving() ? 'Salvando…' : 'Criar versão e usar nas próximas concessões' }}</button><button class="button secondary" type="button" (click)="cancelVersion()" [disabled]="saving()">Cancelar nova versão</button></div>
+                </fieldset>
+              }
+              @if (!currentVersion()) { <p class="notice error">A versão atual não foi encontrada. Recarregue a lista e confira a configuração antes de ativar ou avançar este pacote.</p> }
+              @for (version of versions(); track version.version) {
+                <details class="version-record" [open]="version.version === selected()?.currentVersion">
+                  <summary>Versão {{ version.version }}{{ version.version === selected()?.currentVersion ? ' · Atual' : '' }} <span class="muted">— {{ version.createdAt.toDate() | date:'dd/MM/yyyy HH:mm' }}</span></summary>
+                  <ul class="version-content">@for (card of version.cards; track card.cardId) { <li><span>{{ cardName(card.cardId) }}</span><strong>×{{ card.quantity }}</strong></li> }</ul>
+                </details>
+              }
+            }
+          </section>
+        }
+      </section>
+    }
+  </div>
+}
+
+<ng-template #contentEditor>
+  <p class="field-help">Até {{ limits.cards }} cartas diferentes, com 1 a {{ limits.quantity }} cópias de cada carta.</p>
+  <div class="card-picker">
+    <label for="pack-card-picker">Adicionar carta publicada</label>
+    <div class="picker-controls"><select id="pack-card-picker" [formControl]="picker"><option value="">Escolha uma carta</option>@for (card of availableCards(); track card.id) { <option [value]="card.id">{{ card.name }} · {{ rarityLabels[card.rarity] }}</option> }</select><button class="button secondary" type="button" (click)="addCard()" [disabled]="saving() || !picker.value || content.length >= limits.cards">Adicionar</button></div>
+  </div>
+  @for (row of content.controls; track row; let index = $index) {
+    <div class="content-row" [formGroup]="row">
+      <div class="row-card"><strong>{{ cardName(row.controls.cardId.value) }}</strong>@if (!isPublished(row.controls.cardId.value)) { <span class="unavailable">Remova esta carta indisponível</span> }</div>
+      <label [for]="'pack-quantity-' + index">Quantidade<input [id]="'pack-quantity-' + index" type="number" formControlName="quantity" min="1" [max]="limits.quantity" step="1" [attr.aria-label]="'Quantidade de ' + cardName(row.controls.cardId.value)"></label>
+      <button class="button secondary" type="button" (click)="removeCard(index)" [disabled]="saving()" [attr.aria-label]="'Remover ' + cardName(row.controls.cardId.value)">Remover</button>
+    </div>
+  } @empty { <p class="muted">Adicione as cartas que compõem esta versão.</p> }
+</ng-template>

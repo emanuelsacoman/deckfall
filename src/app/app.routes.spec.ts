@@ -8,6 +8,8 @@ import { CardService } from './model/services/cruds/cards/card.service';
 import { CardStorageService } from './model/services/fire/card-storage.service';
 import { CardTemplateService } from './model/services/cruds/cards/card-template.service';
 import { PlayerCollectionService } from './model/services/cruds/collection/player-collection.service';
+import { PlayerPackService } from './model/services/cruds/packs/player-pack.service';
+import { PackDefinitionService } from './model/services/cruds/packs/pack-definition.service';
 import { AuthService } from './model/services/fire/auth.service';
 import { PLAYER_INITIALIZATION_CLIENT, PlayerInitializationService } from './model/services/fire/player-initialization.service';
 import { PlayerInitializationResult } from './model/interfaces/Players/player-profile';
@@ -20,17 +22,24 @@ describe('Navegação do jogador, administração e editor', () => {
   let login: jasmine.Spy;
   let initialize: jasmine.Spy;
   let listCollection: jasmine.Spy;
+  let getPack: jasmine.Spy;
   beforeEach(() => {
     currentUser.set({ uid: 'owner', email: 'owner@example.com', displayName: 'Emanuel', role: 'admin', roleId: 'admin' });
     login = jasmine.createSpy('login').and.callFake(async () => { currentUser.set(member); });
-    initialize = jasmine.createSpy('initialize').and.resolveTo({ initialized: true, alreadyInitialized: false, cardsGranted: 3 });
+    initialize = jasmine.createSpy('initialize').and.resolveTo({ initialized: true, alreadyInitialized: false, starterPackGranted: true, starterPackInstanceId: 'starter' });
     listCollection = jasmine.createSpy('listCurrentUser').and.resolveTo([]);
+    getPack = jasmine.createSpy('getCurrentUser').and.resolveTo(null);
     TestBed.configureTestingModule({ providers: [
       provideRouter(routes),
-      { provide: CardService, useValue: {} },
+      { provide: CardService, useValue: { list: jasmine.createSpy('listCards').and.resolveTo([]) } },
+      { provide: PackDefinitionService, useValue: { list: jasmine.createSpy('listPackDefinitions').and.resolveTo([]) } },
       { provide: CardStorageService, useValue: {} },
       { provide: CardTemplateService, useValue: {} },
       { provide: PlayerCollectionService, useValue: { listCurrentUser: listCollection } },
+      { provide: PlayerPackService, useValue: {
+        listCurrentUser: jasmine.createSpy('listPacks').and.resolveTo([]), getCurrentUser: getPack,
+        openCurrentUser: jasmine.createSpy('openPack')
+      } },
       { provide: PLAYER_INITIALIZATION_CLIENT, useValue: { initialize } },
       { provide: AuthService, useValue: {
         currentUser, isAdmin: computed(() => currentUser()?.role === 'admin' && currentUser()?.roleId === 'admin'),
@@ -46,6 +55,27 @@ describe('Navegação do jogador, administração e editor', () => {
     const harness = await RouterTestingHarness.create('/admin');
     expect(TestBed.inject(Router).url).toBe('/admin/dashboard');
     expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Painel');
+  });
+
+  it('abre o gerenciador de pacotes pelo menu administrativo', async () => {
+    const harness = await RouterTestingHarness.create('/admin');
+    const link = harness.routeNativeElement?.querySelector<HTMLAnchorElement>('nav a[href="/admin/pacotes"]');
+    expect(link?.textContent).toContain('Gerenciar pacotes');
+    link!.click();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/admin/pacotes');
+    expect(TestBed.inject(Title).getTitle()).toBe('Gerenciar pacotes | Deckfall');
+    expect(harness.routeNativeElement?.querySelector('app-pack-admin')).not.toBeNull();
+    expect(harness.routeNativeElement?.textContent).toContain('Configurar StarterPack');
+  });
+
+  it('nega o gerenciador de pacotes a membros sem consultar suas definições', async () => {
+    currentUser.set(member);
+    const harness = await RouterTestingHarness.create('/admin/pacotes');
+    expect(TestBed.inject(Router).url).toBe('/login?returnUrl=%2Fadmin%2Fpacotes');
+    expect(harness.routeNativeElement?.querySelector('app-pack-admin')).toBeNull();
+    expect(TestBed.inject(PackDefinitionService).list).not.toHaveBeenCalled();
   });
 
   it('abre o editor visual nas rotas existentes de criação', async () => {
@@ -81,17 +111,18 @@ describe('Navegação do jogador, administração e editor', () => {
     const component = harness.routeDebugElement?.componentInstance as LoginComponent;
     component.form.patchValue({ email: 'member@example.com', password: 'test-password' });
     await component.submit();
-    harness.detectChanges();
     expect(login).toHaveBeenCalledOnceWith('member@example.com', 'test-password');
+    expect(component.error()).toBeNull();
+    harness.detectChanges();
     expect(TestBed.inject(Router).url).toBe('/game/colecao');
     expect(TestBed.inject(Title).getTitle()).toBe('Minha coleção | Deckfall');
   });
 
-  it('navega pelas cinco páginas do jogador com links ativos e títulos', async () => {
+  it('navega pelas seis páginas do jogador com links ativos e títulos', async () => {
     currentUser.set(member);
     const harness = await RouterTestingHarness.create('/game');
     const destinations = [
-      ['home', 'Início'], ['colecao', 'Minha coleção'], ['decks', 'Meus decks'], ['jogar', 'Jogar'], ['perfil', 'Perfil']
+      ['home', 'Início'], ['colecao', 'Minha coleção'], ['pacotes', 'Meus pacotes'], ['decks', 'Meus decks'], ['jogar', 'Jogar'], ['perfil', 'Perfil']
     ];
     for (const [path, title] of destinations) {
       const link = harness.routeNativeElement?.querySelector<HTMLAnchorElement>(`nav a[href="/game/${path}"]`);
@@ -142,7 +173,7 @@ describe('Navegação do jogador, administração e editor', () => {
     expect(listCollection).not.toHaveBeenCalled();
     expect(harness.routeNativeElement?.querySelector('app-game-collection')).toBeNull();
     expect(harness.routeNativeElement?.textContent).toContain('Preparando sua jornada');
-    finish({ initialized: true, alreadyInitialized: false, cardsGranted: 3 });
+    finish({ initialized: true, alreadyInitialized: false, starterPackGranted: true, starterPackInstanceId: 'starter' });
     await TestBed.inject(PlayerInitializationService).initialize();
     harness.detectChanges();
     await harness.fixture.whenStable();
@@ -164,7 +195,7 @@ describe('Navegação do jogador, administração e editor', () => {
     expect(harness.routeNativeElement?.querySelector('app-game-collection')).toBeNull();
     expect(listCollection).not.toHaveBeenCalled();
     expect(harness.routeNativeElement?.textContent).toContain('Não foi possível preparar sua jornada');
-    initialize.and.resolveTo({ initialized: true, alreadyInitialized: true, cardsGranted: 0 });
+    initialize.and.resolveTo({ initialized: true, alreadyInitialized: true, starterPackGranted: false, starterPackInstanceId: 'starter' });
     harness.routeNativeElement?.querySelector<HTMLButtonElement>('.journey-error button')?.click();
     await TestBed.inject(PlayerInitializationService).initialize();
     harness.detectChanges();
@@ -192,5 +223,23 @@ describe('Navegação do jogador, administração e editor', () => {
     currentUser.set(member);
     harness.detectChanges();
     expect(harness.routeNativeElement?.querySelector('a[href="/admin"]')).toBeNull();
+  });
+
+  it('preserva a rota dinâmica de abertura no login e consulta apenas o pack da sessão', async () => {
+    currentUser.set(null);
+    const harness = await RouterTestingHarness.create('/game/pacotes/abrir/starter');
+    expect(TestBed.inject(Router).url).toBe('/login?returnUrl=%2Fgame%2Fpacotes%2Fabrir%2Fstarter');
+    const component = harness.routeDebugElement?.componentInstance as LoginComponent;
+    component.form.patchValue({ email: 'member@example.com', password: 'test-password' });
+    await component.submit();
+    expect(login).toHaveBeenCalledOnceWith('member@example.com', 'test-password');
+    expect(component.error()).toBeNull();
+    harness.detectChanges();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/game/pacotes/abrir/starter');
+    expect(TestBed.inject(Title).getTitle()).toBe('Abrir pacote | Deckfall');
+    expect(getPack).toHaveBeenCalledWith('starter');
+    expect(TestBed.inject(PlayerPackService).openCurrentUser).not.toHaveBeenCalled();
   });
 });

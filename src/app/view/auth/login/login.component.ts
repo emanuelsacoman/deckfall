@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../model/services/fire/auth.service';
-import { AuthSession, isAdminSession, isAuthenticatedSession } from '../../../model/interfaces/Auth/auth-session';
+import { isAdminSession, isAuthenticatedSession } from '../../../model/interfaces/Auth/auth-session';
+import { validAuthReturnUrl } from '../../../model/routing/auth-return-url';
 
 @Component({
   selector: 'app-login',
@@ -139,27 +140,10 @@ export class LoginComponent {
   private async navigateAfterSignIn(): Promise<void> {
     const user = this.auth.currentUser();
     if (!isAuthenticatedSession(user)) return;
-    const returnUrl = this.validReturnUrl(user);
+    const returnUrl = validAuthReturnUrl(this.router, this.route.snapshot.queryParamMap.get('returnUrl'), user);
     await this.router.navigateByUrl(returnUrl ?? (isAdminSession(user) ? '/admin/dashboard' : '/game/home'));
   }
 
-  private validReturnUrl(user: AuthSession): string | null {
-    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
-    if (!returnUrl || !returnUrl.startsWith('/') || returnUrl.startsWith('//') || /[\\\u0000-\u0020]/.test(returnUrl)) return null;
-    try {
-      const tree = this.router.parseUrl(returnUrl);
-      const primary = tree.root.children['primary'];
-      if (!primary || Object.keys(tree.root.children).some(outlet => outlet !== 'primary') || Object.keys(primary.children).length) return null;
-      const segments = primary.segments.map(segment => segment.path);
-      if (segments.some(segment => segment === '.' || segment === '..' || /[\\/]/.test(segment))) return null;
-      const path = segments.join('/').replace(/\/$/, '');
-      const gamePath = /^game(?:\/(?:home|colecao|decks|jogar|perfil))?$/.test(path);
-      const adminPath = /^admin(?:\/(?:dashboard|cartas(?:\/(?:lista|criar|editar\/[^/]+))?|usuarios(?:\/(?:lista|criar|editar\/[^/]+))?))?$/.test(path);
-      return gamePath || (adminPath && isAdminSession(user)) ? returnUrl : null;
-    } catch {
-      return null;
-    }
-  }
 }
 
 function matchingPasswords(control: AbstractControl): ValidationErrors | null {
