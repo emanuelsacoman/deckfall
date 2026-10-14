@@ -1,11 +1,11 @@
-:host { display: block; }
+:host { display: block; min-width: 0; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
-form .field + .field { margin-top: 1.25rem; }
-.profile-info { margin-bottom: 1.5rem; }
-dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-bottom: 0; }
+form .field + .field { margin-top: var(--deck-space-5); }
+.profile-info { margin-bottom: var(--deck-space-5); }
+dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--deck-space-4); margin-bottom: 0; }
 dt { color: var(--text-muted); font-size: .85rem; }
 dd { margin: .35rem 0 0; overflow-wrap: anywhere; }
 .uid { font-family: ui-monospace, monospace; font-size: .9rem; }
-.form-actions { margin-top: 1.75rem; }
+.form-actions { margin-top: var(--deck-space-6); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 560px) { dl { grid-template-columns: 1fr; } }

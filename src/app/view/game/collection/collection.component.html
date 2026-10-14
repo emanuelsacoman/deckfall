@@ -9,7 +9,7 @@
 </header>
 
 <section class="game-panel collection-tools" aria-labelledby="collection-tools-title">
-  <div class="tools-heading"><h2 id="collection-tools-title">Explore suas cartas</h2><button class="refresh-collection" type="button" (click)="loadCollection()" [disabled]="loading()">Atualizar coleção</button></div>
+  <div class="tools-heading"><h2 id="collection-tools-title">Explore suas cartas</h2><button class="game-link subtle refresh-collection" type="button" (click)="loadCollection()" [disabled]="loading()">Atualizar coleção</button></div>
   <div class="search-field">
     <label for="collection-search">Buscar carta</label>
     <div class="search-input">
@@ -20,18 +20,18 @@
   <fieldset [disabled]="loading() || !!error()">
     <legend>Raridade</legend>
     <div class="rarity-options">
-      <button type="button" [class.selected]="rarity() === null" [attr.aria-pressed]="rarity() === null" (click)="rarity.set(null)">Todas</button>
+      <button class="game-link subtle" type="button" [class.selected]="rarity() === null" [attr.aria-pressed]="rarity() === null" (click)="rarity.set(null)">Todas</button>
       @for (option of rarities; track option) {
-        <button type="button" [class.selected]="rarity() === option" [attr.aria-pressed]="rarity() === option" (click)="rarity.set(option)"><span [class]="'rarity-dot ' + option" aria-hidden="true"></span>{{ rarityLabels[option] }}</button>
+        <button class="game-link subtle" type="button" [class.selected]="rarity() === option" [attr.aria-pressed]="rarity() === option" (click)="rarity.set(option)"><span [class]="'rarity-dot ' + option" aria-hidden="true"></span>{{ rarityLabels[option] }}</button>
       }
     </div>
   </fieldset>
 </section>
 
 @if (loading()) {
-  <section class="game-panel collection-state" role="status"><span class="loading-mark" aria-hidden="true"></span><p>Carregando sua coleção…</p></section>
+  <section class="game-panel empty-state game-status collection-state" role="status" aria-live="polite" aria-busy="true"><span class="loading-mark" aria-hidden="true"></span><p>Carregando sua coleção…</p></section>
 } @else if (error()) {
-  <section class="game-panel collection-state" role="alert"><h2>Não foi possível abrir a coleção</h2><p>{{ error() }}</p><button type="button" (click)="loadCollection()">Tentar novamente</button></section>
+  <section class="game-panel empty-state game-status error collection-state" role="alert"><h2>Não foi possível abrir a coleção</h2><p>{{ error() }}</p><button class="game-link" type="button" (click)="loadCollection()">Tentar novamente</button></section>
 } @else {
   @if (unavailableCount()) {
     <p class="unavailable-notice" role="status">{{ unavailableCount() }} {{ unavailableCount() === 1 ? 'carta indisponível' : 'cartas indisponíveis' }}. Cartas que deixaram de estar publicadas não podem ser exibidas.</p>
@@ -42,15 +42,15 @@
       <h2 id="collection-empty-title">Sua coleção está vazia.</h2><p>As cartas concedidas à sua conta aparecerão aqui.</p>
     </section>
   } @else if (!availableCards().length) {
-    <section class="game-panel collection-state"><h2>Nenhuma carta disponível para exibir</h2><p>As cartas da sua coleção continuam registradas. Tente atualizar a coleção mais tarde.</p></section>
+    <section class="game-panel empty-state collection-state"><h2>Nenhuma carta disponível para exibir</h2><p>As cartas da sua coleção continuam registradas. Tente atualizar a coleção mais tarde.</p></section>
   } @else if (!filteredCards().length) {
-    <section class="game-panel collection-state"><h2>Nenhuma carta encontrada</h2><p>Experimente outro nome ou raridade.</p><button type="button" (click)="clearFilters()">Limpar filtros</button></section>
+    <section class="game-panel empty-state collection-state"><h2>Nenhuma carta encontrada</h2><p>Experimente outro nome ou raridade.</p><button class="game-link subtle" type="button" (click)="clearFilters()">Limpar filtros</button></section>
   } @else {
     <p class="results-count" role="status">{{ filteredCards().length }} {{ filteredCards().length === 1 ? 'carta encontrada' : 'cartas encontradas' }}</p>
     <section class="collection-grid" aria-label="Cartas da sua coleção">
       @for (owned of filteredCards(); track owned.collection.cardId) {
         @if (owned.card; as card) {
-          <article class="owned-card" [attr.data-card-id]="card.id">
+          <article class="game-panel owned-card" [attr.data-card-id]="card.id">
             <app-player-card-preview [card]="card" />
             <div class="owned-card-info"><h2>{{ card.name }}</h2><span class="owned-quantity" [attr.aria-label]="owned.collection.quantity + ' cópias possuídas'">x{{ owned.collection.quantity }}</span><p [class]="'owned-rarity rarity-' + card.rarity">{{ rarityLabels[card.rarity] }}</p></div>
           </article>
@@ -60,4 +60,4 @@
   }
 }
 
-<div class="page-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10v1" /></svg><p>As cartas desta versão são concedidas pela administração. Decks e partidas continuam em desenvolvimento.</p></div>
+<div class="page-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10v1" /></svg><p>As cartas dos pacotes abertos e as concedidas pela administração aparecem nesta coleção. Decks e partidas continuam em desenvolvimento.</p></div>

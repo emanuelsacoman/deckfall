@@ -1,10 +1,11 @@
-.quick-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+:host { display: block; min-width: 0; }
+.quick-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--deck-space-5); }
 .quick-action { display: block; text-decoration: none; color: var(--text); transition: border-color .15s; }
 .quick-action:hover { border-color: var(--primary); }
-.action-symbol { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 8px; color: var(--primary); background: #e8eefb; font-size: 1.5rem; margin-bottom: 1rem; }
+.action-symbol { display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--deck-radius-md); color: var(--primary); background: var(--background); font-size: 1.5rem; margin-bottom: var(--deck-space-4); }
 .quick-action h2 { font-size: 1.2rem; }
-.action-link { display: inline-block; margin-top: .75rem; color: var(--primary); font-weight: 600; }
-.foundation-note { margin-top: 1.25rem; }
+.action-link { display: inline-block; margin-top: var(--deck-space-3); color: var(--primary); font-weight: 600; }
+.foundation-note { margin-top: var(--deck-space-5); }
 .foundation-note h2 { font-size: 1rem; }
 .foundation-note p { margin-bottom: 0; }
 @media (max-width: 560px) { .quick-actions { grid-template-columns: 1fr; } }

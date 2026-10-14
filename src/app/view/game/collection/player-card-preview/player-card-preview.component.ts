@@ -8,27 +8,33 @@ export type PlayerCardPreviewInput = Pick<Card, 'id' | 'name'> & { canvas?: Pick
 
 @Component({
   selector: 'app-player-card-preview', standalone: true,
-  templateUrl: './player-card-preview.component.html', styleUrl: './player-card-preview.component.css',
+  templateUrl: './player-card-preview.component.html', styleUrls: ['../../game-page.css', './player-card-preview.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PlayerCardPreviewComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input({ required: true }) card!: PlayerCardPreviewInput;
+  /** Optional cache owned by the current pack view; never shared across sessions. */
+  @Input() previewCache?: Map<string, Promise<Blob>>;
   @ViewChild('frame', { static: true }) private frame!: ElementRef<HTMLDivElement>;
   private readonly storage = inject(PublishedCardStorageService);
   private observer?: IntersectionObserver;
   private visible = false;
   private destroyed = false;
   private version = 0;
+  private imageRequest?: Promise<Blob>;
+  private readonly loadedAspectRatio = signal<string | null>(null);
   readonly url = signal('');
   readonly loading = signal(false);
   readonly error = signal('');
 
   get aspectRatio(): string {
-    return `${this.card.canvas?.width ?? CARD_CANVAS_CONFIG.width} / ${this.card.canvas?.height ?? CARD_CANVAS_CONFIG.height}`;
+    return this.loadedAspectRatio() ?? `${this.card.canvas?.width ?? CARD_CANVAS_CONFIG.width} / ${this.card.canvas?.height ?? CARD_CANVAS_CONFIG.height}`;
   }
 
   ngOnChanges(): void {
     ++this.version;
+    this.imageRequest = undefined;
+    this.loadedAspectRatio.set(null);
     this.releaseUrl();
     this.error.set('');
     this.loading.set(false);
@@ -54,21 +60,41 @@ export class PlayerCardPreviewComponent implements AfterViewInit, OnChanges, OnD
     if (this.destroyed || !this.visible || this.loading()) return;
     const version = ++this.version;
     const cardId = this.card.id;
+    const cache = this.previewCache;
+    let request: Promise<Blob> | undefined;
     this.loading.set(true);
     this.error.set('');
     try {
-      const blob = await this.storage.getPreviewBlob(cardId);
+      request = cache?.get(cardId);
+      if (!request) {
+        request = this.storage.getPreviewBlob(cardId);
+        cache?.set(cardId, request);
+      }
+      const blob = await request;
       if (!this.isCurrent(version)) return;
       this.releaseUrl();
+      this.imageRequest = request;
       this.url.set(URL.createObjectURL(blob));
     } catch {
+      if (request && cache?.get(cardId) === request) cache.delete(cardId);
       if (this.isCurrent(version)) this.error.set('A imagem publicada não está disponível. Tente novamente.');
     } finally {
       if (this.isCurrent(version)) this.loading.set(false);
     }
   }
 
+  imageLoaded(event: Event): void {
+    const image = event.target as HTMLImageElement;
+    if (image.currentSrc !== this.url() && image.src !== this.url()) return;
+    if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+      this.loadedAspectRatio.set(`${image.naturalWidth} / ${image.naturalHeight}`);
+    }
+  }
+
   imageFailed(): void {
+    if (this.imageRequest && this.previewCache?.get(this.card.id) === this.imageRequest) this.previewCache.delete(this.card.id);
+    this.imageRequest = undefined;
+    this.loadedAspectRatio.set(null);
     this.releaseUrl();
     this.error.set('Não foi possível exibir a carta. Tente novamente.');
   }
@@ -77,6 +103,7 @@ export class PlayerCardPreviewComponent implements AfterViewInit, OnChanges, OnD
     this.destroyed = true;
     ++this.version;
     this.observer?.disconnect();
+    this.imageRequest = undefined;
     this.releaseUrl();
   }
 

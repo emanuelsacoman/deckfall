@@ -1,10 +1,15 @@
-:host { display: block; width: min(100%, 230px); margin: auto; }
-.pack-shell { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6rem; aspect-ratio: 2 / 3; padding: 2rem 1rem; overflow: hidden; border: 1px solid #aa915b; border-radius: 5px; background: repeating-linear-gradient(60deg, transparent 0 11px, #d8bf7610 12px 13px), radial-gradient(ellipse at 50% 30%, #4d5131, #172a24 75%); box-shadow: 0 20px 45px #0005, inset 0 0 30px #0004; color: #e2c486; text-align: center; }
-.pack-shell::before, .pack-shell::after { content: ''; position: absolute; left: 0; right: 0; height: 12px; background: repeating-linear-gradient(90deg, #ac9756 0 2px, #45513b 3px 5px); }
+:host { display: block; width: min(100%, var(--deck-pack-width, 230px)); min-width: 0; margin: auto; }
+.pack-shell { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(.55rem, 2vw, 1.5rem); aspect-ratio: 2 / 3; padding: 12% 8%; overflow: clip; border: 1px solid #aa915b; border-radius: var(--deck-radius-sm, 6px); background: repeating-linear-gradient(60deg, transparent 0 11px, #d8bf760b 12px 13px), radial-gradient(ellipse at 50% 30%, #4d5131, #172a24 75%); box-shadow: 0 16px 32px #0004, inset 0 0 24px #0004; color: var(--deck-gold, #e1ba70); text-align: center; isolation: isolate; }
+.pack-shell::before, .pack-shell::after { content: ''; position: absolute; left: 0; right: 0; height: 4%; background: repeating-linear-gradient(90deg, #ac9756 0 2px, #45513b 3px 5px); }
 .pack-shell::before { top: 0; } .pack-shell::after { bottom: 0; }
-.pack-edge { position: absolute; inset: 22px 12px; border: 1px solid #c8b37670; border-radius: 2px; pointer-events: none; }
-.pack-brand { font: .8rem Georgia, serif; letter-spacing: .24em; }
-.pack-emblem { display: grid; place-items: center; width: 74px; height: 74px; border: 1px solid #d6b871; transform: rotate(45deg); outline: 1px solid #d6b87150; outline-offset: 9px; background: #1b2d22c0; }
-.pack-emblem span { transform: rotate(-45deg); font: 3rem Georgia, serif; }
-.pack-name { font: .9rem Georgia, serif; letter-spacing: .12em; }
-.pack-seal { font-size: .55rem; color: #b7c4a6; }
+.pack-foil { position: absolute; z-index: -1; inset: 0; background: linear-gradient(110deg, transparent 15%, #e4d19512 29%, transparent 42%, #5b756116 65%, transparent 85%); pointer-events: none; }
+.pack-edge { position: absolute; inset: 7% 5%; border: 1px solid #c8b37670; border-radius: 2px; pointer-events: none; }
+.pack-edge::after { content: ''; position: absolute; inset: 4px; border: 1px solid #c8b37624; }
+.pack-corner { position: absolute; left: 50%; width: 24%; height: 8%; border: 1px solid #c8b37665; transform: translateX(-50%) rotate(45deg); pointer-events: none; }
+.pack-corner.top { top: -5%; } .pack-corner.bottom { bottom: -5%; }
+.pack-brand { font: 400 clamp(.55rem, 1.5vw, .8rem) Georgia, serif; letter-spacing: .19em; }
+.pack-emblem { display: grid; place-items: center; width: 32%; aspect-ratio: 1; border: 1px solid #d6b871; transform: rotate(45deg); outline: 1px solid #d6b87150; outline-offset: 5px; background: #1b2d22c0; }
+.pack-emblem span { transform: rotate(-45deg); font: 700 clamp(1.4rem, 3.5vw, 3rem) Georgia, serif; }
+.pack-name { font: 400 clamp(.6rem, 1.6vw, .9rem) Georgia, serif; letter-spacing: .1em; }
+.pack-wax-seal { display: grid; place-items: center; width: 15%; aspect-ratio: 1; border: 1px solid #b19a6260; border-radius: 50%; background: radial-gradient(circle, #64563a, #2f3828); box-shadow: inset 0 0 0 3px #15231c55; color: #dfca93; font-size: clamp(.55rem, 1.3vw, .8rem); }
+.pack-seal { font-size: clamp(.5rem, 1.3vw, .6rem); line-height: 1.3; color: #b7c4a6; }

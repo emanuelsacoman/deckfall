@@ -1,4 +1,5 @@
 :host {
   display: block;
-  min-height: 100vh;
+  min-width: 0;
+  min-height: var(--deck-viewport-height, 100vh);
 }

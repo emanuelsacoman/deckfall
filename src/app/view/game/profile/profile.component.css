@@ -1,21 +1,28 @@
-.profile-panel { overflow: hidden; }
-.profile-banner { position: relative; height: 125px; overflow: hidden; border-bottom: 1px solid #47523b; background: repeating-linear-gradient(135deg, transparent, transparent 28px, #a7ad7610 28px, #a7ad7610 29px), linear-gradient(120deg, #283a28, #3a3b26 65%, #243023); }
+.profile-banner { position: relative; height: 125px; overflow: hidden; border-bottom: 1px solid var(--deck-border-strong); border-radius: var(--deck-radius-lg) var(--deck-radius-lg) 0 0; background: repeating-linear-gradient(135deg, transparent, transparent 28px, #a7ad7610 28px, #a7ad7610 29px), linear-gradient(120deg, #283a28, #3a3b26 65%, #243023); }
 .profile-banner::before, .profile-banner::after { content: ''; position: absolute; right: 90px; top: -70px; width: 250px; height: 250px; border: 1px solid #c0be8422; transform: rotate(45deg); }
 .profile-banner::after { width: 190px; height: 190px; right: 120px; top: -40px; }
 .banner-emblem { position: absolute; right: 135px; top: 16px; width: 86px; height: 86px; display: grid; place-items: center; border: 1px solid #c0bd8055; border-radius: 50%; color: #d8ca8c66; font: 400 3.4rem Georgia, serif; }
-.profile-body { position: relative; padding: 0 2rem 1.75rem; }
-.profile-identity { display: flex; align-items: flex-end; gap: 1rem; margin-top: -30px; }
-.profile-avatar { display: grid; place-items: center; width: 76px; height: 76px; flex-shrink: 0; border-radius: 50%; border: 5px solid var(--surface); outline: 1px solid #536045; background: #394934; color: #e3e6c9; font: 400 2rem Georgia, serif; }
-.profile-identity h2 { margin: 0 0 .4rem; font: 400 1.7rem Georgia, serif; overflow-wrap: anywhere; }
-.role-label { color: #c3ccae; font-size: .7rem; }
-.profile-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; margin: 2rem 0; }
+.profile-body { position: relative; padding: 0 var(--deck-space-6) var(--deck-space-5); }
+.profile-identity { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--deck-space-4); margin-top: -30px; }
+.profile-identity > div { flex: 1 1 180px; min-width: 0; }
+.profile-avatar { display: grid; place-items: center; width: 76px; height: 76px; flex-shrink: 0; border-radius: 50%; border: 5px solid var(--deck-surface); outline: 1px solid var(--deck-border-strong); background: var(--deck-surface-hover); color: var(--deck-text); font: 400 2rem Georgia, serif; }
+.profile-identity h2 { margin: 0 0 var(--deck-space-2); font: 400 clamp(1.5rem, 2.6vw, 1.7rem)/1.25 Georgia, serif; overflow-wrap: anywhere; }
+.role-label { color: var(--deck-green); font-size: .8rem; }
+.profile-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--deck-space-5); margin: var(--deck-space-6) 0; }
 .profile-details > div { min-width: 0; }
-.profile-details dt { color: var(--text-muted); font-size: .72rem; margin-bottom: .5rem; }
-.profile-details dd { margin: 0; overflow-wrap: anywhere; font-size: .88rem; }
-.role-code { font-size: .72rem; color: var(--text-muted); }
-.account-management { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
-.account-management h3 { margin: 0 0 .45rem; font-size: .88rem; font-weight: 550; }
-.account-management p { margin: 0; max-width: 400px; font-size: .78rem; color: var(--text-muted); }
-.account-management .game-link { flex-shrink: 0; font-size: .75rem; }
-@media (max-width: 1080px) { .profile-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }.account-management { flex-direction: column; align-items: flex-start; gap: 1rem; } }
-@media (max-width: 600px) { .profile-body { padding: 0 1.25rem 1.4rem; }.profile-details { grid-template-columns: minmax(0, 1fr); gap: 1.2rem; margin-top: 1.75rem; }.profile-identity h2 { font-size: 1.5rem; }.profile-avatar { width: 65px; height: 65px; font-size: 1.6rem; }.profile-banner { height: 105px; }.banner-emblem { right: 60px; }.profile-banner::before { right: 15px; }.profile-banner::after { right: 45px; } }
+.profile-details dt { color: var(--deck-text-muted); font-size: .8rem; margin-bottom: var(--deck-space-2); }
+.profile-details dd { margin: 0; overflow-wrap: anywhere; font-size: .9rem; }
+.role-code { font-size: .8rem; color: var(--deck-text-muted); }
+.account-management { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--deck-space-5); border-top: 1px solid var(--deck-border); padding-top: var(--deck-space-5); }
+.account-management > div { flex: 1 1 260px; min-width: 0; }
+.account-management h3 { margin: 0 0 var(--deck-space-2); font-size: 1rem; font-weight: 550; }
+.account-management p { margin: 0; max-width: 400px; font-size: .85rem; color: var(--deck-text-muted); }
+@media (max-width: 1080px) { .profile-details { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .profile-body { padding: 0 var(--deck-space-5) var(--deck-space-5); }
+  .profile-details { grid-template-columns: minmax(0, 1fr); }
+  .profile-banner { height: 105px; }
+  .banner-emblem { right: 60px; }
+  .profile-banner::before { right: 15px; }
+  .profile-banner::after { right: 45px; }
+}

@@ -1,12 +1,13 @@
-:host { display: block; margin-top: 2.5rem; }
-.collection-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+:host { display: block; min-width: 0; margin-top: var(--deck-space-6); }
+.collection-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--deck-space-4); }
+.collection-header > div { min-width: 0; }
 .collection-header h2 { margin-bottom: .5rem; }
 .collection-header p { margin-top: 0; }
 .collection-header > button { flex-shrink: 0; }
-.grant-form { margin: 1rem 0 1.5rem; }
+.grant-form { margin: var(--deck-space-4) 0 var(--deck-space-5); }
 .grant-form h3 { font-size: 1.1rem; margin-bottom: .5rem; }
 .grant-form p { font-size: .88rem; }
-.grant-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr); gap: 1.2rem; margin-bottom: 1rem; align-items: start; }
+.grant-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--deck-space-5); margin-bottom: var(--deck-space-4); align-items: start; }
 .field p { margin: .2rem 0 0; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .quantity-help { font-size: .85rem; }

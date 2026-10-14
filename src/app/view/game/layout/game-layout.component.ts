@@ -9,7 +9,7 @@ import { PlayerInitializationService } from '../../../model/services/fire/player
   standalone: true,
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './game-layout.component.html',
-  styleUrl: './game-layout.component.css',
+  styleUrls: ['../game-page.css', './game-layout.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameLayoutComponent {

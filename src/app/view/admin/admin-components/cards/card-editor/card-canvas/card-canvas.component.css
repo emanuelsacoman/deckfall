@@ -1,6 +1,5 @@
 :host { display: block; min-width: 0; }
-.canvas-panel { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: #dfe5ed; }
-.canvas-status { display: flex; justify-content: space-between; padding: .5rem .75rem; color: #556277; font-size: .75rem; background: #edf1f6; border-bottom: 1px solid #cbd3e0; }
-.canvas-viewport { width: 100%; height: clamp(420px, 72vh, 860px); overflow: auto; overscroll-behavior: contain; }
-.canvas-help { margin: 0; padding: .65rem .75rem; color: #556277; font-size: .72rem; background: #edf1f6; }
-@media (max-width: 700px) { .canvas-viewport { height: 540px; } }
+.canvas-panel { min-width: 0; border: 1px solid var(--border); border-radius: var(--deck-radius-md); background: #dfe5ed; }
+.canvas-status { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--deck-space-2); padding: var(--deck-space-2) var(--deck-space-3); color: #556277; font-size: .75rem; background: #edf1f6; border-bottom: 1px solid #cbd3e0; border-radius: var(--deck-radius-md) var(--deck-radius-md) 0 0; }
+.canvas-viewport { width: 100%; min-width: 0; height: clamp(240px, calc(var(--deck-viewport-height) - 14rem), 760px); overflow: auto; }
+.canvas-help { margin: 0; padding: var(--deck-space-3); color: #556277; font-size: .72rem; background: #edf1f6; border-radius: 0 0 var(--deck-radius-md) var(--deck-radius-md); }

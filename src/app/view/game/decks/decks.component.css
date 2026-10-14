@@ -1,12 +1,11 @@
-.decks-preview { overflow: hidden; padding: 2.5rem 1rem 0; background: radial-gradient(ellipse at 50% 15%, #33402b66, transparent 60%), var(--surface); }
-.deck-illustration { position: relative; width: 140px; height: 124px; margin: .7rem auto 0; }
-.deck-layer { position: absolute; width: 86px; height: 108px; border: 1px solid #6e7955; border-radius: 6px; left: 50%; top: 50%; background: #243023; }
-.layer-back { transform: translate(-70%, -55%) rotate(-14deg); opacity: .5; }.layer-middle { transform: translate(-26%, -48%) rotate(13deg); opacity: .7; }
+.decks-preview { padding-top: var(--deck-space-6); background: radial-gradient(ellipse at 50% 15%, #33402b66, transparent 60%), var(--deck-surface); }
+.deck-illustration { position: relative; width: 140px; height: 124px; margin: var(--deck-space-3) auto 0; }
+.deck-layer { position: absolute; width: 86px; height: 108px; border: 1px solid #6e7955; border-radius: var(--deck-radius-sm); left: 50%; top: 50%; background: #243023; }
+.layer-back { transform: translate(-70%, -55%) rotate(-14deg); opacity: .5; }
+.layer-middle { transform: translate(-26%, -48%) rotate(13deg); opacity: .7; }
 .layer-front { display: grid; place-items: center; transform: translate(-50%, -50%); background: linear-gradient(145deg, #3c4730, #253023); border-color: #9c9d6d; box-shadow: 0 10px 25px #0a100c44; }
 .layer-front::after { content: ''; position: absolute; inset: 7px; border: 1px solid #7b825b; border-radius: 2px; }
 .layer-front svg { width: 32px; height: 32px; fill: none; stroke: #d2ca92; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
-.decks-preview .empty-state { padding-top: 1.75rem; padding-bottom: 2rem; }
-.deck-action { display: flex; flex-direction: column; align-items: center; padding: 1.4rem 1rem 1.6rem; border-top: 1px solid #354031; margin: 0 -1rem; background: #121b1744; }
-.deck-action button { gap: .6rem; min-width: 150px; color: #192018; background: var(--game-accent); font-size: .8rem; }
-.deck-action p { margin: .75rem 0 0; text-align: center; font-size: .72rem; color: var(--text-muted); }
-@media (max-width: 600px) { .decks-preview { padding-top: 2rem; } }
+.decks-preview .empty-state { padding-top: var(--deck-space-5); }
+.deck-action { display: flex; flex-direction: column; align-items: center; gap: var(--deck-space-3); padding: var(--deck-space-5); border-top: 1px solid var(--deck-border); background: var(--deck-bg-elevated); border-radius: 0 0 var(--deck-radius-lg) var(--deck-radius-lg); }
+.deck-action p { margin: 0; text-align: center; font-size: .8rem; color: var(--deck-text-muted); }

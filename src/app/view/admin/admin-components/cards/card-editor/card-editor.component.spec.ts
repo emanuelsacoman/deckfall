@@ -58,6 +58,29 @@ describe('Editor — criação, reabertura e uploads', () => {
     reopened.destroy();
   });
 
+  it('mostra somente o painel do modo ativo sem desmontar os campos de dados', async () => {
+    const fixture = TestBed.createComponent(CardEditorComponent);
+    fixture.componentRef.setInput('mode', 'create'); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const data = host.querySelector<HTMLElement>('app-card-data')!;
+    const properties = host.querySelector<HTMLElement>('app-card-properties')!;
+    expect(getComputedStyle(data).display).toBe('none');
+    expect(getComputedStyle(properties).display).not.toBe('none');
+
+    fixture.componentInstance.state.setMode('data'); fixture.detectChanges();
+    expect(host.querySelector('app-card-data')).toBe(data);
+    expect(getComputedStyle(data).display).not.toBe('none');
+    expect(getComputedStyle(properties).display).toBe('none');
+
+    fixture.componentInstance.state.setMode('preview'); fixture.detectChanges();
+    expect(host.querySelector('app-card-data')).toBe(data);
+    expect(getComputedStyle(host.querySelector('.editor-right')!).display).toBe('none');
+    const viewport = host.querySelector<HTMLElement>('.canvas-viewport')!;
+    viewport.focus();
+    expect(document.activeElement).toBe(viewport);
+    fixture.destroy();
+  });
+
   it('mantém o binário fora do documento e transmite uploads por IDs estáveis', async () => {
     const fixture = TestBed.createComponent(CardEditorComponent);
     fixture.componentRef.setInput('mode', 'create'); fixture.detectChanges(); await fixture.whenStable();

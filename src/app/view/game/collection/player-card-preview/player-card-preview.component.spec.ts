@@ -66,16 +66,32 @@ describe('PlayerCardPreviewComponent', () => {
   it('baixa apenas a preview publicada ao aproximar da tela e evita requisições duplicadas', async () => {
     fixture.detectChanges();
     expect(storage.getPreviewBlob).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.player-card-preview').style.aspectRatio).toBe('800 / 400');
     expect(observer().rootMargin).toBe('200px');
     observer().emit(false); expect(storage.getPreviewBlob).not.toHaveBeenCalled();
     observer().emit(); observer().emit(); await settle();
     expect(storage.getPreviewBlob).toHaveBeenCalledOnceWith('nyra');
     expect(observer().disconnect).toHaveBeenCalled();
-    const frame: HTMLElement = fixture.nativeElement.querySelector('.player-card-preview');
     const image: HTMLImageElement = fixture.nativeElement.querySelector('img');
     expect(image.alt).toBe('Carta completa: Nyra');
-    expect(frame.style.aspectRatio).toBe('800 / 400');
     expect(getComputedStyle(image).objectFit).toBe('contain');
+  });
+
+  it('usa as dimensões reais do PNG e limpa a proporção anterior ao trocar a carta', async () => {
+    fixture.detectChanges(); observer().emit(); await settle();
+    const image: HTMLImageElement = fixture.nativeElement.querySelector('img');
+    Object.defineProperties(image, {
+      naturalWidth: { configurable: true, value: 1086 },
+      naturalHeight: { configurable: true, value: 1448 }
+    });
+    image.dispatchEvent(new Event('load')); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.player-card-preview').style.aspectRatio).toBe('1086 / 1448');
+    expect(storage.getPreviewBlob).toHaveBeenCalledTimes(1);
+
+    const pending = deferred<Blob>(); storage.getPreviewBlob.and.returnValue(pending.promise);
+    fixture.componentRef.setInput('card', card('other')); fixture.detectChanges();
+    expect(component.aspectRatio).toBe('800 / 400');
+    pending.resolve(png); await settle();
   });
 
   it('mostra loading durante download sem renderer ou assets privados', async () => {
@@ -135,11 +151,34 @@ describe('PlayerCardPreviewComponent', () => {
     expect(fixture.nativeElement.querySelector('button').textContent).toContain('Tentar novamente');
   });
 
+  it('reutiliza a imagem em um cache fornecido pela tela sem compartilhar object URLs', async () => {
+    const cache = new Map<string, Promise<Blob>>();
+    fixture.componentRef.setInput('previewCache', cache); fixture.detectChanges(); observer().emit(); await settle();
+    const firstUrl = component.url(); fixture.destroy();
+    fixture = TestBed.createComponent(PlayerCardPreviewComponent); component = fixture.componentInstance;
+    fixture.componentRef.setInput('card', card()); fixture.componentRef.setInput('previewCache', cache); fixture.detectChanges();
+    PreviewObserver.instances[1].emit(); await settle();
+    expect(storage.getPreviewBlob).toHaveBeenCalledOnceWith('nyra');
+    expect(component.url()).not.toBe(firstUrl); expect(revokeUrl).toHaveBeenCalledWith(firstUrl);
+    expect(createUrl).toHaveBeenCalledTimes(2);
+  });
+
+  it('descarta a imagem em cache quando a decodificação falha e permite novo download', async () => {
+    const cache = new Map<string, Promise<Blob>>();
+    fixture.componentRef.setInput('previewCache', cache); fixture.detectChanges(); observer().emit(); await settle();
+    expect(cache.has('nyra')).toBeTrue();
+    fixture.nativeElement.querySelector('img').dispatchEvent(new Event('error')); fixture.detectChanges();
+    expect(cache.has('nyra')).toBeFalse();
+    fixture.nativeElement.querySelector('button').click(); await settle();
+    expect(storage.getPreviewBlob).toHaveBeenCalledTimes(2); expect(cache.has('nyra')).toBeTrue();
+  });
+
   it('usa proporção padrão e carrega sem IntersectionObserver quando ele não existe', async () => {
     Object.defineProperty(window, 'IntersectionObserver', { configurable: true, writable: true, value: undefined });
     const legacy = card(); delete legacy.canvas;
-    fixture.componentRef.setInput('card', legacy); fixture.detectChanges(); await settle();
+    fixture.componentRef.setInput('card', legacy); fixture.detectChanges();
     expect(component.aspectRatio).toBe('744 / 1039');
+    await settle();
     expect(storage.getPreviewBlob).toHaveBeenCalledOnceWith('nyra');
     expect(PreviewObserver.instances.length).toBe(0);
   });

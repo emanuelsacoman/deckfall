@@ -3,12 +3,12 @@
 </header>
 
 @if (starter(); as pack) {
-  <section class="starter-arrival" aria-labelledby="starter-title"><div><p class="game-eyebrow">Uma nova descoberta</p><h2 id="starter-title">Seu Starter Pack chegou!</h2><p>Seu pacote está lacrado. Abra quando quiser para começar sua coleção.</p></div><a class="game-link" [routerLink]="['/game/pacotes/abrir', pack.id]">Abrir Starter Pack <span aria-hidden="true">↗</span></a></section>
+  <section class="game-panel starter-arrival" aria-labelledby="starter-title"><div><p class="game-eyebrow">Uma nova descoberta</p><h2 id="starter-title">Seu Starter Pack chegou!</h2><p>Seu pacote está lacrado. Abra quando quiser para começar sua coleção.</p></div><a class="game-link" [routerLink]="['/game/pacotes/abrir', pack.id]">Abrir Starter Pack <span aria-hidden="true">↗</span></a></section>
 } @else if (packError()) {
-  <div class="starter-check"><p role="alert">{{ packError() }}</p><button type="button" (click)="loadStarter()">Tentar novamente</button><a routerLink="/game/pacotes">Ver meus pacotes</a></div>
+  <div class="game-panel game-status error starter-check"><p role="alert">{{ packError() }}</p><div class="game-actions"><button class="game-link" type="button" (click)="loadStarter()">Tentar novamente</button><a class="game-link subtle" routerLink="/game/pacotes">Ver meus pacotes</a></div></div>
 }
 
-<section class="home-hero" aria-labelledby="hero-title">
+<section class="game-panel home-hero" aria-labelledby="hero-title">
   <div class="hero-copy">
     <span class="coming-soon">Em desenvolvimento</span>
     <h2 id="hero-title">Cada carta,<br>uma possibilidade.</h2>
@@ -28,15 +28,15 @@
 <section class="home-shortcuts" aria-labelledby="shortcuts-title">
   <div class="section-heading"><h2 id="shortcuts-title">Explore seu espaço</h2><span>A jornada começa por aqui</span></div>
   <div class="shortcut-grid">
-    <a class="shortcut-card" routerLink="/game/colecao">
+    <a class="game-panel shortcut-card" routerLink="/game/colecao">
       <div class="shortcut-top"><span class="shortcut-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="8" y="5" width="12" height="16" rx="2" /><path d="M15 3H5a2 2 0 0 0-2 2v12M11 10h6m-6 4h6" /></svg></span><span class="shortcut-arrow" aria-hidden="true">↗</span></div>
       <h3>Minha coleção</h3><p>Explore suas cartas, confira as quantidades e encontre suas favoritas por nome ou raridade.</p><span class="shortcut-status">Ver minha coleção</span>
     </a>
-    <a class="shortcut-card" routerLink="/game/decks">
+    <a class="game-panel shortcut-card" routerLink="/game/decks">
       <div class="shortcut-top"><span class="shortcut-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 10 5-10 5L2 8zm-10 9 10 5 10-5M2 16l10 5 10-5" /></svg></span><span class="shortcut-arrow" aria-hidden="true">↗</span></div>
       <h3>Meus decks</h3><p>Um lugar reservado para montar e gerenciar suas futuras combinações de cartas.</p><span class="shortcut-status">Deck Builder em desenvolvimento</span>
     </a>
-    <a class="shortcut-card" routerLink="/game/jogar">
+    <a class="game-panel shortcut-card" routerLink="/game/jogar">
       <div class="shortcut-top"><span class="shortcut-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8 3 10 9L8 21z" /></svg></span><span class="shortcut-arrow" aria-hidden="true">↗</span></div>
       <h3>Jogar</h3><p>Conheça o espaço dos modos de jogo. As partidas chegarão em uma etapa futura.</p><span class="shortcut-status">Partidas em desenvolvimento</span>
     </a>

@@ -1,30 +1,95 @@
-.sealed-stage, .reveal-stage { position: relative; text-align: center; padding: 1.5rem 1rem 2rem; min-width: 0; }
-.sealed-stage { background: radial-gradient(ellipse at 50% 40%, #c3aa5520, transparent 60%); }
-.sealed-stage h2 { margin: 2.5rem 0 .7rem; font: 1.5rem Georgia, serif; }
-.sealed-stage p { color: var(--text-muted); font-size: .85rem; }
-.sealed-stage .open-error { color: #f2c4b4; max-width: 550px; margin: 1rem auto; }
-.open-button { margin-top: .75rem; min-width: 200px; }
-.reveal-count { position: relative; z-index: 1; color: var(--game-accent); font-size: .75rem; letter-spacing: .1em; margin: 0 0 1.5rem; }
-.reveal-card { --rarity-color: #b5c7b8; position: relative; width: min(100%, 280px); margin: auto; animation: card-arrival .6s ease-out both; isolation: isolate; }
-.reveal-card[data-rarity="rare"], .summary-card[data-rarity="rare"] { --rarity-color: #81b4dd; }
-.reveal-card[data-rarity="epic"], .summary-card[data-rarity="epic"] { --rarity-color: #c29be6; }
-.reveal-card[data-rarity="legendary"], .summary-card[data-rarity="legendary"] { --rarity-color: #efc471; }
-.reveal-card app-player-card-preview { display: block; border: 1px solid var(--rarity-color); border-radius: 9px; overflow: hidden; box-shadow: 0 0 24px color-mix(in srgb, var(--rarity-color) 20%, transparent); }
-.reveal-card[data-rarity="legendary"] app-player-card-preview { box-shadow: 0 0 40px #e0b86245; }
-.reveal-aura { position: absolute; z-index: -1; inset: -40px -25px 20px; background: radial-gradient(ellipse, color-mix(in srgb, var(--rarity-color) 22%, transparent), transparent 70%); animation: aura-arrival 1.1s ease-out both; pointer-events: none; }
-.reveal-card h2 { margin: 1.1rem 0 .45rem; font: 1.5rem Georgia, serif; overflow-wrap: anywhere; }
-.rarity { margin: 0; font-size: .78rem; color: var(--rarity-color); }
-.rarity span { display: inline-block; margin-left: .75rem; padding: .15rem .45rem; border: 1px solid var(--rarity-color); border-radius: 4px; }
-.next-card { margin-top: 1.6rem; }
-.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 1.2rem; }
-.summary-card { --rarity-color: #b5c7b8; min-width: 0; max-width: 280px; border: 1px solid var(--border); border-bottom-color: var(--rarity-color); border-radius: 8px; overflow: hidden; background: var(--surface); }
-.summary-card > div { padding: .85rem; }
-.summary-card h3 { font: 1rem Georgia, serif; margin: 0 0 .6rem; overflow-wrap: anywhere; }
-.summary-card p { color: var(--text-muted); margin: 0; font-size: .72rem; }
-.summary-card strong { float: right; color: var(--game-accent); }
-.summary-actions { display: flex; gap: .8rem; flex-wrap: wrap; margin-top: 2rem; }
-.empty-state .game-link { margin-top: 1.25rem; }
-@keyframes card-arrival { from { opacity: 0; transform: translateY(30px) rotateY(-14deg) scale(.94); } to { opacity: 1; transform: none; } }
-@keyframes aura-arrival { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
-@media (max-width: 480px) { .sealed-stage, .reveal-stage { padding: 1rem 0; } .reveal-card { width: min(100%, 245px); } .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; } .summary-actions { flex-direction: column; } }
-@media (prefers-reduced-motion: reduce) { .reveal-card, .reveal-aura { animation: none; transition: none; transform: none; } }
+:host { display: block; min-width: 0; }
+.sealed-stage, .opening-stage, .reveal-stage { position: relative; min-width: 0; padding: var(--deck-space-5, 1.5rem); text-align: center; isolation: isolate; }
+.sealed-stage { background: radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--deck-gold, #e1ba70) 9%, transparent), transparent 64%), var(--deck-surface, #19211f); }
+.sealed-stage app-pack-shell, .opening-pack app-pack-shell { --deck-pack-width: clamp(130px, calc(var(--deck-viewport-height, 100vh) - 28rem), 230px); }
+.sealed-stage h2 { margin: var(--deck-space-5, 1.5rem) 0 var(--deck-space-2, .5rem); font: 400 clamp(1.15rem, 3vw, 1.5rem)/1.3 Georgia, serif; overflow-wrap: anywhere; }
+.sealed-stage p { color: var(--deck-text-muted, var(--text-muted)); font-size: .875rem; }
+.open-error { max-width: 550px; margin: var(--deck-space-4, 1rem) auto; }
+.open-button { margin-top: var(--deck-space-2, .5rem); max-width: 100%; }
+.opening-stage { background: var(--deck-bg-elevated, #121a17); }
+.opening-environment { position: absolute; z-index: -1; inset: 0; overflow: clip; border-radius: inherit; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, #c6a75b13, #08110ec0 76%); }
+.opening-pack { position: relative; width: fit-content; max-width: 100%; margin: auto; transform-origin: 50% 60%; }
+.opening-caption { margin: var(--deck-space-5, 1.5rem) 0 var(--deck-space-4, 1rem); color: var(--deck-gold-soft, #e6cf9e); font-size: .875rem; }
+.energy-ring { position: absolute; width: min(75%, 310px); aspect-ratio: 1; left: 50%; top: 40%; border: 1px solid #cfa85250; border-radius: 50%; transform: translate(-50%, -50%) scale(.7); opacity: 0; }
+.energy-ring.inner { width: min(55%, 240px); border-style: dashed; border-color: #dfc78355; }
+.opening-sparks { position: absolute; inset: 20% 15% 28%; opacity: 0; background: radial-gradient(circle at 10% 50%, #efcf82 0 2px, transparent 3px), radial-gradient(circle at 88% 27%, #d6b162 0 2px, transparent 3px), radial-gradient(circle at 73% 88%, #eadbb0 0 1px, transparent 2px), radial-gradient(circle at 20% 14%, #b8c9a1 0 1px, transparent 2px); }
+.opening-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at 50% 42%, #e1ba7080, #e1ba7012 44%, transparent 72%); }
+.opening-stage[data-phase="awakening"] .opening-pack { animation: pack-awakening .32s ease-out both; }
+.opening-stage[data-phase="charging"] .opening-pack { animation: pack-charge .62s ease-in-out both; }
+.opening-stage[data-phase="charging"] .energy-ring { animation: ring-charge .62s ease-out both; }
+.opening-stage[data-phase="charging"] .energy-ring.inner { animation-direction: reverse; }
+.opening-stage[data-phase="charging"] .opening-sparks { animation: opening-particles .62s ease-out both; }
+.opening-stage[data-phase="burst"] .opening-pack { animation: seal-release .26s ease-out both; }
+.opening-stage[data-phase="burst"] .opening-flash { animation: seal-flash .26s ease-out both; }
+.reveal-stage { --reveal-height: clamp(150px, calc(var(--deck-viewport-height, 100vh) - 23rem), 390px); background: radial-gradient(ellipse at 50% 35%, #c3aa550d, transparent 65%), var(--deck-surface, #19211f); perspective: 1000px; }
+.reveal-count { position: relative; z-index: 1; color: var(--game-accent); font-size: .75rem; letter-spacing: .1em; margin: 0 0 var(--deck-space-4, 1rem); }
+.reveal-card { --rarity-color: var(--deck-rarity-common, #b5c7b8); --aura-strength: 18%; position: relative; width: min(100%, 280px, calc(var(--reveal-height) * .78)); margin: auto; isolation: isolate; }
+.reveal-card[data-rarity="rare"], .summary-card[data-rarity="rare"] { --rarity-color: var(--deck-rarity-rare, #81b4dd); --aura-strength: 26%; }
+.reveal-card[data-rarity="epic"], .summary-card[data-rarity="epic"] { --rarity-color: var(--deck-rarity-epic, #c29be6); --aura-strength: 33%; }
+.reveal-card[data-rarity="legendary"], .summary-card[data-rarity="legendary"] { --rarity-color: var(--deck-rarity-legendary, #efc471); --aura-strength: 42%; }
+.card-front { position: relative; border: 1px solid var(--rarity-color); border-radius: var(--deck-radius-md, 10px); box-shadow: 0 0 20px color-mix(in srgb, var(--rarity-color) 16%, transparent); animation: card-reveal .5s cubic-bezier(.2, .7, .25, 1) both; transform-origin: 50% 50%; }
+.card-front app-player-card-preview { display: block; width: 100%; --deck-card-preview-max-height: var(--reveal-height); }
+.reveal-card[data-rarity="legendary"] .card-front { animation-duration: .65s; box-shadow: 0 0 28px #e0b86235; }
+.reveal-card[data-rarity="rare"] .card-front::after, .reveal-card[data-rarity="legendary"] .card-front::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(120deg, transparent 20%, color-mix(in srgb, var(--rarity-color) 14%, transparent) 49%, transparent 75%); animation: card-shimmer .65s ease-out both; }
+.reveal-aura { position: absolute; z-index: -1; inset: -24px -18px 32px; background: radial-gradient(ellipse, color-mix(in srgb, var(--rarity-color) var(--aura-strength), transparent), transparent 70%); pointer-events: none; opacity: .4; transition: opacity .3s; }
+.reveal-card[data-revealed="true"] .reveal-aura, .legendary-reveal .reveal-aura { opacity: 1; }
+.reveal-halo { position: absolute; z-index: -1; inset: -12px 3px 45px; border: 1px solid color-mix(in srgb, var(--rarity-color) 40%, transparent); border-radius: 50%; opacity: 0; pointer-events: none; }
+.reveal-card[data-rarity="legendary"][data-revealed="true"] .reveal-halo, .legendary-reveal .reveal-halo { animation: rarity-halo .7s ease-out both; }
+.reveal-sparks { position: absolute; z-index: -1; inset: -1rem -1rem 3.5rem; opacity: 0; pointer-events: none; background: radial-gradient(circle at 7% 25%, var(--rarity-color) 0 1px, transparent 2px), radial-gradient(circle at 92% 43%, var(--rarity-color) 0 2px, transparent 3px), radial-gradient(circle at 82% 12%, var(--rarity-color) 0 1px, transparent 2px), radial-gradient(circle at 15% 87%, var(--rarity-color) 0 2px, transparent 3px), radial-gradient(circle at 73% 95%, var(--rarity-color) 0 1px, transparent 2px); }
+.reveal-card[data-rarity="epic"][data-revealed="true"] .reveal-sparks, .reveal-card[data-rarity="legendary"][data-revealed="true"] .reveal-sparks, .legendary-reveal .reveal-sparks { animation: rarity-particles .8s ease-out both; }
+.legendary-moment { background: radial-gradient(ellipse at 50% 38%, #9d723c18, #0b130fc9 75%), var(--deck-surface, #19211f); }
+.card-back { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: var(--deck-space-5, 1.5rem); width: 100%; aspect-ratio: 744 / 1039; position: relative; border: 1px solid #9f8857; border-radius: var(--deck-radius-md, 10px); color: var(--deck-gold, #e1ba70); background: repeating-linear-gradient(45deg, transparent 0 14px, #d8bf7608 15px 16px), radial-gradient(ellipse at 50% 28%, #3f4830, #14231d 78%); padding: var(--deck-space-4, 1rem); animation: card-arrival .35s ease-out both; }
+.card-back:hover { filter: none; border-color: var(--deck-gold, #e1ba70); }
+.card-back:disabled { opacity: 1; cursor: default; }
+.card-back-border { position: absolute; inset: 9px; border: 1px solid #baaa704f; border-radius: var(--deck-radius-sm, 6px); pointer-events: none; }
+.card-back-brand { font: .65rem Georgia, serif; letter-spacing: .16em; }
+.card-back-emblem { display: grid; place-items: center; width: clamp(35px, 10vw, 65px); aspect-ratio: 1; border: 1px solid #ad9253; transform: rotate(45deg); font: 700 clamp(1.5rem, 5vw, 2.5rem) Georgia, serif; }
+.card-back-hint { color: var(--deck-text-muted, #a4b2aa); font: .65rem/1.3 "Segoe UI", system-ui, sans-serif; }
+.card-details h2 { margin: var(--deck-space-4, 1rem) 0 var(--deck-space-1, .25rem); font: 400 clamp(1.05rem, 4vw, 1.4rem)/1.3 Georgia, serif; overflow-wrap: anywhere; }
+.rarity { margin: 0; font-size: .8rem; color: var(--rarity-color); }
+.rarity span { display: inline-block; margin-left: var(--deck-space-2, .5rem); padding: .15rem .45rem; border: 1px solid var(--rarity-color); border-radius: var(--deck-radius-sm, 6px); }
+.discovery-note { margin: var(--deck-space-3, .75rem) -1rem 0; color: var(--deck-text-muted, #a4b2aa); font-size: .8rem; }
+.stage-controls { justify-content: center; margin-top: var(--deck-space-5, 1.5rem); position: relative; z-index: 2; }
+.stage-controls .game-link { min-width: 0; max-width: 100%; white-space: normal; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: var(--deck-space-4, 1rem); }
+.summary-card { --rarity-color: var(--deck-rarity-common, #b5c7b8); min-width: 0; max-width: 280px; padding: 0; border-bottom-color: var(--rarity-color); animation: summary-arrival .25s ease-out both; }
+.summary-card > div { padding: var(--deck-space-4, 1rem); }
+.summary-card h3 { font: 400 1rem/1.3 Georgia, serif; margin: 0 0 var(--deck-space-2, .5rem); overflow-wrap: anywhere; }
+.summary-card p { display: flex; align-items: baseline; justify-content: space-between; gap: var(--deck-space-2, .5rem); color: var(--deck-text-muted, var(--text-muted)); margin: 0; font-size: .75rem; }
+.summary-card strong { color: var(--game-accent); }
+.summary-actions { margin-top: var(--deck-space-5, 1.5rem); }
+.empty-state .game-link { margin-top: var(--deck-space-4, 1rem); }
+@keyframes pack-awakening { from { opacity: .5; transform: translateY(12px) scale(.95); } to { opacity: 1; transform: none; } }
+@keyframes pack-charge { 0% { transform: none; } 28% { transform: scale(1.025) rotate(-1deg); } 55% { transform: scale(1.035) rotate(1deg); } 78% { transform: scale(1.035) rotate(-.6deg); } 100% { transform: scale(1.03); } }
+@keyframes ring-charge { from { opacity: 0; transform: translate(-50%, -50%) scale(.65) rotate(-12deg); } to { opacity: .8; transform: translate(-50%, -50%) scale(1.04) rotate(18deg); } }
+@keyframes opening-particles { from { opacity: 0; transform: translateY(12px); } to { opacity: .7; transform: translateY(-8px); } }
+@keyframes seal-release { from { opacity: 1; transform: scale(1.03); } to { opacity: 0; transform: translateY(-12px) scale(1.06); } }
+@keyframes seal-flash { 0% { opacity: 0; } 45% { opacity: .6; } 100% { opacity: 0; } }
+@keyframes card-arrival { from { opacity: 0; transform: translateY(14px) rotateX(4deg) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes card-reveal { from { opacity: .25; transform: rotateY(-60deg) rotateX(4deg) translateY(12px) scale(.95); } to { opacity: 1; transform: none; } }
+@keyframes card-shimmer { from { opacity: 0; transform: scaleX(.6); } 45% { opacity: 1; } to { opacity: 0; transform: scaleX(1.1); } }
+@keyframes rarity-halo { from { opacity: 0; transform: scale(.82); } 40% { opacity: .65; } to { opacity: .15; transform: scale(1.1); } }
+@keyframes rarity-particles { from { opacity: 0; transform: translateY(10px) scale(.9); } 30% { opacity: .8; } to { opacity: 0; transform: translateY(-18px) scale(1.08); } }
+@keyframes summary-arrival { from { opacity: .35; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@media (max-width: 480px) {
+  .sealed-stage, .opening-stage, .reveal-stage { padding: var(--deck-space-4, 1rem); }
+  .stage-controls { gap: var(--deck-space-2, .5rem); }
+  .stage-controls .game-link { flex: 1 1 140px; }
+  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--deck-space-2, .5rem); }
+  .summary-card > div { padding: var(--deck-space-3, .75rem); }
+}
+@media (max-height: 480px) and (min-width: 480px) {
+  .reveal-stage { --reveal-height: 170px; padding: var(--deck-space-3, .75rem); }
+  .sealed-stage app-pack-shell, .opening-pack app-pack-shell { --deck-pack-width: 120px; }
+  .reveal-count { margin-bottom: var(--deck-space-2, .5rem); }
+  .card-back { gap: var(--deck-space-3, .75rem); padding: var(--deck-space-3, .75rem); }
+  .card-back-brand { font-size: .55rem; }
+  .card-back-emblem { width: 35px; font-size: 1.5rem; }
+  .card-back-hint { font-size: .55rem; }
+  .stage-controls { margin-top: var(--deck-space-3, .75rem); }
+  .sealed-stage h2 { margin-top: var(--deck-space-3, .75rem); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .opening-pack, .energy-ring, .opening-sparks, .opening-flash, .reveal-card, .card-back, .card-front, .card-front::after, .reveal-aura, .reveal-halo, .reveal-sparks, .summary-card { animation: none; transition: none; transform: none; }
+  .opening-environment .energy-ring, .opening-sparks, .opening-flash, .reveal-halo, .reveal-sparks, .card-front::after { display: none; }
+}
