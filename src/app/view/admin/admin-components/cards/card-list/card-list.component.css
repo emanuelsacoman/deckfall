@@ -1,16 +1,103 @@
-:host { display: block; min-width: 0; }
-.display-switch { display: inline-flex; flex-wrap: wrap; gap: var(--deck-space-1); padding: var(--deck-space-1); margin-bottom: var(--deck-space-5); border: 1px solid var(--border); background: var(--surface); border-radius: var(--deck-radius-md); }
-.display-switch button { border-color: transparent; }
-.display-switch [aria-pressed="true"] { background: var(--background); color: var(--primary); border-color: var(--primary); }
-.card-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 280px)); align-items: start; justify-content: center; gap: var(--deck-space-6); }
-.gallery-card { position: relative; box-shadow: 0 5px 18px #17243b1a; transition: transform .15s ease, box-shadow .15s ease; }
-.gallery-card:hover, .gallery-card:focus-within { transform: translateY(-3px); box-shadow: 0 10px 25px #17243b26; }
-.gallery-open { position: absolute; inset: 0; z-index: 1; }
-.gallery-open span { position: absolute; right: var(--deck-space-3); bottom: var(--deck-space-3); padding: var(--deck-space-2) var(--deck-space-3); border-radius: var(--deck-radius-sm); background: var(--primary); color: white; font-size: .85rem; font-weight: 600; opacity: 0; transition: opacity .15s ease; }
-.gallery-card:hover .gallery-open span, .gallery-open:focus-visible span { opacity: 1; }
-@media (hover: none) { .gallery-open span { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .gallery-card, .gallery-open span { transition: none; } .gallery-card:hover, .gallery-card:focus-within { transform: none; } }
-.card-art { display: block; width: 64px; height: 88px; object-fit: contain; border-radius: .25rem; }
-.art-placeholder { display: block; min-width: 80px; max-width: 130px; font-size: .8rem; }
-.row-actions { flex-wrap: nowrap; }
-.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+:host {
+  display: block;
+  min-width: 0;
+}
+.display-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--deck-space-1);
+  padding: var(--deck-space-1);
+  margin-bottom: var(--deck-space-5);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--deck-radius-md);
+}
+.display-switch button {
+  border-color: transparent;
+}
+.display-switch [aria-pressed="true"] {
+  background: var(--background);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.card-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 280px));
+  align-items: start;
+  justify-content: start;
+  gap: var(--deck-space-6);
+}
+.gallery-card {
+  position: relative;
+  box-shadow: 0 5px 18px #17243b1a;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.gallery-card:hover,
+.gallery-card:focus-within {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px #17243b26;
+}
+.gallery-open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.gallery-open span {
+  position: absolute;
+  right: var(--deck-space-3);
+  bottom: var(--deck-space-3);
+  padding: var(--deck-space-2) var(--deck-space-3);
+  border-radius: var(--deck-radius-sm);
+  background: var(--primary);
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.gallery-card:hover .gallery-open span,
+.gallery-open:focus-visible span {
+  opacity: 1;
+}
+@media (hover: none) {
+  .gallery-open span {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gallery-card,
+  .gallery-open span {
+    transition: none;
+  }
+  .gallery-card:hover,
+  .gallery-card:focus-within {
+    transform: none;
+  }
+}
+.card-art {
+  display: block;
+  width: 64px;
+  height: 88px;
+  object-fit: contain;
+  border-radius: 0.25rem;
+}
+.art-placeholder {
+  display: block;
+  min-width: 80px;
+  max-width: 130px;
+  font-size: 0.8rem;
+}
+.row-actions {
+  flex-wrap: nowrap;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
