@@ -1,6 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Card } from '../../../../model/interfaces/Cards/card';
-import { PublishedCardStorageService } from '../../../../model/services/fire/published-card-storage.service';
+import { PublishedCardPreviewError } from '../../../../model/interfaces/Cards/published-card-preview-error';
+import {
+  PUBLISHED_CARD_STORAGE_CLIENT, PublishedCardStorageClient, PublishedCardStorageService
+} from '../../../../model/services/fire/published-card-storage.service';
 import { defaultCardData, fantasyBasicCanvas } from '../../../../model/services/tools/card-canvas-factory';
 import { PlayerCardPreviewComponent } from './player-card-preview.component';
 
@@ -37,6 +40,7 @@ describe('PlayerCardPreviewComponent', () => {
   let storage: jasmine.SpyObj<PublishedCardStorageService>;
   let createUrl: jasmine.Spy;
   let revokeUrl: jasmine.Spy;
+  let diagnostic: jasmine.Spy;
   function card(id = 'nyra'): Card {
     const data = { ...defaultCardData(), name: 'Nyra', status: 'published' as const };
     return { ...data, id, slug: id, art: null, createdAt: null, updatedAt: null, canvas: { ...fantasyBasicCanvas(data), width: 800, height: 400 } };
@@ -51,6 +55,7 @@ describe('PlayerCardPreviewComponent', () => {
     storage.getPreviewBlob.and.resolveTo(png);
     createUrl = spyOn(URL, 'createObjectURL').and.callThrough();
     revokeUrl = spyOn(URL, 'revokeObjectURL').and.callThrough();
+    diagnostic = spyOn(console, 'warn');
     await TestBed.configureTestingModule({ imports: [PlayerCardPreviewComponent], providers: [{ provide: PublishedCardStorageService, useValue: storage }] }).compileComponents();
     fixture = TestBed.createComponent(PlayerCardPreviewComponent);
     component = fixture.componentInstance;
@@ -104,12 +109,49 @@ describe('PlayerCardPreviewComponent', () => {
   });
 
   it('oferece retry isolado quando a imagem publicada está ausente', async () => {
-    storage.getPreviewBlob.and.rejectWith(new Error('storage/object-not-found'));
+    storage.getPreviewBlob.and.rejectWith({ code: 'storage/object-not-found' });
     fixture.detectChanges(); observer().emit(); await settle();
-    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('A imagem publicada não está disponível');
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('A imagem desta carta ainda não foi publicada');
     storage.getPreviewBlob.and.resolveTo(png);
     fixture.nativeElement.querySelector('button').click(); await settle();
     expect(storage.getPreviewBlob).toHaveBeenCalledTimes(2);
+    expect(fixture.nativeElement.querySelector('img')).not.toBeNull();
+  });
+
+  for (const [code, message] of [
+    ['storage/object-not-found', 'A imagem desta carta ainda não foi publicada.'],
+    ['storage/unauthorized', 'Sua conta não possui autorização para carregar esta imagem.'],
+    ['storage/unauthenticated', 'Sua sessão precisa ser renovada para carregar esta imagem.'],
+    ['storage/retry-limit-exceeded', 'Não foi possível baixar a imagem. Confira sua conexão.'],
+    ['network', 'Não foi possível baixar a imagem. Confira sua conexão.'],
+    ['preview-invalid', 'A imagem publicada desta carta está inválida.'],
+    ['storage/unknown', 'Não foi possível carregar a imagem publicada. Tente novamente.']
+  ]) {
+    it(`mostra mensagem específica para ${code} sem expor a causa original`, async () => {
+      const cardId = '46f5c359-0d1e-423e-911e-4ba592567405';
+      const path = `published-cards/${cardId}/preview.png`;
+      const cause = new Error('Authorization: secret https://example.test/image?token=private');
+      fixture.componentRef.setInput('card', card(cardId));
+      storage.getPreviewBlob.and.rejectWith(new PublishedCardPreviewError(code, cardId, path, 'mensagem não destinada à UI', { cause }));
+      fixture.detectChanges(); observer().emit(); await settle();
+      expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(message);
+      expect(diagnostic).toHaveBeenCalledOnceWith('[Deckfall preview]', { cardId, path, code });
+      expect(fixture.nativeElement.textContent).not.toContain('Authorization');
+      expect(JSON.stringify(diagnostic.calls.allArgs())).not.toContain('token');
+      expect(storage.getPreviewBlob).toHaveBeenCalledOnceWith(cardId);
+    });
+  }
+
+  it('remove Promise rejeitada do cache e retry cria um download e uma Promise novos', async () => {
+    const cache = new Map<string, Promise<Blob>>();
+    storage.getPreviewBlob.and.rejectWith({ code: 'storage/object-not-found' });
+    fixture.componentRef.setInput('previewCache', cache); fixture.detectChanges(); observer().emit();
+    const rejected = cache.get('nyra'); expect(rejected).toBeDefined();
+    await settle(); expect(cache.has('nyra')).toBeFalse();
+    storage.getPreviewBlob.and.resolveTo(png);
+    fixture.nativeElement.querySelector('button').click(); await settle();
+    expect(storage.getPreviewBlob.calls.allArgs()).toEqual([['nyra'], ['nyra']]);
+    expect(cache.get('nyra')).not.toBe(rejected);
     expect(fixture.nativeElement.querySelector('img')).not.toBeNull();
   });
 
@@ -147,7 +189,7 @@ describe('PlayerCardPreviewComponent', () => {
     fixture.nativeElement.querySelector('img').dispatchEvent(new Event('error')); fixture.detectChanges();
     expect(revokeUrl).toHaveBeenCalledWith(url);
     expect(component.url()).toBe('');
-    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('Não foi possível exibir');
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('A imagem publicada desta carta está inválida');
     expect(fixture.nativeElement.querySelector('button').textContent).toContain('Tentar novamente');
   });
 
@@ -181,5 +223,41 @@ describe('PlayerCardPreviewComponent', () => {
     await settle();
     expect(storage.getPreviewBlob).toHaveBeenCalledOnceWith('nyra');
     expect(PreviewObserver.instances.length).toBe(0);
+  });
+});
+
+describe('Retry da preview com o serviço de Storage real', () => {
+  it('propaga a falha tipada até a UI e refaz o download autenticado no caminho da Nyra', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'IntersectionObserver');
+    Object.defineProperty(window, 'IntersectionObserver', { configurable: true, writable: true, value: undefined });
+    spyOn(console, 'warn');
+    const client = jasmine.createSpyObj<PublishedCardStorageClient>('Storage client', ['upload', 'download', 'delete']);
+    client.download.and.rejectWith({ code: 'storage/unauthenticated' });
+    await TestBed.configureTestingModule({ imports: [PlayerCardPreviewComponent], providers: [
+      { provide: PUBLISHED_CARD_STORAGE_CLIENT, useValue: client }
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(PlayerCardPreviewComponent);
+    try {
+      const cardId = '46f5c359-0d1e-423e-911e-4ba592567405';
+      const cache = new Map<string, Promise<Blob>>();
+      fixture.componentRef.setInput('card', { id: cardId, name: 'Nyra' });
+      fixture.componentRef.setInput('previewCache', cache); fixture.detectChanges();
+      await fixture.whenStable(); fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Sua sessão precisa ser renovada');
+      expect(cache.has(cardId)).toBeFalse();
+      const png = new Blob([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5MsAAAAASUVORK5CYII='), value => value.charCodeAt(0))], { type: 'image/png' });
+      client.download.and.resolveTo(png);
+      fixture.nativeElement.querySelector('button').click(); await fixture.whenStable(); fixture.detectChanges();
+      expect(client.download.calls.allArgs()).toEqual([
+        [`published-cards/${cardId}/preview.png`],
+        [`published-cards/${cardId}/preview.png`]
+      ]);
+      expect(cache.has(cardId)).toBeTrue();
+      expect(fixture.nativeElement.querySelector('img').alt).toBe('Carta completa: Nyra');
+    } finally {
+      fixture.destroy();
+      if (descriptor) Object.defineProperty(window, 'IntersectionObserver', descriptor);
+      else Reflect.deleteProperty(window, 'IntersectionObserver');
+    }
   });
 });

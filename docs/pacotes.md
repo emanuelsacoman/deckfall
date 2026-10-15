@@ -72,6 +72,10 @@ A coleção já foi persistida quando começa a animação. O reveal não decide
 
 CSS próprio usa cores/borda/brilho por raridade common/rare/epic/legendary e respeita `prefers-reduced-motion`. Não houve nova biblioteca de UI nem reprodução de outra franquia. Preview reutiliza `PlayerCardPreviewComponent` e `PublishedCardStorageService`, com PNG em `published-cards/{cardId}/preview.png`; não instancia Konva nem baixa assets privados. Object URLs são liberadas ao trocar entrada, falhar imagem ou destruir componente. Preview ausente/bloqueada mostra fallback/retry; nome/raridade/quantidade do snapshot continuam disponíveis no histórico.
 
+Reveal e resumo compartilham `previewCache: Map<string, Promise<Blob>>` para o mesmo cardId. O componente remove Promises rejeitadas e imagens com falha de exibição; **Tentar novamente** pode fazer uma requisição nova. Erros distinguem ausência, autorização, sessão, rede e preview inválida pelo mesmo contrato usado na coleção. `PublishedCardPreviewError` conserva `code`/`cause`; o diagnóstico de desenvolvimento registra somente cardId, path e code, sem mensagens SDK ou credenciais.
+
+A correção local de 15/10/2026 mantém o MIME original ao baixar: o SDK Firebase instalado removia `image/png` quando `getBlob` recebia o limite opcional e fazia `Blob.slice` sem contentType. O adapter omite esse argumento e valida MIME e limite de 20 MiB após o download. O pack não armazena `storagePath`, Blob, URL ou canvas; continua resolvendo o PNG somente pelo ID. Veja [causa, evidências e limites da validação real](colecao.md#diagnóstico-de-15102026).
+
 Se a carta deixa de ser publicada depois da abertura, novos downloads da preview são negados pelas Storage Rules. O snapshot histórico permanece, e o PNG corrente não é uma imagem imutável da abertura. Bytes já baixados não podem ser revogados remotamente. Veja [imagens publicadas](colecao.md#imagem-publicada-e-assets-privados).
 
 ## Security Rules e autoridade
@@ -101,7 +105,7 @@ As operações ficam no serviço tipado `PackDefinitionService`, não nos compon
 
 ## Configurar o starter
 
-1. Pelo editor administrativo, salve cartas reais como **Publicada**, conferindo previews. Sem cartas publicadas, a tela de pacotes oferece acesso à administração de cartas e não permite criar conteúdo vazio. Nenhum ID fictício de produção é fornecido.
+1. Pelo editor administrativo, salve cartas reais como **Publicada**, conferindo o PNG publicado destinado ao jogador. A preview local do admin usa assets privados e não comprova esse download. Para cartas antigas ou falhas de sincronização, use **Sincronizar previews publicadas** ou **Regenerar preview** em `/admin/cartas/lista`. Sem cartas publicadas, a tela de pacotes oferece acesso à administração de cartas e não permite criar conteúdo vazio. Nenhum ID fictício de produção é fornecido.
 2. Abra `/admin/pacotes` e **Configurar StarterPack**. O nome e o ID já identificam o pacote inicial; preencha descrição, escolha as cartas e quantidades desejadas e marque a ativação.
 3. Salve a configuração. A definição e sua primeira versão são gravadas juntas com datas de servidor. Se preferir preparar inativo, ative depois em **Gerenciar**, sem alterar o conteúdo existente.
 4. No jogador, use **Tentar novamente** após configurar. A ausência do starter produz a mensagem **O pacote inicial ainda não foi configurado por um administrador.**; admin possui link **Configurar pacotes**. Outros erros continuam indicando retry/contato, sem liberar concessão parcial.
@@ -137,25 +141,22 @@ Scripts não importam/populam produção. Sem export/import explícito, reinicia
 
 A configuração preservada aponta para projeto `cardgame-6fdcb`, bucket `cardgame-6fdcb.firebasestorage.app` e site Hosting `deckfall`, domínio **`https://deckfall.web.app`**. `.firebaserc` não existe neste repositório; comandos usam `--project` explícito. Não trocar por `heckfall.web.app` por suposição. `firebase.json` usa `dist/card-game/browser` e rewrite SPA `** → /index.html`, permitindo acesso direto às rotas novas.
 
-Callables e provider Functions usam `southamerica-east1`. Firebase SDK resolve endpoints pela configuração/região; não há hostname de Function nem localhost de produção hardcoded. Assets/rotas são relativos. Consulta remota somente leitura em 13/10/2026 às 18h27 de São Paulo confirmou site/projeto, região e CORS GET para `http://localhost:4200` e `https://deckfall.web.app`, sem alteração (metageneration 3).
+Callables e provider Functions usam `southamerica-east1`. Firebase SDK resolve endpoints pela configuração/região; não há hostname de Function nem localhost de produção hardcoded. Assets/rotas são relativos. A leitura remota de 15/10/2026 confirmou o PNG exato de Nyra com `image/png` e resposta HTTP 206 usando OAuth da CLI, incluindo CORS correto para `http://localhost:4200` e `https://deckfall.web.app`. Essa chamada não usa uma sessão Firebase member nem valida suas Rules no navegador.
 
-**Pendência externa verificada:** Authorized domains do Auth contém `localhost`, `cardgame-6fdcb.firebaseapp.com` e `cardgame-6fdcb.web.app`, mas não `deckfall.web.app`. O proprietário precisa autorizar/configurar esse hostname no Console antes do uso hospedado, conferindo também providers/redirect. Nenhum domínio Auth, CORS ou Storage Rules foi alterado nesta etapa. O recibo local ignorado é `.local-tools/packs-domain-preflight.json`. Essas leituras não equivalem a sessão Auth real no navegador; [CORS](configuracao-cors-storage.md) e [riscos](riscos-e-dividas-tecnicas.md) explicam limites.
+Authorized domains do Auth foi relido em 15/10/2026 e contém `localhost`, `cardgame-6fdcb.firebaseapp.com`, `cardgame-6fdcb.web.app` e `deckfall.web.app`. O registro anterior de ausência de `deckfall.web.app` era do preflight de 13/10, anterior à inclusão autorizada. Firestore/Storage Rules remotas correspondem às locais, e a permissão IAM Storage → Firestore estava presente. Nenhum domínio Auth, CORS, Rule ou dado remoto foi alterado na correção de 15/10; [CORS](configuracao-cors-storage.md) e [riscos](riscos-e-dividas-tecnicas.md) explicam os limites das evidências.
 
 ## Publicação posterior
 
-**Nenhum comando de deploy foi executado nesta tarefa.** Antes de autorizar publicação, configurar o starter real, adicionar `deckfall.web.app` aos Authorized domains do Auth no escopo autorizado, conferir faturamento/serviços Gen 2/IAM, validar o build e planejar teste autenticado posterior nos dois ambientes. O escopo necessário é Functions (`initializePlayer` e `openPack`), Firestore Rules e Hosting. Storage Rules ficaram inalteradas e não exigem publicação nesta entrega.
+Functions `initializePlayer`/`openPack`, Firestore Rules e Hosting de pacotes foram publicados em 13/10/2026 com autorização; Nyra e o starter foram configurados em 14/10. **Não houve novo deploy na correção de previews de 15/10.** Para disponibilizar essa correção no domínio hospedado, somente o frontend/Hosting precisa ser publicado após autorização explícita. Functions, Firestore Rules, Storage Rules, CORS e Auth não sofreram mudanças nesta correção.
 
-Após autorização explícita, os comandos previstos são:
+Depois da validação e autorização de publicação do frontend, os comandos previstos são:
 
 ```powershell
 npm.cmd run build -- --configuration production
-npm.cmd run build:functions
-firebase deploy --only functions:initializePlayer,functions:openPack --project cardgame-6fdcb --non-interactive
-firebase deploy --only firestore:rules --project cardgame-6fdcb --non-interactive
 firebase deploy --only hosting --project cardgame-6fdcb --non-interactive
 ```
 
-Somente se Storage Rules forem alteradas em outro trabalho autorizado, publicar também `firebase deploy --only storage --project cardgame-6fdcb --non-interactive`. Não há alteração de índices nesta etapa. Até publicação, o domínio permanece no build anterior; frontend novo apontado ao backend remoto sem Callables informa erro e bloqueia a preparação, sem fallback de concessão local.
+Até essa publicação, o domínio permanece no frontend anterior. Não há mudança de índices nem motivo identificado para republicar Rules/Functions ou alterar CORS/Auth. O relato do proprietário confirmou funcionamento no localhost com perfil admin; ainda falta confirmar com member real as etapas de coleção, reveal e resumo e registrar a requisição no navegador. Esse relato não especificou individualmente cada tela.
 
 ## Validação e limites
 
@@ -172,7 +173,7 @@ git status --short
 
 Backend testa bootstrap sem coleção, abertura atômica, soma/datas/limites, versão fixa, retries, concorrência e retorno persistido. Integração usa Callable real nos emuladores de Auth/Firestore/Functions em `demo-cardgame`; Rules testam propriedade/leitura e negação de writes; frontend testa estados, navegação, reveal/revisão e URLs. Resultados efetivamente executados ficam no [contexto operacional](contexto-operacional-para-ias.md).
 
-Listagem é integral e sob demanda, sem paginação/realtime. Abertura aceita somente o domínio starter atual. App Check, controles de abuso, monitoramento, distribuição de outros packs e reconciliação de previews ficam como pendências; idempotência não elimina custo de invocações. Nenhuma ação suportada apaga marcador, reseta/reconcede pack ou altera resultado aberto. Operações futuras de valor precisam preservar a mesma autoridade backend.
+Listagem é integral e sob demanda, sem paginação/realtime. Abertura aceita somente o domínio starter atual. App Check, controles de abuso, monitoramento, distribuição de outros packs e reconciliação automática backend de previews ficam como pendências; existe reparo administrativo manual em `/admin/cartas/lista`. Idempotência não elimina custo de invocações. Nenhuma ação suportada apaga marcador, reseta/reconcede pack ou altera resultado aberto. Operações futuras de valor precisam preservar a mesma autoridade backend.
 
 ## StarterPack configurado — 14/10/2026
 

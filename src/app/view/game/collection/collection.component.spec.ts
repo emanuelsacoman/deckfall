@@ -5,6 +5,7 @@ import { Card, CardRarity } from '../../../model/interfaces/Cards/card';
 import { PlayerOwnedCard } from '../../../model/interfaces/Collection/player-card-collection';
 import { PlayerCollectionService } from '../../../model/services/cruds/collection/player-collection.service';
 import { AuthService } from '../../../model/services/fire/auth.service';
+import { PUBLISHED_CARD_STORAGE_CLIENT, PublishedCardStorageClient } from '../../../model/services/fire/published-card-storage.service';
 import { defaultCardData } from '../../../model/services/tools/card-canvas-factory';
 import { CollectionComponent } from './collection.component';
 import { PlayerCardPreviewComponent } from './player-card-preview/player-card-preview.component';
@@ -181,5 +182,66 @@ describe('CollectionComponent', () => {
     fixture.detectChanges(); fixture.destroy();
     pending.resolve(cards); await Promise.resolve();
     expect(component.entries()).toEqual([]);
+  });
+});
+
+describe('CollectionComponent com a preview publicada real', () => {
+  const cardId = '46f5c359-0d1e-423e-911e-4ba592567405';
+  const path = `published-cards/${cardId}/preview.png`;
+  const descriptor = Object.getOwnPropertyDescriptor(window, 'IntersectionObserver');
+  const png = new Blob([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5MsAAAAASUVORK5CYII='), char => char.charCodeAt(0))], { type: 'image/png' });
+  let fixture: ComponentFixture<CollectionComponent>;
+  let client: jasmine.SpyObj<PublishedCardStorageClient>;
+
+  beforeEach(async () => {
+    Object.defineProperty(window, 'IntersectionObserver', { configurable: true, writable: true, value: undefined });
+    client = jasmine.createSpyObj<PublishedCardStorageClient>('PublishedCardStorageClient', ['download', 'upload', 'delete']);
+    client.download.and.resolveTo(png);
+    const currentUser = signal<AuthSession | null>({ uid: 'member', email: null, displayName: '', role: 'member', roleId: 'member' });
+    await TestBed.configureTestingModule({ imports: [CollectionComponent], providers: [
+      { provide: PlayerCollectionService, useValue: { listCurrentUser: jasmine.createSpy('listCurrentUser').and.resolveTo([owned(cardId, 'Nyra', 'legendary', 1)]) } },
+      { provide: AuthService, useValue: { currentUser } },
+      { provide: PUBLISHED_CARD_STORAGE_CLIENT, useValue: client }
+    ] }).compileComponents();
+    fixture = TestBed.createComponent(CollectionComponent);
+  });
+
+  afterEach(() => {
+    fixture.destroy();
+    if (descriptor) Object.defineProperty(window, 'IntersectionObserver', descriptor);
+    else Reflect.deleteProperty(window, 'IntersectionObserver');
+  });
+
+  async function settle(): Promise<void> {
+    await fixture.whenStable(); fixture.detectChanges();
+    await fixture.whenStable(); fixture.detectChanges();
+  }
+
+  it('leva o UUID da Nyra até o download determinístico e exibe o PNG decodificado', async () => {
+    fixture.detectChanges(); await settle();
+    const article = fixture.nativeElement.querySelector(`[data-card-id="${cardId}"]`) as HTMLElement;
+    const image = article.querySelector('app-player-card-preview img') as HTMLImageElement;
+    expect(image).not.toBeNull();
+    expect(image.alt).toBe('Carta completa: Nyra');
+    expect(client.download).toHaveBeenCalledOnceWith(path);
+    await image.decode();
+    expect(image.naturalWidth).toBe(1);
+    expect(image.naturalHeight).toBe(1);
+    expect(article.querySelector('canvas')).toBeNull();
+    expect(client.upload).not.toHaveBeenCalled();
+  });
+
+  it('requisita novamente o PNG ausente ao tentar novamente dentro da coleção', async () => {
+    client.download.and.rejectWith({ code: 'storage/object-not-found' });
+    fixture.detectChanges(); await settle();
+    const preview = fixture.nativeElement.querySelector('app-player-card-preview') as HTMLElement;
+    expect(preview.textContent).toContain('A imagem desta carta ainda não foi publicada.');
+    client.download.and.resolveTo(png);
+    preview.querySelector<HTMLButtonElement>('button')!.click(); await settle();
+    expect(client.download.calls.allArgs()).toEqual([[path], [path]]);
+    const image = preview.querySelector('img') as HTMLImageElement;
+    await image.decode();
+    expect(image.naturalWidth).toBe(1);
+    expect(preview.querySelector('[role="alert"]')).toBeNull();
   });
 });

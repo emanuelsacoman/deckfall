@@ -90,7 +90,24 @@
   font-size: 0.8rem;
 }
 .row-actions {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+}
+.preview-repair {
+  margin-bottom: var(--deck-space-5);
+}
+.preview-repair-results {
+  display: grid;
+  gap: var(--deck-space-3);
+  padding-left: var(--deck-space-5);
+}
+.preview-repair-results p {
+  margin: var(--deck-space-1) 0;
+}
+.preview-repair-results code {
+  overflow-wrap: anywhere;
+}
+.repair-failed strong {
+  color: var(--danger, #b42318);
 }
 .visually-hidden {
   position: absolute;

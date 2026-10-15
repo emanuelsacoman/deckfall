@@ -94,7 +94,7 @@ describe('Sincronização da representação publicada', () => {
     renderer.render.and.rejectWith(new Error('Imagem privada indisponível.'));
     const renderWarning = (await service.synchronize('saved')).join(' ');
     expect(renderWarning).toContain('A carta foi salva');
-    expect(renderWarning).toContain('Imagem privada indisponível.');
+    expect(renderWarning).toContain('não pôde ser sincronizada');
     expect(renderWarning).not.toContain('Rules publicadas');
     expect(storage.uploadPreview).not.toHaveBeenCalled();
     renderer.render.and.resolveTo(blob); storage.uploadPreview.and.rejectWith(new Error('Upload negado.'));
@@ -114,7 +114,7 @@ describe('Sincronização da representação publicada', () => {
       expect(warning).toContain('Rules publicadas do Storage');
       expect(warning).toContain('perfil administrativo desta conta antes de tentar novamente');
       expect(warning).toContain('Depois de corrigir a permissão, reabra a carta e salve novamente');
-      expect(warning).toContain('Upload sem permissão.');
+      expect(warning).toContain(`Código: ${code}`);
     }
     expect(storage.deletePreview).not.toHaveBeenCalled();
   });
@@ -132,7 +132,7 @@ describe('Sincronização da representação publicada', () => {
         expect(warning).toContain('Rules publicadas do Storage');
         expect(warning).toContain('perfil administrativo desta conta antes de tentar novamente');
         expect(warning).toContain('Depois de corrigir a permissão');
-        expect(warning).toContain('Remoção sem permissão.');
+        expect(warning).toContain(`Código: ${code}`);
       }
     }
     expect(storage.deletePreview).toHaveBeenCalledTimes(4);
@@ -141,7 +141,7 @@ describe('Sincronização da representação publicada', () => {
 
   it('informa falha de leitura ou cleanup sem transformar save em erro', async () => {
     reader.getById.and.rejectWith(new Error('Offline.'));
-    expect((await service.synchronize('saved')).join(' ')).toContain('Offline.');
+    expect((await service.synchronize('saved')).join(' ')).toContain('não pôde ser sincronizada');
     current = card('archived'); reader.getById.and.callFake(async () => current);
     storage.deletePreview.and.rejectWith(new Error('Delete negado.'));
     expect((await service.synchronize('saved')).join(' ')).toContain('A carta foi salva');
@@ -175,7 +175,7 @@ describe('Sincronização da representação publicada', () => {
       expect(warning).toContain('A exclusão da carta já foi confirmada');
       expect(warning).toContain('Rules publicadas do Storage');
       expect(warning).toContain('perfil administrativo desta conta antes de tentar a limpeza novamente');
-      expect(warning).toContain('Limpeza sem permissão.');
+      expect(warning).toContain(`Código: ${code}`);
       expect(warning).not.toContain('salve novamente');
     }
     expect(renderer.render).not.toHaveBeenCalled(); expect(storage.uploadPreview).not.toHaveBeenCalled();
@@ -187,5 +187,87 @@ describe('Sincronização da representação publicada', () => {
     const warning = (await service.cleanupDeleted('saved')).join(' ');
     expect(warning).toContain('recriado durante a limpeza'); expect(warning).toContain('salve a versão atual');
     expect(storage.deletePreview).toHaveBeenCalledOnceWith('saved');
+  });
+
+  it('repara Nyra no caminho determinístico sem alterar o documento e ignora duplicadas, draft e archived', async () => {
+    const nyraId = '46f5c359-0d1e-423e-911e-4ba592567405';
+    current = { ...card(), id: nyraId, name: 'Nyra' };
+    const onResult = jasmine.createSpy('resultado por carta');
+    const results = await service.repairPublished([current, current, card('draft'), card('archived')], onResult);
+    expect(results).toEqual([{
+      cardId: nyraId, name: 'Nyra', path: `published-cards/${nyraId}/preview.png`, status: 'synchronized',
+      message: 'PNG publicado regenerado e enviado. A versão da carta foi conferida.'
+    }]);
+    expect(reader.getById).toHaveBeenCalledTimes(3);
+    expect(renderer.render).toHaveBeenCalledOnceWith(current!);
+    expect(storage.uploadPreview).toHaveBeenCalledOnceWith(nyraId, blob);
+    expect(storage.deletePreview).not.toHaveBeenCalled();
+    expect(onResult).toHaveBeenCalledOnceWith(results[0]);
+  });
+
+  it('não remove nem gera preview se a carta foi retirada ou excluída antes do reparo', async () => {
+    for (const next of [card('draft'), card('archived'), null]) {
+      current = next;
+      const results = await service.repairPublished([card()], () => {});
+      expect(results[0].status).toBe('skipped');
+    }
+    expect(storage.deletePreview).not.toHaveBeenCalled();
+    expect(storage.uploadPreview).not.toHaveBeenCalled();
+    expect(renderer.render).not.toHaveBeenCalled();
+  });
+
+  it('detecta mudança de versão durante o reparo sem declarar sucesso', async () => {
+    renderer.render.and.callFake(async () => { current = card('published', 2); return blob; });
+    const results = await service.repairPublished([card()], () => {});
+    expect(results[0].status).toBe('failed');
+    expect(results[0].message).toContain('mudou durante a sincronização');
+    expect(storage.uploadPreview).not.toHaveBeenCalled();
+    expect(storage.deletePreview).not.toHaveBeenCalled();
+  });
+
+  it('continua após falha de uma carta e limita o reparo a uma renderização simultânea', async () => {
+    const entries = ['one', 'two', 'three'].map(id => ({ ...card(), id, name: id }));
+    reader.getById.and.callFake(async id => entries.find(entry => entry.id === id)!);
+    let inFlight = 0;
+    let maxInFlight = 0;
+    renderer.render.and.callFake(async current => {
+      ++inFlight; maxInFlight = Math.max(inFlight, maxInFlight);
+      await Promise.resolve();
+      --inFlight;
+      if (current.id === 'two') throw Object.assign(new Error('Bearer secret https://private.invalid?token=secret'), { code: 'storage/unauthorized' });
+      return blob;
+    });
+    const results = await service.repairPublished(entries, () => {});
+    expect(results.map(result => result.status)).toEqual(['synchronized', 'failed', 'synchronized']);
+    expect(maxInFlight).toBe(1);
+    expect(results[1].message).toContain('storage/unauthorized');
+    expect(results[1].message).not.toContain('secret');
+    expect(results[1].message).not.toContain('https://');
+    expect(storage.uploadPreview).toHaveBeenCalledTimes(2);
+    expect(storage.deletePreview).not.toHaveBeenCalled();
+  });
+
+  it('não inicia outras cartas quando a página é destruída durante o lote', async () => {
+    const entries = ['one', 'two'].map(id => ({ ...card(), id, name: id }));
+    reader.getById.and.callFake(async id => entries.find(entry => entry.id === id)!);
+    let keepGoing = true;
+    const results = await service.repairPublished(entries, () => { keepGoing = false; }, () => keepGoing);
+    expect(results.length).toBe(1);
+    expect(renderer.render).toHaveBeenCalledTimes(1);
+    expect(storage.uploadPreview).toHaveBeenCalledOnceWith('one', blob);
+  });
+
+  it('remove detalhes sensíveis dos avisos de save e limpeza, conservando o código Firebase', async () => {
+    const sensitive = Object.assign(new Error('Authorization: Bearer private-token https://storage.invalid?token=private-token'), { code: 'storage/unauthorized' });
+    storage.uploadPreview.and.rejectWith(sensitive);
+    const saved = (await service.synchronize('saved')).join(' ');
+    current = null; storage.deletePreview.and.rejectWith(sensitive);
+    const cleanup = (await service.cleanupDeleted('saved')).join(' ');
+    for (const warning of [saved, cleanup]) {
+      expect(warning).toContain('storage/unauthorized');
+      expect(warning).not.toContain('private-token');
+      expect(warning).not.toContain('Authorization');
+      expect(warning).not.toContain('https://');
+    }
   });
 });

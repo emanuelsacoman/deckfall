@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { Navigation, provideRouter, Router } from '@angular/router';
 import { Card, CardOperationError } from '../../../../../model/interfaces/Cards/card';
 import { CardService } from '../../../../../model/services/cruds/cards/card.service';
 import { CardTemplateService } from '../../../../../model/services/cruds/cards/card-template.service';
@@ -55,6 +55,33 @@ describe('Editor — criação, reabertura e uploads', () => {
     reopened.detectChanges(); await reopened.whenStable(); reopened.detectChanges();
     expect(reopened.componentInstance.state.canvas()).toEqual(saved.canvas!);
     expect(reopened.componentInstance.state.data().name).toBe('Nova carta');
+    reopened.destroy();
+  });
+
+  it('preserva o aviso de preview após criar e navegar para edição, permitindo reparar ao salvar novamente', async () => {
+    const warning = 'A carta foi salva, mas a representação publicada não pôde ser sincronizada. Código: storage/unauthorized.';
+    cards.create.and.callFake(async input => {
+      stored = { ...structuredClone(input), id: 'new-card', slug: 'nova-carta', art: null, createdAt: null, updatedAt: null };
+      return { id: 'new-card', warnings: [warning] };
+    });
+    const fixture = TestBed.createComponent(CardEditorComponent);
+    fixture.componentRef.setInput('mode', 'create'); fixture.detectChanges(); await fixture.whenStable();
+    await fixture.componentInstance.save();
+    const router = TestBed.inject(Router);
+    const navigation = (router.navigate as jasmine.Spy).calls.mostRecent().args[1];
+    expect(navigation.state.cardFeedback.warnings).toEqual([warning]);
+    fixture.destroy();
+    spyOn(router, 'getCurrentNavigation').and.returnValue({ extras: { state: navigation.state } } as Navigation);
+    const reopened = TestBed.createComponent(CardEditorComponent);
+    reopened.componentRef.setInput('mode', 'edit'); reopened.componentRef.setInput('cardId', 'new-card');
+    reopened.detectChanges(); await reopened.whenStable(); reopened.detectChanges();
+    expect(reopened.componentInstance.warnings()).toEqual([warning]);
+    expect((reopened.nativeElement as HTMLElement).querySelector('[role="alert"]')?.textContent).toContain('storage/unauthorized');
+    cards.update.and.resolveTo({ id: 'new-card', warnings: [] });
+    await reopened.componentInstance.save();
+    expect(cards.create).toHaveBeenCalledTimes(1);
+    expect(cards.update).toHaveBeenCalledTimes(1);
+    expect(reopened.componentInstance.warnings()).toEqual([]);
     reopened.destroy();
   });
 

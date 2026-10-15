@@ -78,8 +78,9 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
 
   async loadCard(): Promise<void> {
     const version = ++this.version;
+    const navigationState: unknown = this.router.getCurrentNavigation()?.extras.state ?? history.state;
     this.assets.reset(); this.localSavedSignature = ''; this.allowLeave = false; this.clipboard = null;
-    this.loading.set(true); this.retryingImages.set(false); this.dataValid.set(true); this.loadError.set(''); this.error.set(''); this.feedback.set(''); this.recoveryId.set(null); this.original.set(null);
+    this.loading.set(true); this.retryingImages.set(false); this.dataValid.set(true); this.loadError.set(''); this.error.set(''); this.feedback.set(''); this.warnings.set([]); this.recoveryId.set(null); this.original.set(null);
     const fresh = defaultCardData(); this.state.load({ data: fresh, canvas: ornateFantasyCanvas(fresh) });
     try {
       if (this.mode === 'edit') {
@@ -89,9 +90,9 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
         if (!this.isCurrent(version)) return;
         const document = this.documentFromCard(card);
         this.original.set(card); this.state.load(document); this.assets.markPersisted(document.canvas);
+        this.readSaveFeedback(navigationState, card.id);
         // The asset effect downloads images independently; the document can be edited immediately.
       } else {
-        const navigationState: unknown = this.router.getCurrentNavigation()?.extras.state ?? history.state;
         if (navigationState && typeof navigationState === 'object' && 'loadLocalDraft' in navigationState && navigationState.loadLocalDraft === true) {
           await this.loadLocal(false);
         }
@@ -187,11 +188,26 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
       const document = this.documentFromCard(saved);
       this.state.acceptPersisted(document); this.assets.markPersisted(document.canvas);
       this.recoveryId.set(null); this.feedback.set('Carta salva no Firebase.');
-      if (!original) { this.allowLeave = true; await this.router.navigate(['/admin/cartas/editar', result.id]); }
+      if (!original) {
+        this.allowLeave = true;
+        await this.router.navigate(['/admin/cartas/editar', result.id], {
+          state: { cardFeedback: { id: result.id, message: 'Carta salva no Firebase.', warnings: result.warnings } }
+        });
+      }
     } catch (error: unknown) {
       this.error.set(this.message(error));
       if (error instanceof CardOperationError && error.cardId) this.recoveryId.set(error.cardId);
     } finally { this.state.busy.set(false); }
+  }
+
+  private readSaveFeedback(state: unknown, cardId: string): void {
+    if (!state || typeof state !== 'object' || !('cardFeedback' in state)) return;
+    const feedback = state.cardFeedback;
+    if (!feedback || typeof feedback !== 'object' || !('id' in feedback) || feedback.id !== cardId) return;
+    if ('message' in feedback && typeof feedback.message === 'string') this.feedback.set(feedback.message);
+    if ('warnings' in feedback && Array.isArray(feedback.warnings)) {
+      this.warnings.set(feedback.warnings.filter((warning): warning is string => typeof warning === 'string'));
+    }
   }
 
   async saveTemplate(): Promise<void> {

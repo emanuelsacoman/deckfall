@@ -196,7 +196,9 @@ describe('Admin, auth and editor viewport geometry', () => {
     fixtures.push(editor); editor.componentRef.setInput('mode', 'create');
     editor.detectChanges(); await editor.whenStable(); editor.detectChanges();
     editor.componentInstance.state.setMode('data'); editor.detectChanges();
-    for (const details of Array.from((editor.nativeElement as HTMLElement).querySelectorAll<HTMLDetailsElement>('.persistence details'))) {
+    // The final data field is inside the optional attribute details. Open the
+    // current editor panels before measuring reachability of their controls.
+    for (const details of Array.from((editor.nativeElement as HTMLElement).querySelectorAll<HTMLDetailsElement>('.persistence details, .editor-right details'))) {
       details.open = true;
     }
     const snapshots = [

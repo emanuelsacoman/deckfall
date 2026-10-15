@@ -37,7 +37,7 @@ Telas usam `loadComponent`. Raiz e rota desconhecida redirecionam para `/login`,
 | `/admin` | Redireciona para `/admin/dashboard` |
 | `/admin/dashboard` | Atalhos administrativos |
 | `/admin/cartas` | Redireciona para `/admin/cartas/lista` |
-| `/admin/cartas/lista` | Catálogo e ações |
+| `/admin/cartas/lista` | Catálogo, ações e reparo manual de previews publicadas |
 | `/admin/cartas/criar` | Editor de nova carta |
 | `/admin/cartas/editar/:id` | Editor com documento carregado |
 | `/admin/pacotes` | Definições, configuração dedicada StarterPack, informações e novas versões imutáveis |
@@ -62,7 +62,9 @@ O shell administrativo possui `adminGuard` no pai e `adminChildGuard` nos filhos
 
 Início oferece saudação/atalhos e consulta o starter próprio para destacar somente uma instância lacrada. Pacotes lista instâncias pelo `PlayerPackService`; a tela de abertura aguarda `openPack`, revela uma entrada por vez e mostra resumo. Um pacote aberto reconstrói o resultado persistido sem nova concessão. O serviço valida documentos/resposta e descarta retorno de sessão anterior; deduplica chamadas locais de abertura por UID/instância. Não contém writes Firestore.
 
-Coleção consulta propriedade pelo `PlayerCollectionService`, resolve cartas publicadas e aplica busca/raridade localmente. `PlayerCardPreviewComponent` aceita a identidade da carta/snapshot usada na coleção e reveal, baixa somente PNG pelo `PublishedCardStorageService`, com loading, retry e liberação de object URLs; não usa renderer Konva ou assets privados. CSS de pacotes respeita `prefers-reduced-motion`. Decks/jogar permanecem placeholders. Perfil usa `AuthService` e encaminha credenciais para `/login`. Veja [coleção](colecao.md), [pacotes](pacotes.md), [autenticação](autenticacao-e-admin.md) e [riscos](riscos-e-dividas-tecnicas.md).
+Coleção consulta propriedade pelo `PlayerCollectionService`, resolve cartas publicadas e aplica busca/raridade localmente. `PlayerCardPreviewComponent` aceita a identidade da carta/snapshot usada na coleção, reveal e resumo, baixa somente PNG pelo `PublishedCardStorageService`, com loading, retry e liberação de object URLs; não usa renderer Konva ou assets privados. O cache compartilhado do pack conserva Promises bem-sucedidas e remove as rejeitadas ou com falha de exibição para permitir novo request. CSS de pacotes respeita `prefers-reduced-motion`. Decks/jogar permanecem placeholders. Perfil usa `AuthService` e encaminha credenciais para `/login`. Veja [coleção](colecao.md), [pacotes](pacotes.md), [autenticação](autenticacao-e-admin.md) e [riscos](riscos-e-dividas-tecnicas.md).
+
+`PublishedCardPreviewError`, em `model/interfaces/Cards/published-card-preview-error.ts`, transporta `code`, `cardId`, `path`, mensagem segura e `cause` original. Helpers classificam erros sem repetir mensagens SDK; o componente diferencia objeto ausente, autorização, sessão, rede e preview inválida. Em desenvolvimento, registra somente cardId/path/code. O adapter de Storage chama `getBlob(reference)` sem limite opcional para preservar MIME no SDK instalado; o serviço mantém a validação estrita de Blob, `image/png` e até 20 MiB após o download. A causa e a regressão de `Blob.slice` estão em [coleção](colecao.md#diagnóstico-de-15102026).
 
 `model/routing/auth-return-url.ts` centraliza os destinos internos existentes, incluindo `/game/pacotes`, abertura com ID validado e `/admin/pacotes` apenas para admin. Login mantém prioridade do destino autorizado por papel; URLs externas, rotas desconhecidas e outlets auxiliares continuam recusados.
 
@@ -70,9 +72,11 @@ Na edição de usuário, `UserEditComponent` orquestra `UserFormComponent` e `Us
 
 Após confirmar o salvamento de carta, `PublishedCardPreviewService` reutiliza `CardPreviewService` para sincronizar o PNG, verificar a versão e retornar avisos em falhas posteriores. Uma leitura substituível do documento evita depender de `CardService` no sincronizador; `CARD_PERSISTENCE_CLIENT` concentra as operações existentes de persistência para testes, preservando validação/transações e o contrato `Card`. Exclusão e mudança de status também tentam limpar a imagem publicada. Não há renderer paralelo, nova dependência ou alteração do canvas.
 
+`CardListComponent` orquestra **Sincronizar previews publicadas** e a ação individual **Regenerar preview**: relê o catálogo com `CardService`, seleciona publicadas e acompanha os resultados de `PublishedCardPreviewService.repairPublished`. O serviço concentra a geração/upload sequencial e as conferências de status/versão. Não escreve documentos de cartas ou dados de jogo, não apaga previews de cartas retiradas nessa rotina e não altera os assets privados. O callback de ciclo de vida impede iniciar novos itens depois de sair da página. O fluxo continua administrativo, protegido por guards e pelas Rules de escrita de PNG.
+
 ## Editor compartilhado
 
-`CardEditorComponent` orquestra carregamento, salvamento, assets, rascunhos, templates, importação e exportação. Estado/assets são fornecidos no próprio editor; outra instância não compartilha seleção ou histórico.
+`CardEditorComponent` orquestra carregamento, salvamento, assets, rascunhos, templates, importação e exportação. Estado/assets são fornecidos no próprio editor; outra instância não compartilha seleção ou histórico. Após criação, os avisos de save acompanham a navegação para edição em state de runtime com o ID da carta; o destino exibe alertas apenas para aquele ID. Eles não são persistidos no documento e uma nova tentativa atualiza a lista de avisos.
 
 ```text
 cards/
@@ -103,6 +107,7 @@ Os cinco painéis usam `CardEditorStateService` e emitem intenções de ação, 
 ```text
 model/interfaces/Auth/auth-session.ts
 model/interfaces/Cards/{card,card-canvas,card-template}.ts
+model/interfaces/Cards/published-card-preview-error.ts
 model/interfaces/Users/user-profile.ts
 model/interfaces/Collection/player-card-collection.ts
 model/interfaces/Players/player-profile.ts
@@ -144,3 +149,5 @@ functions/src/firestore-bootstrap-store.ts
 Listas carregam sob demanda e permitem retry, sem listener permanente da coleção inteira. Auth observa a conta e seu perfil. O dashboard não consulta dados apenas para preencher contadores. Leia [editor](editor-de-cartas.md), [cartas](cartas.md) e [autenticação](autenticacao-e-admin.md) antes de alterar esses fluxos.
 
 O catálogo possui modo de tabela e galeria. `CardPreviewComponent` gerencia visibilidade, cancelamento e a URL final da imagem; `CardPreviewService` limita renderizações a dois jobs, baixa assets autenticados e gera PNG pelo renderer existente. Não há editor interativo nem Stage permanente em cada item. `savedCardDocument` adapta o modelo salvo/legado para uso tanto no editor como na galeria, mantendo uma fonte para essa compatibilidade.
+
+A galeria administrativa renderiza assets privados e não testa o fluxo do jogador: o último consome exclusivamente o PNG achatado publicado. O reparo de previews reaproveita o renderer administrativo para escrever esse PNG, mantendo separados os dois acessos e os contratos persistidos.

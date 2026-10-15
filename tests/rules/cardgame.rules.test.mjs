@@ -480,6 +480,65 @@ test('preview publicada: membro é somente leitor e anônimo/perfil inválido n�
   await assertFails(listAll(ref(storageFor('member'), 'published-cards')));
 });
 
+test('preview publicada: papel desconhecido, incompleto ou de tipo inválido falha fechado', async () => {
+  const profiles = [
+    ['unknown-role', { role: 'owner', roleId: 'owner' }],
+    ['only-role', { role: 'member' }],
+    ['only-role-id', { roleId: 'member' }],
+    ['null-role', { role: null, roleId: null }],
+    ['numeric-role', { role: 1, roleId: 1 }],
+    ['opposite-role', { role: 'member', roleId: 'admin' }],
+    ['empty-profile', {}]
+  ];
+  await seedPreview('published');
+  await env.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    for (const [uid, profile] of profiles) await setDoc(doc(db, 'users', uid), profile);
+  });
+  for (const [uid] of profiles) {
+    const object = ref(storageFor(uid), publishedPath());
+    await assertFails(getBytes(object));
+    await assertFails(uploadBytes(object, new Uint8Array([1]), { contentType: 'image/png' }));
+    await assertFails(deleteObject(object));
+  }
+});
+
+test('preview publicada: remoção ou inconsistência do perfil revoga novo download', async () => {
+  await seedPreview('published');
+  const object = ref(storageFor('member'), publishedPath());
+  await assertSucceeds(getBytes(object));
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'users/member'), { roleId: 'admin' });
+  });
+  await assertFails(getBytes(object));
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'users/member'), { role: 'member', roleId: 'member' });
+  });
+  await assertSucceeds(getBytes(object));
+  await env.withSecurityRulesDisabled(async context => {
+    await deleteDoc(doc(context.firestore(), 'users/member'));
+  });
+  await assertFails(getBytes(object));
+});
+
+test('preview publicada: Nyra usa o UUID e o caminho final sem depender de email ou posse', async () => {
+  const cardId = '46f5c359-0d1e-423e-911e-4ba592567405';
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'cards', cardId), card({ name: 'Nyra', status: 'published' }));
+  });
+  const path = `published-cards/${cardId}/preview.png`;
+  const adminObject = ref(storageFor('admin'), path);
+  const bytes = new Uint8Array([137, 80, 78, 71]);
+  await assertSucceeds(uploadBytes(adminObject, bytes, { contentType: 'image/png' }));
+  // Este membro não possui entrada de coleção, e o token não contém email.
+  const memberBytes = await assertSucceeds(getBytes(ref(storageFor('member'), path)));
+  assert.deepEqual(new Uint8Array(memberBytes), bytes);
+  await assertSucceeds(getBytes(adminObject));
+  await assertFails(getBytes(ref(storageFor(), path)));
+  await assertFails(getBytes(ref(storageFor('partial'), path)));
+  await assertFails(listAll(ref(storageFor('admin'), `published-cards/${cardId}`)));
+});
+
 test('preview publicada: draft, archived e carta ausente negam leitura mesmo com PNG retido', async () => {
   for (const cardId of ['draft', 'archived', 'missing']) {
     await seedPreview(cardId);

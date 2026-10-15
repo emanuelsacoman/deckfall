@@ -5,7 +5,8 @@
     <p class="muted">{{ displayMode() === 'cards' ? 'Clique em uma carta para abrir a edição.' : 'Gerencie dados, atributos e artes do catálogo.' }}</p>
   </div>
   <div class="actions">
-    <button class="button secondary" type="button" (click)="load()" [disabled]="loading() || !!deletingId()">Atualizar</button>
+    <button class="button secondary" type="button" (click)="load()" [disabled]="loading() || !!deletingId() || synchronizingPreviews()">Atualizar</button>
+    <button class="button secondary" type="button" (click)="synchronizePreviews()" [disabled]="loading() || !!deletingId() || synchronizingPreviews() || !hasPublishedCards()">Sincronizar previews publicadas</button>
     <a class="button" routerLink="/admin/cartas/criar">Criar carta</a>
   </div>
 </header>
@@ -16,7 +17,7 @@
 </div>
 
 @if (feedback()) {
-  <p class="notice success" role="status">{{ feedback() }}</p>
+  <p class="notice" [class.success]="!previewRepairHasFailures()" [class.error]="previewRepairHasFailures()" role="status">{{ feedback() }}</p>
 }
 @for (warning of warnings(); track warning) {
   <p class="notice" role="alert">{{ warning }}</p>
@@ -24,8 +25,28 @@
 @if (error()) {
   <div class="notice error" role="alert">
     <p>{{ error() }}</p>
-    <button class="button secondary" type="button" (click)="load()" [disabled]="!!deletingId()">Recarregar lista</button>
+    <button class="button secondary" type="button" (click)="load()" [disabled]="!!deletingId() || synchronizingPreviews()">Recarregar lista</button>
   </div>
+}
+@if (synchronizingPreviews() || previewRepairResults().length > 0) {
+  <section class="panel preview-repair" aria-labelledby="preview-repair-title" [attr.aria-busy]="synchronizingPreviews()">
+    <h2 id="preview-repair-title">Previews publicadas</h2>
+    <p class="muted">Regenera somente o PNG usado pelo jogador, uma carta por vez. Dados das cartas e da coleção permanecem preservados.</p>
+    @if (synchronizingPreviews()) {
+      <p role="status">Sincronizando: {{ previewRepairResults().length }} de {{ previewRepairTotal() }} carta(s) concluída(s). Aguarde nesta página.</p>
+    }
+    @if (previewRepairResults().length > 0) {
+      <ul class="preview-repair-results">
+        @for (result of previewRepairResults(); track result.cardId) {
+          <li [class.repair-failed]="result.status === 'failed'">
+            <strong>{{ result.name }} — {{ previewRepairLabels[result.status] }}</strong>
+            <p>{{ result.message }}</p>
+            <code>{{ result.path }}</code>
+          </li>
+        }
+      </ul>
+    }
+  </section>
 }
 @if (loading()) {
   <p class="notice" role="status">Carregando cartas...</p>
@@ -70,7 +91,11 @@
             <td>
               <div class="actions row-actions">
                 <a class="button secondary" [routerLink]="['/admin/cartas/editar', card.id]" [attr.aria-label]="'Editar ' + card.name">Editar</a>
-                <button class="button danger" type="button" (click)="deleteCard(card)" [disabled]="!!deletingId()"
+                @if (card.status === 'published') {
+                  <button class="button secondary" type="button" (click)="synchronizePreviews(card)" [disabled]="!!deletingId() || synchronizingPreviews()"
+                    [attr.aria-label]="'Regenerar preview de ' + card.name">Regenerar preview</button>
+                }
+                <button class="button danger" type="button" (click)="deleteCard(card)" [disabled]="!!deletingId() || synchronizingPreviews()"
                   [attr.aria-label]="'Excluir ' + card.name">{{ deletingId() === card.id ? 'Excluindo...' : 'Excluir' }}</button>
               </div>
             </td>

@@ -46,6 +46,19 @@ Busca é local por nome/tipo/subtipo, desconsiderando caixa e diacríticos; comb
 
 `PlayerCardPreviewComponent` solicita o PNG próximo da área visível com IntersectionObserver (margem de 200px), ou imediatamente quando essa API não está disponível. Apresenta loading, erro e retry; ignora respostas antigas e libera object URLs ao trocar entrada, ocorrer erro de imagem ou destruir o componente. Download já iniciado por `getBlob` não é abortado pela UI. Não há Stage Konva por item.
 
+Coleção, reveal e resumo de pacote usam o mesmo componente. Falhas conservam o código em `PublishedCardPreviewError`, com `cardId`, caminho determinístico, mensagem segura e erro original em `cause` quando disponível. A interface diferencia:
+
+| Código | Mensagem ao jogador |
+| --- | --- |
+| `storage/object-not-found` | A imagem desta carta ainda não foi publicada. |
+| `storage/unauthorized` | Sua conta não possui autorização para carregar esta imagem. |
+| `storage/unauthenticated` | Sua sessão precisa ser renovada para carregar esta imagem. |
+| `storage/retry-limit-exceeded` ou falha de rede reconhecida | Não foi possível baixar a imagem. Confira sua conexão. |
+| `preview-invalid`, incluindo MIME/tamanho inválido ou falha de exibição | A imagem publicada desta carta está inválida. |
+| Desconhecido | Não foi possível carregar a imagem publicada. Tente novamente. |
+
+Em desenvolvimento, o console registra `[Deckfall preview]` e somente `{cardId, path, code}`. Não registra causa original, mensagens SDK, tokens ou URLs de download. No cache compartilhado do pack, uma Promise rejeitada ou uma imagem que falha ao exibir é removida, permitindo que **Tentar novamente** faça novo download.
+
 ## Gestão administrativa
 
 Em `/admin/usuarios/editar/:uid`, a seção de coleção é separada do formulário de perfil e só aparece após encontrar `users/{uid}`. O administrador escolhe uma carta publicada e define a quantidade total possuída: mudar de 2 para 3 resulta em 3, sem somar mais 3 cópias. Pode alterar o total ou remover a entrada após confirmação; a remoção não exclui `cards/{cardId}`.
@@ -66,19 +79,53 @@ Storage permite somente `get` da preview para uma conta com perfil `member` ou `
 
 `PublishedCardStorageService` usa `getBlob`, sem `getDownloadURL` ou URLs com token persistidas. Upload envia `cacheControl: private, no-store`. Downloads diretos seguem Rules e dependem também do CORS do bucket, conforme [a documentação Firebase](https://firebase.google.com/docs/storage/web/download-files) e [o guia local](configuracao-cors-storage.md). O componente do jogador consome esse PNG; não reconstrói Konva nem baixa assets administrativos.
 
+O fluxo administrativo é diferente: editor e galeria geram a composição usando assets privados e o renderer existente. Ver a carta correta no admin não comprova que o PNG publicado exista ou possa ser baixado por um member.
+
+O adapter chama `getBlob(reference)` sem o argumento opcional de tamanho. No SDK Firebase instalado, esse argumento aciona `Blob.slice` sem preservar MIME. O serviço valida o Blob recebido sem forçar `image/png`: exige Blob real, MIME `image/png`, tamanho positivo e até 20 MiB. O limite é conferido após o download; Rules e upload administrativo também limitam os objetos novos, mas o cliente não interrompe preventivamente a transferência de um objeto remoto maior criado por acesso privilegiado.
+
 ## Sincronização após salvar e excluir
 
 Após confirmar o documento, `CardService` chama `PublishedCardPreviewService`. Para `published`, ele relê a carta, reutiliza `CardPreviewService` e o renderer existente para gerar PNG, compara status/`updatedAt` antes do upload e confere novamente depois. Para `draft`/`archived`, tenta excluir a imagem com verificação de versão antes/depois. Na exclusão, confirma ausência do documento antes/depois do cleanup, avisando se a carta foi recriada.
 
-Falha de renderização, upload ou limpeza posterior não desfaz a gravação confirmada. Salvamento retorna avisos em `CardSaveResult.warnings`; falha de limpeza após exclusão informa que o documento já foi excluído. A imagem pode ficar ausente/desatualizada: reabrir e salvar a versão publicada atual permite tentar novamente. Cartas publicadas anteriormente não recebem backfill automático; precisam ser salvas para gerar sua representação.
+Falha de renderização, upload ou limpeza posterior não desfaz a gravação confirmada. Salvamento retorna avisos em `CardSaveResult.warnings`, exibidos como alertas; na criação, eles acompanham a navegação para edição do novo ID. Falha de limpeza após exclusão informa que o documento já foi excluído. Avisos de sincronização/cleanup não repetem mensagens brutas do SDK e conservam o código seguro disponível. A imagem pode ficar ausente/desatualizada: reabrir e salvar a versão publicada atual permite tentar novamente, assim como a ferramenta administrativa abaixo.
 
 Firestore e Storage não são atômicos. As verificações detectam corridas, mas uma janela residual entre consulta e operação Storage pode deixar imagem ausente/desatualizada; não há reconciliação backend. Quando o documento passa a draft/archived ou é excluído, Rules negam novos downloads independentemente da limpeza. Bytes já baixados e object URLs não são apagados remotamente; o lifecycle do componente libera suas URLs ao trocar/destruir a apresentação.
 
-Leitura integral da coleção, uma resolução de carta por entrada, downloads/memória e futura paginação estão registrados em [riscos](riscos-e-dividas-tecnicas.md). Após autorização do proprietário, Rules e Hosting foram publicados e conferidos; CORS das duas origens e a integração IAM Storage → Firestore estavam configurados. Isso não constitui teste de uma sessão Firebase Authentication real.
+Leitura integral da coleção, uma resolução de carta por entrada, downloads/memória e futura paginação estão registrados em [riscos](riscos-e-dividas-tecnicas.md).
+
+## Reparar previews publicadas
+
+Em `/admin/cartas/lista`, **Sincronizar previews publicadas** relê o catálogo no servidor e seleciona somente cartas `published`. **Regenerar preview** faz o mesmo para uma carta da lista. `PublishedCardPreviewService.repairPublished` remove IDs duplicados e processa uma carta por vez pelo mesmo renderer e upload usados após salvar; a ação explícita regenera o PNG, inclusive quando já existe.
+
+Cada carta é relida e sua versão é conferida antes/depois do upload. O resultado mostra nome, caminho e estado **Sincronizada**, **Falha** ou **Ignorada**. Retirada/exclusão antes da geração ignora a entrada sem alterar arquivos; alteração concorrente impede anunciar sucesso. Falhas não interrompem as demais cartas. Sair da página impede iniciar os próximos itens; uma operação já iniciada pode terminar.
+
+O reparo escreve somente o PNG achatado no namespace publicado. Não salva documentos de cartas, altera gameplay/coleção/packs, duplica canvas, grava URLs no Firestore nem publica assets privados. A lista bloqueia outro reparo, atualização e exclusão durante o lote. Cartas antigas podem receber o PNG por essa ação, sem reabrir/salvar cada documento; não existe reconciliação backend automática.
+
+## Diagnóstico de 15/10/2026
+
+A causa confirmada no cliente foi o uso de `getBlob(reference, limite)` com Firebase 10.14.1: `getBlobInternal` em `node_modules/@firebase/storage/dist/index.esm2017.js` retorna `blob.slice(0, maxDownloadSizeBytes)` quando há limite. Sem o terceiro argumento de `slice`, o Blob resultante fica com `type: ''`, mesmo quando o download original é `image/png`; a validação estrita recusava a preview válida. O adapter passou a omitir esse argumento e manteve as validações posteriores. O teste `published-card-storage-sdk.spec.ts` exercita o SDK instalado e um Blob PNG nativo no Chrome, com transporte local isolado; não usa sessão de produção.
+
+Além disso, o wrapper anterior destruía `error.code` ao criar um `Error` genérico, e o componente mostrava a mesma mensagem para todas as falhas. O contrato tipado e a distinção acima preservam a observabilidade sem expor credenciais. Essa perda de informação era um segundo defeito, separado da perda de MIME.
+
+A leitura remota somente leitura encontrou o seguinte para Nyra:
+
+| Evidência | Valor observado |
+| --- | --- |
+| Documento | `cards/46f5c359-0d1e-423e-911e-4ba592567405`, `status: published` |
+| `updatedAt` | `2026-10-14T22:27:37.186Z` |
+| Objeto existente | `published-cards/46f5c359-0d1e-423e-911e-4ba592567405/preview.png` |
+| MIME, tamanho e dimensões | `image/png`, 2.575.604 bytes, 1086 × 1448 |
+| `generation` / `updated` | `1792016860478126` / `2026-10-14T22:27:40.508Z` |
+| Cache | `private, no-store` |
+| GET exato com OAuth da CLI | HTTP 206, PNG e `Access-Control-Allow-Origin` correspondente a cada uma das duas origens |
+
+As Rules publicadas de Firestore e Storage correspondiam às locais; a permissão IAM da integração Storage Rules → Firestore estava presente. O Auth retornou `localhost`, `cardgame-6fdcb.firebaseapp.com`, `cardgame-6fdcb.web.app` e `deckfall.web.app` nos Authorized domains. Nenhuma dessas configurações foi alterada nesta correção.
+
+O proprietário relatou que voltou a funcionar no localhost; o perfil remoto da conta informada era `admin/admin`. O relato não identificou individualmente coleção, reveal ou resumo, nem trouxe o request Network. Portanto, permanecem pendentes o teste de member real, a confirmação de cada etapa e o registro de HTTP/código Firebase/MIME no navegador. O GET com OAuth da CLI não mede a Storage Rule para esse member. Não houve novo deploy; a disponibilização da correção no domínio hospedado exige publicar o Hosting após autorização.
 
 ## Localhost, domínio e erro de permissão
 
-Por padrão, o desenvolvimento utiliza o Firebase configurado no environment, como o domínio publicado; emuladores exigem opção explícita e projeto `demo-` em localhost. O fluxo isolado de Auth/Firestore/Storage/Functions está em [pacotes](pacotes.md#localhost-isolado). Alterar um arquivo `.rules` local não muda a autorização remota. Em 13/10/2026, as duas Functions, Firestore Rules e Hosting de pacotes/administração foram publicados e conferidos com autorização. O site preservado `deckfall.web.app` foi incluído nos Authorized domains do Auth, sem remover domínios existentes. CORS GET das duas origens permaneceu configurado. Ainda cabe ao administrador publicar cartas e configurar/ativar StarterPack em `/admin/pacotes`; sem conteúdo inicial válido, o gate informa preparação pendente em vez de conceder propriedade vazia. A sessão Firebase Authentication real continua sem teste por esta verificação.
+Por padrão, o desenvolvimento utiliza o Firebase configurado no environment, como o domínio publicado; emuladores exigem opção explícita e projeto `demo-` em localhost. O fluxo isolado de Auth/Firestore/Storage/Functions está em [pacotes](pacotes.md#localhost-isolado). Alterar um arquivo `.rules` local não muda a autorização remota. Em 13/10/2026, as duas Functions, Firestore Rules e Hosting de pacotes/administração foram publicados e conferidos com autorização. Em 14/10, Nyra foi publicada e o StarterPack ativado com uma cópia dela. Para outros ambientes sem conteúdo inicial válido, o gate informa preparação pendente em vez de conceder propriedade vazia. O estado e os limites da verificação de 15/10 estão registrados acima.
 
 Em 12/10/2026, a leitura das releases confirmou que as Rules ativas ainda eram anteriores à coleção e não continham `published-cards`. A carta do relato estava em `draft`: o save foi confirmado no Firestore, mas o cleanup da preview recebeu `storage/unauthorized`, mesmo podendo não existir arquivo. Depois da autorização, as duas Rules e o Hosting foram publicados; a conferência posterior confirmou o conteúdo esperado.
 

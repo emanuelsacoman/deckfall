@@ -5,6 +5,7 @@ import { CardService } from '../../../../../model/services/cruds/cards/card.serv
 import { CardStorageService } from '../../../../../model/services/fire/card-storage.service';
 import { CardListComponent } from './card-list.component';
 import { CardPreviewService } from '../../../../../model/services/tools/card-preview.service';
+import { PublishedCardPreviewRepairResult, PublishedCardPreviewService } from '../../../../../model/services/cruds/cards/published-card-preview.service';
 
 describe('CardListComponent', () => {
   let fixture: ComponentFixture<CardListComponent>;
@@ -12,6 +13,7 @@ describe('CardListComponent', () => {
   let cards: jasmine.SpyObj<CardService>;
   let storage: jasmine.SpyObj<CardStorageService>;
   let previews: jasmine.SpyObj<CardPreviewService>;
+  let publishedPreviews: jasmine.SpyObj<PublishedCardPreviewService>;
   const card: Card = {
     id: 'card-1', name: 'Dragão', slug: 'dragao', description: '', rarity: 'epic', status: 'draft',
     attributes: [], setId: null, art: null, createdAt: null, updatedAt: null
@@ -21,6 +23,8 @@ describe('CardListComponent', () => {
     cards = jasmine.createSpyObj<CardService>('CardService', ['list', 'delete']);
     storage = jasmine.createSpyObj<CardStorageService>('CardStorageService', ['getArtUrl']);
     previews = jasmine.createSpyObj<CardPreviewService>('CardPreviewService', ['render']);
+    publishedPreviews = jasmine.createSpyObj<PublishedCardPreviewService>('PublishedCardPreviewService', ['repairPublished']);
+    publishedPreviews.repairPublished.and.resolveTo([]);
     previews.render.and.resolveTo(new Blob([], { type: 'image/png' }));
     cards.list.and.resolveTo([card]);
     cards.delete.and.resolveTo();
@@ -30,7 +34,8 @@ describe('CardListComponent', () => {
         provideRouter([]),
         { provide: CardService, useValue: cards },
         { provide: CardStorageService, useValue: storage },
-        { provide: CardPreviewService, useValue: previews }
+        { provide: CardPreviewService, useValue: previews },
+        { provide: PublishedCardPreviewService, useValue: publishedPreviews }
       ]
     }).compileComponents();
     fixture = TestBed.createComponent(CardListComponent);
@@ -136,5 +141,76 @@ describe('CardListComponent', () => {
     const pending = component.load(); await component.load();
     first([card]); await pending;
     expect(component.cards()[0].name).toBe('Atualizada');
+  });
+
+  it('refreshes published cards before repair and presents the result for each card, including failures', async () => {
+    const nyra = { ...card, id: '46f5c359-0d1e-423e-911e-4ba592567405', name: 'Nyra', status: 'published' as const };
+    cards.list.and.resolveTo([nyra, card]);
+    await component.load();
+    const result: PublishedCardPreviewRepairResult = {
+      cardId: nyra.id, name: nyra.name, path: `published-cards/${nyra.id}/preview.png`, status: 'failed', message: 'Sem permissão. Código: storage/unauthorized.'
+    };
+    publishedPreviews.repairPublished.and.callFake(async (selected, onResult) => {
+      expect(selected).toEqual([nyra]);
+      onResult(result);
+      return [result];
+    });
+    await component.synchronizePreviews();
+    expect(cards.list).toHaveBeenCalledTimes(2);
+    expect(cards.delete).not.toHaveBeenCalled();
+    expect(component.previewRepairResults()).toEqual([result]);
+    expect(component.feedback()).toContain('1 com falha');
+    expect(component.previewRepairHasFailures()).toBeTrue();
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.textContent).toContain('Nyra — Falha');
+    expect(page.textContent).toContain(`published-cards/${nyra.id}/preview.png`);
+    expect(page.querySelector('.notice.error')?.textContent).toContain('1 com falha');
+  });
+
+  it('repairs only the selected published card and excludes cards no longer published', async () => {
+    const published = { ...card, status: 'published' as const };
+    const other = { ...published, id: 'other' };
+    cards.list.and.resolveTo([published, other]);
+    await component.load();
+    await component.synchronizePreviews(published);
+    expect(publishedPreviews.repairPublished.calls.mostRecent().args[0]).toEqual([published]);
+    cards.list.and.resolveTo([card, other]);
+    await component.synchronizePreviews(published);
+    expect(publishedPreviews.repairPublished.calls.mostRecent().args[0]).toEqual([]);
+    expect(component.feedback()).toContain('Nenhuma carta publicada');
+  });
+
+  it('blocks overlapping repair, refresh and delete while repairing and stops queued work after destruction', async () => {
+    const published = { ...card, status: 'published' as const };
+    cards.list.and.resolveTo([published]); await component.load();
+    let finish!: (results: PublishedCardPreviewRepairResult[]) => void;
+    publishedPreviews.repairPublished.and.returnValue(new Promise(resolve => { finish = resolve; }));
+    const pending = component.synchronizePreviews();
+    await Promise.resolve();
+    expect(component.synchronizingPreviews()).toBeTrue();
+    await component.synchronizePreviews(); await component.load(); await component.deleteCard(published);
+    expect(publishedPreviews.repairPublished).toHaveBeenCalledTimes(1);
+    expect(cards.list).toHaveBeenCalledTimes(2);
+    expect(cards.delete).not.toHaveBeenCalled();
+    const keepGoing = publishedPreviews.repairPublished.calls.mostRecent().args[2]!;
+    expect(keepGoing()).toBeTrue();
+    component.ngOnDestroy();
+    expect(keepGoing()).toBeFalse();
+    finish([]); await pending;
+    expect(component.previewRepairResults()).toEqual([]);
+  });
+
+  it('allows retry after catalogue repair lookup fails without leaking the error message', async () => {
+    await component.load();
+    cards.list.and.rejectWith(new Error('https://example.invalid/?token=secret'));
+    await component.synchronizePreviews();
+    expect(component.synchronizingPreviews()).toBeFalse();
+    expect(component.error()).toContain('acesso administrativo');
+    expect(component.error()).not.toContain('secret');
+    cards.list.and.resolveTo([{ ...card, status: 'published' }]);
+    await component.synchronizePreviews();
+    expect(publishedPreviews.repairPublished).toHaveBeenCalledTimes(1);
+    expect(component.error()).toBe('');
   });
 });

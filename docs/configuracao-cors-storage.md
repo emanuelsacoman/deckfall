@@ -12,7 +12,22 @@ O GET real de mídia no endpoint Firebase, com `Origin: https://deckfall.web.app
 
 Após a correção, o mesmo GET/Range retornou `206` com `Access-Control-Allow-Origin: https://deckfall.web.app`; uma segunda leitura com origem localhost também retornou `206` com `Access-Control-Allow-Origin: http://localhost:4200`. Ambas receberam os 172.256 bytes com SHA-256 igual à cópia lida diretamente do Storage. As leituras usaram a identidade OAuth já conectada da CLI Firebase, não uma sessão Firebase Authentication do navegador; confirmam mídia/cabeçalhos, sem substituir o teste do editor com o usuário administrador. Backups e resultados sem credenciais ficam em `.local-tools/storage-cors-deckfall-before.json`, `storage-cors-deckfall-proposed.json`, `storage-cors-deckfall-after.json`, `storage-cors-deckfall-get-before.json`, `storage-cors-deckfall-current-art.json` e `storage-cors-deckfall-verification.json`, ignorados pelo Git.
 
-Consulta somente leitura em 13/10/2026 às 18h27 de São Paulo reconfirmou CORS GET para as duas origens com metageneration `3`, site real `deckfall`/`https://deckfall.web.app` em `cardgame-6fdcb` e bucket existente. Nenhuma mudança de CORS foi necessária na etapa de pacotes. O mesmo preflight identificou `deckfall.web.app` ausente nos Authorized domains do Auth; isso é uma pendência de autenticação, separada de CORS, descrita em [autenticação](autenticacao-e-admin.md). Recibo ignorado `.local-tools/packs-domain-preflight.json`; não houve alteração de produção nem teste com sessão Auth real nesta consulta.
+Consulta somente leitura em 13/10/2026 às 18h27 de São Paulo reconfirmou CORS GET para as duas origens com metageneration `3`, site real `deckfall`/`https://deckfall.web.app` em `cardgame-6fdcb` e bucket existente. Nenhuma mudança de CORS foi necessária na etapa de pacotes. O preflight daquele momento ainda não incluía `deckfall.web.app` nos Authorized domains; a consulta atual de 15/10/2026 confirmou sua inclusão. Esse domínio de Auth é separado de CORS; veja [autenticação](autenticacao-e-admin.md).
+
+## Preview exata de Nyra — 15/10/2026
+
+A consulta atual usou `published-cards/46f5c359-0d1e-423e-911e-4ba592567405/preview.png`, sem reutilizar a arte privada do diagnóstico anterior. O arquivo existe, com `contentType: image/png`, **2.575.604 bytes**, 1086 × 1448, geração `1792016860478126`, atualização `2026-10-14T22:27:40.508Z` e `cacheControl: private, no-store`. Assinatura PNG e dimensões foram lidas dos bytes. O tamanho de 1.849.567 bytes registrado em 14/10 descreve uma geração anterior.
+
+| Origin enviada no GET/Range | HTTP | Access-Control-Allow-Origin | Content-Type |
+| --- | --- | --- | --- |
+| `http://localhost:4200` | 206 | `http://localhost:4200` | `image/png` |
+| `https://deckfall.web.app` | 206 | `https://deckfall.web.app` | `image/png` |
+
+As duas respostas continham os 2.575.604 bytes completos, SHA-256 `feede87a3556cee8704cc1a9f96d33a2e23f2f8b488f063821bfa38a7c479e1e`. A configuração continua com GET para as duas origens, cache CORS de 3600 segundos e metageneration `3`. **Não foi alterada**, pois estava correta.
+
+Estas requisições reais usaram a identidade OAuth da CLI. Confirmam existência, bytes e cabeçalhos, mas não exercitam a autorização de um member pelas Rules. O controle do navegador Opera foi interrompido pela ferramenta por não conseguir determinar sua URL com segurança; não foi capturada a requisição autenticada do titular. Ele confirmou funcionamento local depois da correção com um perfil admin, sem informar status/cabeçalhos do Network. Recibo seguro: `.local-tools/preview-diagnosis-readonly.json`, ignorado e sem credenciais.
+
+O defeito de frontend identificado estava depois do HTTP: Firebase SDK 10.14.1 usa `blob.slice(0, maxDownloadSizeBytes)` quando se passa limite a `getBlob`, descartando `Blob.type`. A preview passou a usar `getBlob(ref)` e continua validando `image/png`, conteúdo não vazio e até 20 MiB após o download. Não se força MIME nem se remove validação. As Rules mantêm o limite de upload; um objeto remoto acima do limite é rejeitado pelo cliente após a transferência. Veja [coleção](colecao.md).
 
 O exemplo [storage.cors.example.json](config/storage.cors.example.json) permite somente `GET` para localhost e o site Deckfall confirmado. Não aplique esse arquivo diretamente sobre uma configuração desconhecida: a atualização define a lista completa de CORS e poderia remover origens já usadas. O procedimento abaixo conserva todas as entradas existentes e adiciona somente a origem escolhida quando necessário.
 

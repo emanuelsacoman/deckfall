@@ -1,8 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Card, CARD_RARITY_LABELS, CARD_STATUS_LABELS } from '../../../../../model/interfaces/Cards/card';
 import { CardService } from '../../../../../model/services/cruds/cards/card.service';
+import { PublishedCardPreviewRepairResult, PublishedCardPreviewService } from '../../../../../model/services/cruds/cards/published-card-preview.service';
 import { CardStorageService } from '../../../../../model/services/fire/card-storage.service';
 import { CardPreviewComponent } from '../card-preview/card-preview.component';
 
@@ -18,6 +19,7 @@ type CardDisplayMode = 'list' | 'cards';
 export class CardListComponent implements OnInit, OnDestroy {
   private readonly service = inject(CardService);
   private readonly storage = inject(CardStorageService);
+  private readonly publishedPreviews = inject(PublishedCardPreviewService);
   private readonly router = inject(Router);
   private loadVersion = 0;
   private artVersion = 0;
@@ -32,6 +34,12 @@ export class CardListComponent implements OnInit, OnDestroy {
   readonly artFailures = signal<Set<string>>(new Set());
   readonly feedback = signal('');
   readonly warnings = signal<string[]>([]);
+  readonly synchronizingPreviews = signal(false);
+  readonly previewRepairTotal = signal(0);
+  readonly previewRepairResults = signal<PublishedCardPreviewRepairResult[]>([]);
+  readonly previewRepairHasFailures = computed(() => this.previewRepairResults().some(result => result.status === 'failed'));
+  readonly hasPublishedCards = computed(() => this.cards().some(card => card.status === 'published'));
+  readonly previewRepairLabels = { synchronized: 'Sincronizada', failed: 'Falha', skipped: 'Ignorada' };
   readonly rarityLabels = CARD_RARITY_LABELS;
   readonly statusLabels = CARD_STATUS_LABELS;
 
@@ -42,7 +50,7 @@ export class CardListComponent implements OnInit, OnDestroy {
   }
 
   async load(): Promise<void> {
-    if (this.deletingId()) return;
+    if (this.deletingId() || this.synchronizingPreviews()) return;
     const version = ++this.loadVersion;
     ++this.artVersion;
     this.releaseArtUrls();
@@ -71,7 +79,7 @@ export class CardListComponent implements OnInit, OnDestroy {
   }
 
   async deleteCard(card: Card): Promise<void> {
-    if (this.deletingId() || !window.confirm(`Excluir a carta “${card.name}” e sua arte? Esta ação não pode ser desfeita.`)) return;
+    if (this.deletingId() || this.synchronizingPreviews() || !window.confirm(`Excluir a carta “${card.name}” e sua arte? Esta ação não pode ser desfeita.`)) return;
     this.deletingId.set(card.id);
     this.error.set('');
     try {
@@ -90,6 +98,36 @@ export class CardListComponent implements OnInit, OnDestroy {
       }
     } finally {
       if (!this.destroyed) this.deletingId.set(null);
+    }
+  }
+
+  async synchronizePreviews(selected?: Card): Promise<void> {
+    if (this.loading() || this.deletingId() || this.synchronizingPreviews() || (selected && selected.status !== 'published')) return;
+    this.synchronizingPreviews.set(true);
+    this.previewRepairResults.set([]);
+    this.previewRepairTotal.set(0);
+    this.feedback.set('');
+    this.error.set('');
+    try {
+      // Refresh the catalogue before repairing; the service rereads each selected card too.
+      const cards = await this.service.list();
+      if (this.destroyed) return;
+      const published = cards.filter(card => card.status === 'published' && (!selected || selected.id === card.id));
+      this.previewRepairTotal.set(published.length);
+      const results = await this.publishedPreviews.repairPublished(published, result => {
+        if (!this.destroyed) this.previewRepairResults.update(current => [...current, result]);
+      }, () => !this.destroyed);
+      if (this.destroyed) return;
+      const succeeded = results.filter(result => result.status === 'synchronized').length;
+      const failed = results.filter(result => result.status === 'failed').length;
+      const skipped = results.filter(result => result.status === 'skipped').length;
+      this.feedback.set(published.length
+        ? `Sincronização concluída: ${succeeded} sincronizada(s), ${failed} com falha e ${skipped} ignorada(s). Confira o resultado de cada carta.`
+        : 'Nenhuma carta publicada encontrada para sincronizar. Atualize a lista para conferir o catálogo.');
+    } catch {
+      if (!this.destroyed) this.error.set('Não foi possível concluir a sincronização das previews publicadas. Confira a conexão e o acesso administrativo e tente novamente.');
+    } finally {
+      if (!this.destroyed) this.synchronizingPreviews.set(false);
     }
   }
 

@@ -153,14 +153,43 @@ describe('Abertura e reveal de pacote', () => {
     expect(preview.calls.allArgs()).toEqual([['cardA'], ['cardB']]);
     expect(open).toHaveBeenCalledTimes(1);
   }));
+  it('passes the real Nyra ID to the shared preview in reveal and summary without editor data', fakeAsync(() => {
+    const cardId = '46f5c359-0d1e-423e-911e-4ba592567405';
+    open.and.resolveTo({ ...result, revealedCards: [{ cardId, name: 'Nyra', rarity: 'rare', quantity: 1 }] });
+    enter(); confirm(); finishIntro(); reveal();
+    expect(preview).toHaveBeenCalledOnceWith(cardId);
+    expect(fixture.nativeElement.querySelector('app-player-card-preview img').alt).toBe('Carta completa: Nyra');
+    expect(fixture.componentInstance.cards()[0].preview).toEqual({ id: cardId, name: 'Nyra' });
+    fixture.componentInstance.nextCard(); settle();
+    expect(fixture.componentInstance.phase()).toBe('summary');
+    expect(fixture.nativeElement.querySelector('.summary-card app-player-card-preview img').alt).toBe('Carta completa: Nyra');
+    expect(preview).toHaveBeenCalledOnceWith(cardId);
+    expect(fixture.componentInstance.previewCache.has(cardId)).toBeTrue();
+  }));
   it('removes failed preview requests from the local cache so retry can download again', fakeAsync(() => {
-    preview.and.rejectWith(new Error('storage/object-not-found'));
+    preview.and.rejectWith({ code: 'storage/object-not-found' });
     enter(); confirm(); finishIntro(); reveal();
     expect(fixture.componentInstance.previewCache.has('cardA')).toBeFalse();
     preview.and.resolveTo(png);
     fixture.nativeElement.querySelector('app-player-card-preview button').click(); settle();
     expect(preview.calls.allArgs()).toEqual([['cardA'], ['cardA']]);
     expect(fixture.componentInstance.previewCache.has('cardA')).toBeTrue();
+  }));
+  it('retries a failed reveal again in the summary and caches only the new successful request', fakeAsync(() => {
+    preview.and.rejectWith({ code: 'storage/retry-limit-exceeded' });
+    enter(); confirm(); finishIntro(); reveal();
+    expect(fixture.componentInstance.previewCache.has('cardA')).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('Confira sua conexão');
+    preview.and.resolveTo(png);
+    fixture.componentInstance.showSummary(); settle();
+    expect(preview.calls.allArgs()).toEqual([['cardA'], ['cardA'], ['cardB']]);
+    const downloaded = fixture.componentInstance.previewCache.get('cardA');
+    expect(downloaded).toBeDefined();
+    expect(fixture.nativeElement.querySelectorAll('app-player-card-preview img').length).toBe(2);
+    fixture.componentInstance.reviewOpening(); settle(); reveal();
+    expect(fixture.componentInstance.previewCache.get('cardA')).toBe(downloaded);
+    expect(preview).toHaveBeenCalledTimes(3);
+    expect(open).toHaveBeenCalledTimes(1);
   }));
   it('clears downloaded previews on an account change instead of retaining another session image', fakeAsync(() => {
     enter(); confirm(); finishIntro(); reveal(); expect(fixture.componentInstance.previewCache.size).toBe(1);

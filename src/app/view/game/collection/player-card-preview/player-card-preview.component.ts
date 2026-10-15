@@ -1,7 +1,8 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, Input, OnChanges, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, Input, OnChanges, OnDestroy, ViewChild, inject, isDevMode, signal } from '@angular/core';
 import { Card } from '../../../../model/interfaces/Cards/card';
 import { CARD_CANVAS_CONFIG } from '../../../../model/interfaces/Cards/card-canvas';
-import { PublishedCardStorageService } from '../../../../model/services/fire/published-card-storage.service';
+import { publishedCardPreviewErrorCode, publishedCardPreviewMessage } from '../../../../model/interfaces/Cards/published-card-preview-error';
+import { PublishedCardStorageService, publishedCardPreviewPath } from '../../../../model/services/fire/published-card-storage.service';
 
 /** Published PNG needs only identity/name; pack snapshots never contain editor data. */
 export type PlayerCardPreviewInput = Pick<Card, 'id' | 'name'> & { canvas?: Pick<NonNullable<Card['canvas']>, 'width' | 'height'> };
@@ -75,9 +76,12 @@ export class PlayerCardPreviewComponent implements AfterViewInit, OnChanges, OnD
       this.releaseUrl();
       this.imageRequest = request;
       this.url.set(URL.createObjectURL(blob));
-    } catch {
+    } catch (error: unknown) {
       if (request && cache?.get(cardId) === request) cache.delete(cardId);
-      if (this.isCurrent(version)) this.error.set('A imagem publicada não está disponível. Tente novamente.');
+      if (this.isCurrent(version)) {
+        this.error.set(publishedCardPreviewMessage(error));
+        this.reportFailure(cardId, error);
+      }
     } finally {
       if (this.isCurrent(version)) this.loading.set(false);
     }
@@ -96,7 +100,9 @@ export class PlayerCardPreviewComponent implements AfterViewInit, OnChanges, OnD
     this.imageRequest = undefined;
     this.loadedAspectRatio.set(null);
     this.releaseUrl();
-    this.error.set('Não foi possível exibir a carta. Tente novamente.');
+    const error = { code: 'preview-invalid' };
+    this.error.set(publishedCardPreviewMessage(error));
+    this.reportFailure(this.card.id, error);
   }
 
   ngOnDestroy(): void {
@@ -108,6 +114,12 @@ export class PlayerCardPreviewComponent implements AfterViewInit, OnChanges, OnD
   }
 
   private isCurrent(version: number): boolean { return !this.destroyed && version === this.version; }
+  private reportFailure(cardId: string, error: unknown): void {
+    if (!isDevMode()) return;
+    // Only a validated identifier and deterministic path reach the console, never cause/message/URL.
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(cardId)) return;
+    console.warn('[Deckfall preview]', { cardId, path: publishedCardPreviewPath(cardId), code: publishedCardPreviewErrorCode(error) });
+  }
   private releaseUrl(): void {
     const url = this.url();
     if (url) URL.revokeObjectURL(url);

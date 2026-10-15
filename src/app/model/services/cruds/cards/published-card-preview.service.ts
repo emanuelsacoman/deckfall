@@ -1,9 +1,18 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
 import { Firestore, Timestamp, doc, getDocFromServer } from '@angular/fire/firestore';
 import { Card } from '../../../interfaces/Cards/card';
+import { publishedCardPreviewErrorCode, publishedCardPreviewMessage } from '../../../interfaces/Cards/published-card-preview-error';
 import { PublishedCardStorageService, publishedCardPreviewPath } from '../../fire/published-card-storage.service';
 import { CardPreviewService } from '../../tools/card-preview.service';
-import { errorMessage, parseCard } from './card-persistence';
+import { parseCard } from './card-persistence';
+
+export interface PublishedCardPreviewRepairResult {
+  cardId: string;
+  name: string;
+  path: string;
+  status: 'synchronized' | 'failed' | 'skipped';
+  message: string;
+}
 
 export interface PublishedCardPreviewReader {
   getById(id: string): Promise<Card | null>;
@@ -39,12 +48,7 @@ export class PublishedCardPreviewService {
       const card = await this.reader.getById(cardId);
       if (!card) return [this.changedWarning(path)];
       if (card.status === 'published') {
-        const blob = await this.renderer.render(card);
-        const current = await this.reader.getById(cardId);
-        if (!sameVersion(card, current)) return [this.changedWarning(path)];
-        await this.storage.uploadPreview(cardId, blob);
-        // Detect a write racing the Storage operation; there is no cross-service transaction.
-        if (!sameVersion(card, await this.reader.getById(cardId))) return [this.changedWarning(path)];
+        if (!await this.uploadCurrent(card)) return [this.changedWarning(path)];
       } else {
         operation = 'removida';
         if (!sameVersion(card, await this.reader.getById(cardId))) return [this.changedWarning(path)];
@@ -56,8 +60,44 @@ export class PublishedCardPreviewService {
       const recovery = this.isStoragePermissionError(error)
         ? 'Confira as Rules publicadas do Storage e o perfil administrativo desta conta antes de tentar novamente. Depois de corrigir a permissão, reabra a carta e salve novamente.'
         : 'Abra a carta e salve novamente ou confira o Storage.';
-      return [`A carta foi salva, mas a representação publicada em ${path} não pôde ser ${operation}. ${recovery} ${errorMessage(error)}`];
+      return [`A carta foi salva, mas a representação publicada em ${path} não pôde ser ${operation}. ${recovery} ${this.safeDiagnostic(error)}`];
     }
+  }
+
+  /** Explicit administrative backfill: sequential rendering, without changing any card document. */
+  async repairPublished(
+    cards: readonly Pick<Card, 'id' | 'name' | 'status'>[],
+    onResult: (result: PublishedCardPreviewRepairResult) => void,
+    shouldContinue: () => boolean = () => true
+  ): Promise<PublishedCardPreviewRepairResult[]> {
+    const published = [...new Map(cards.filter(card => card.status === 'published').map(card => [card.id, card])).values()];
+    const results: PublishedCardPreviewRepairResult[] = [];
+    for (const entry of published) {
+      if (!shouldContinue()) break;
+      const path = publishedCardPreviewPath(entry.id);
+      let result: PublishedCardPreviewRepairResult;
+      try {
+        const current = await this.reader.getById(entry.id);
+        if (!current || current.status !== 'published') {
+          result = { cardId: entry.id, name: entry.name, path, status: 'skipped',
+            message: 'Ignorada: a carta não está mais publicada. Nenhum arquivo foi alterado.' };
+        } else if (!shouldContinue()) {
+          break;
+        } else if (await this.uploadCurrent(current)) {
+          result = { cardId: entry.id, name: current.name, path, status: 'synchronized',
+            message: 'PNG publicado regenerado e enviado. A versão da carta foi conferida.' };
+        } else {
+          result = { cardId: entry.id, name: current.name, path, status: 'failed',
+            message: 'A carta mudou durante a sincronização. A imagem pode estar ausente ou desatualizada; tente novamente com a versão atual.' };
+        }
+      } catch (error: unknown) {
+        result = { cardId: entry.id, name: entry.name, path, status: 'failed',
+          message: `Não foi possível sincronizar o PNG. Confira o acesso administrativo, os assets da carta e as Rules do Storage. ${this.safeDiagnostic(error)}` };
+      }
+      results.push(result);
+      onResult(result);
+    }
+    return results;
   }
 
   /** A recreated card is preserved even when a previous deletion already succeeded. */
@@ -76,7 +116,7 @@ export class PublishedCardPreviewService {
       const recovery = this.isStoragePermissionError(error)
         ? 'Confira as Rules publicadas do Storage e o perfil administrativo desta conta antes de tentar a limpeza novamente.'
         : 'Confira o Storage.';
-      return [`Limpeza da representação publicada pendente em ${path}. A exclusão da carta já foi confirmada. ${recovery} ${errorMessage(error)}`];
+      return [`Limpeza da representação publicada pendente em ${path}. A exclusão da carta já foi confirmada. ${recovery} ${this.safeDiagnostic(error)}`];
     }
   }
 
@@ -87,5 +127,18 @@ export class PublishedCardPreviewService {
 
   private changedWarning(path: string): string {
     return `A carta foi salva, mas mudou em outra sessão durante a sincronização de ${path}. A imagem pode estar ausente ou desatualizada. Reabra a carta e salve a versão atual novamente.`;
+  }
+
+  private async uploadCurrent(card: Card): Promise<boolean> {
+    const blob = await this.renderer.render(card);
+    if (!sameVersion(card, await this.reader.getById(card.id))) return false;
+    await this.storage.uploadPreview(card.id, blob);
+    // Firestore and Storage are not atomic: report a racing edit instead of claiming success.
+    return sameVersion(card, await this.reader.getById(card.id));
+  }
+
+  private safeDiagnostic(error: unknown): string {
+    const code = publishedCardPreviewErrorCode(error);
+    return `${publishedCardPreviewMessage(error)}${code ? ` Código: ${code}.` : ''}`;
   }
 }
