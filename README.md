@@ -2,19 +2,23 @@
 
 Uma plataforma de cartas digitais de Emanuel Sacoman, com área do jogador, editor visual e administração em Angular/Firebase.
 
+Status: em desenvolvimento
+
+Last reviewed: 2026-10-15
+
+Source of truth for: apresentação pública do projeto
+
 Cada carta combina dados estruturados de gameplay com um design editável. A imagem exportada apresenta a carta; dados e elementos continuam disponíveis para edição e futuras experiências de jogo.
 
 ## Estágio atual
 
-A implementação reúne o catálogo/editor administrativo, configuração de pacotes, área do jogador, coleção persistida e pacote inicial único decidido pelo backend. **StarterPack** é o nome reservado desse pacote; o administrador escolhe suas cartas publicadas e quantidades em `/admin/pacotes`. O bootstrap concede um pacote lacrado; uma abertura autenticada e atômica concede as cartas antes do reveal visual. Login, cadastro por e-mail/senha e Google usam Firebase Authentication. Novas contas recebem o papel `member` e entram em `/game/home`; admins entram por padrão no painel e também podem navegar em `/game`. Somente perfis com `role` e `roleId` iguais a `admin` entram no painel.
+A fundação da plataforma está implementada: autenticação, catálogo/editor administrativo, publicação de cartas, área do jogador, coleção persistida e pacotes determinísticos versionados. O backend concede um **StarterPack** lacrado uma única vez; a abertura autenticada e atômica concede as cartas antes do reveal. Definições adicionais existem no admin, ainda sem distribuição ao jogador.
 
-**Functions, Firestore Rules e interface de pacotes foram publicados com autorização do proprietário em 13/10/2026.** O domínio preservado é `https://deckfall.web.app`, site `deckfall` no projeto `cardgame-6fdcb`, e foi acrescentado aos Authorized domains do Auth preservando os existentes. O build remoto e as Rules foram conferidos; as duas Callables estão ativas e recusam chamadas sem autenticação. **Em 14/10/2026, por escolha do proprietário, Nyra foi publicada e o StarterPack foi ativado na versão 1 com uma cópia dela.** Documento, configuração e PNG publicado foram relidos e verificados; a publicação anterior de infraestrutura não havia escolhido conteúdo. Decks, gameplay, PvP, partidas, loja, economia, trocas e marketplace continuam futuros.
+O próximo marco é **Game Design v0.1**, aguardando definição e aprovação do proprietário. Decks e Jogar permanecem placeholders; gameplay, partidas/PvP, economia e progressão são fases futuras. Consulte [o estado atual](docs/project-state.md), [o roadmap](docs/roadmap.md) e [a estrutura inicial do Game Design](docs/game-design.md).
 
-O frontend local usa o mesmo projeto real por padrão; a infraestrutura e o conteúdo inicial já foram configurados. Para desenvolver isolado, use os emuladores; veja [a configuração verificada](docs/contexto-operacional-para-ias.md#configuração-do-starterpack-com-nyra--14102026).
+O ambiente remoto documentado usa `https://deckfall.web.app`, projeto `cardgame-6fdcb`, com infraestrutura de pacotes publicada e StarterPack configurado com uma Nyra. As [evidências de 13–15/10/2026](docs/contexto-operacional-para-ias.md#evidências-externas-registradas) têm escopo e data; não equivalem a uma nova auditoria de produção. A correção local do MIME das previews e o reparo administrativo estão implementados, mas a publicação posterior e o QA completo com member não têm confirmação. Veja [as pendências reais](docs/riscos-e-dividas-tecnicas.md).
 
-**A correção local de previews em 15/10/2026 identificou perda do MIME no Firebase SDK instalado:** passar o limite de tamanho a `getBlob` produzia um recorte com `type: ''`, rejeitado pela validação PNG. O download passou a preservar o Blob original, mantendo a validação de MIME/tamanho. O proprietário relatou funcionamento no localhost com conta administrativa; o teste completo com member e cada etapa de coleção/reveal/resumo ainda precisa de confirmação. A correção não foi publicada no Hosting. Veja [causa e evidências](docs/colecao.md#diagnóstico-de-15102026).
-
-O CORS do Storage permite `GET` em `http://localhost:4200` e `https://deckfall.web.app`. Em 15/10/2026, a preview exata de Nyra respondeu com PNG e CORS correto nas duas origens usando OAuth da CLI; isso não comprova uma sessão Firebase member no navegador. A leitura do Auth também confirmou `deckfall.web.app` nos Authorized domains. Para outras origens ou diagnóstico de imagens, siga [a configuração do Storage](docs/configuracao-cors-storage.md), preservando as entradas existentes do bucket.
+Localhost usa o Firebase configurado no environment, real por padrão. Para desenvolver isolado, configure [os emuladores](docs/pacotes.md#localhost-isolado). Para outras origens ou diagnóstico de imagens, siga [o guia CORS do Storage](docs/configuracao-cors-storage.md).
 
 ## Recursos implementados
 
@@ -36,7 +40,7 @@ O CORS do Storage permite `GET` em `http://localhost:4200` e `https://deckfall.w
 - **Edição com imagens indisponíveis:** a carta abre sem esperar downloads; falhas têm nova tentativa manual e referências dos arquivos próprios podem ser conservadas ao salvar dados/design.
 - **Usuários e coleção:** consultar, vincular por UID e editar perfis Firestore/papéis; na edição de um perfil existente, conceder cartas publicadas, definir quantidade total e remover propriedade com confirmação. Alterar contato não muda credenciais.
 - **Minha conta:** vincular Google e e-mail/senha ao mesmo usuário, consultar métodos ativos e recuperar senha por e-mail.
-- **Memória operacional:** arquitetura, contratos, fluxos, limites e configuração documentados para futuras sessões e agentes.
+- **Memória operacional:** estado presente, roadmap com um único marco ativo, estrutura de Game Design, decisões arquiteturais e protocolos de continuidade em [docs/](docs/README.md).
 
 O acesso Google tenta popup e continua por redirecionamento quando o navegador o bloqueia. Em **Minha conta**, quem entrou por e-mail/senha pode vincular Google; quem entrou com Google pode adicionar uma senha após confirmar sua identidade. Os dois métodos preservam UID e perfil. **Esqueci minha senha** envia o link de recuperação pelo Firebase. Veja [o fluxo de autenticação](docs/autenticacao-e-admin.md).
 
@@ -106,11 +110,15 @@ git diff --check
 
 Os testes Angular precisam do Chrome. Backend usa Node.js 22; emuladores precisam da Firebase CLI e Java compatíveis. Nesta máquina, CLI 15.9.0 e Java 21 são usados para essa validação. `test:rules` executa Firestore/Storage em `demo-cardgame`; `test:functions:emulator` integra Auth/Firestore/Callable no mesmo projeto isolado.
 
-Backend testa uma instância lacrada sem coleção no bootstrap, abertura única/atômica, versão histórica, soma com inventário prévio, limites e falhas sem gravação parcial. Frontend cobre administração/versionamento, preparação, sessão, pacotes, reveal/revisão, lifecycle de URLs, erros de preview, retry e reparo administrativo. O teste de regressão do download usa o Firebase SDK instalado e Blob nativo do navegador. Rules preservam coleção read-only para member e isolam players/packs/configuração. Resultados efetivamente executados e limites ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Testes isolados e leituras OAuth não substituem a validação autenticada real; [pacotes](docs/pacotes.md#publicação-posterior) registra a publicação necessária. Storage Rules não mudaram nesta correção.
+Backend testa uma instância lacrada sem coleção no bootstrap, abertura única/atômica, versão histórica, soma com inventário prévio, limites e falhas sem gravação parcial. Frontend cobre administração/versionamento, preparação, sessão, pacotes, reveal/revisão, lifecycle de URLs, erros de preview, retry e reparo administrativo. O teste de regressão do download usa o Firebase SDK instalado e Blob nativo do navegador. Rules preservam coleção read-only para member e isolam players/packs/configuração. Comandos e resultados anteriores, identificados por data, ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Testes isolados e leituras OAuth não substituem a validação autenticada real; [pacotes](docs/pacotes.md#publicação-posterior) registra o procedimento de publicação da correção, sujeito a autorização.
 
 ## Documentação e desenvolvimento
 
 - [Índice da memória operacional](docs/README.md)
+- [Estado atual e próxima ação segura](docs/project-state.md)
+- [Roadmap e dependências](docs/roadmap.md)
+- [Game Design — proposta pendente](docs/game-design.md)
+- [Decisões arquiteturais](docs/decisions/README.md)
 - [Editor visual, histórico e templates](docs/editor-de-cartas.md)
 - [Cartas, assets e persistência](docs/cartas.md)
 - [Coleção do jogador e imagens publicadas](docs/colecao.md)
@@ -123,4 +131,4 @@ Backend testa uma instância lacrada sem coleção no bootstrap, abertura única
 - [Riscos e configuração externa](docs/riscos-e-dividas-tecnicas.md)
 - [Guia para agentes](AGENTS.md)
 
-O README e os documentos de domínio acompanham cada trabalho relevante, conforme [a regra de apresentação](docs/apresentacao-readme.md).
+Agentes começam pelo [AGENTS.md](AGENTS.md), conferem estado/roadmap e leem os domínios relevantes. Os protocolos **“Valide o que falta”** e **“Continue o roadmap”** permitem retomar o trabalho sem depender de outro chat, mantendo decisões de produto com o proprietário. O README e os documentos de domínio acompanham cada trabalho relevante, conforme [a regra de apresentação](docs/apresentacao-readme.md).

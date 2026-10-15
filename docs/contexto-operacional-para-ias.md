@@ -1,206 +1,150 @@
 # Contexto operacional
 
-O projeto pertence a Emanuel Sacoman. CardGame é a base Angular da plataforma de cartas digitais; Firebase Hosting preserva site `deckfall` em `cardgame-6fdcb`, domínio `https://deckfall.web.app`. A implementação reúne editor Konva, login/cadastro por e-mail/senha e Google, administração de cartas/perfis/pacotes, área do jogador com coleção, StarterPack lacrado e abertura/reveal por Firebase Functions. Novas contas são membros; admin exige `role` e `roleId` iguais a `admin`. `/game` exige sessão/perfil válido e prepara o jogador antes de montar as páginas. Decks/jogar permanecem placeholders, sem gameplay, PvP, partidas, loja, economia ou RBAC complexo. Leia [editor](editor-de-cartas.md), [coleção](colecao.md), [bootstrap](player-bootstrap.md) e [pacotes](pacotes.md).
+Status: Active
 
-## Reconhecimento em 11/10/2026
+Last reviewed: 2026-10-15
 
-- O gerador inicial já foi executado. Existiam `model/interfaces`, `model/services`, `view` e assets vazios, tela padrão Angular e nenhuma rota.
-- Versões instaladas: Angular 18.2.14, AngularFire 18.0.1, Firebase 10.14.1 e TypeScript 5.5.4. Framework preservado. `@firebase/rules-unit-testing` 3.0.4 verifica Rules; Konva 10.7.1 foi acrescentado para renderização do editor, sem wrapper Angular.
-- `app.config.ts` já fornecia Firebase App/Auth. Os dois environments locais contêm configuração pública do SDK para `cardgame-6fdcb`; estão ignorados pelo Git.
-- `firebase.json` continha apenas Hosting (`dist/card-game/browser`, rewrite SPA, site `deckfall`); não havia `.firebaserc` nem Rules.
-- Havia mudanças locais em `.gitignore`, README, Angular/package/lock/config e arquivos do gerador. Não desfazer esse trabalho.
-- Referência conceitual: `emanuelsacoman/ecommercecoffee`, branch `main`, snapshot `ec3ebf61218848767cea5572154f2c0e1eac3bcc`: standalone, inject, sessão signal, guard funcional, shell admin lazy e services por responsabilidade. Não transportar compat, presença/XP ou permissões complexas daquele domínio.
+Source of truth for: ambiente, comandos de desenvolvimento/validação e evidências externas datadas
+
+O [estado atual](project-state.md) responde o que existe; o [roadmap](roadmap.md) indica o marco permitido; [AGENTS.md](../AGENTS.md) define as regras permanentes. Este documento explica como operar a base. Fluxos e contratos pertencem aos [documentos de domínio](README.md); pendências reais ficam em [riscos e dívidas](riscos-e-dividas-tecnicas.md).
+
+## Stack verificada
+
+Versões resolvidas nos locks, não apenas ranges declarados nos manifests:
+
+| Camada | Versões atuais | Fonte |
+| --- | --- | --- |
+| Frontend | Angular 18.2.14, TypeScript 5.5.4 | package-lock.json |
+| Firebase cliente | AngularFire 18.0.1, Firebase SDK 10.14.1 | package-lock.json |
+| Editor | Konva 10.7.1 diretamente, sem wrapper Angular | package-lock.json |
+| Backend | Functions 7.4.0 Gen 2, Admin SDK 14.5.0, TypeScript 5.9.3; Node.js 22 | functions/package.json e functions/package-lock.json |
 
 ## Operação
 
-`npm.cmd start` inicia desenvolvimento; `npm.cmd run build -- --configuration production` compila produção; `npm.cmd test -- --watch=false --browsers=ChromeHeadless` roda Jasmine/Karma. Não execute `npm run setup` numa base já preparada: o gerador sobrescreve arquivos auxiliares.
+Os scripts são definidos em [package.json](../package.json) e [functions/package.json](../functions/package.json). No Windows, use `npm.cmd` para evitar depender da política de execução de scripts PowerShell.
 
-Leia [autenticação](autenticacao-e-admin.md) para provedores/primeiro admin e [riscos](riscos-e-dividas-tecnicas.md) antes de depender do backend. Cadastro não concede cargos administrativos; não relaxe Rules. A configuração pública Firebase não é credencial administrativa. Novos clones precisam reproduzir os environments locais; nenhum segredo deve entrar no repositório.
+```powershell
+npm.cmd ci
+npm.cmd --prefix functions ci
+npm.cmd start
+```
 
-`/login` também é Minha conta quando autenticado, com métodos lidos do Auth, vínculo Google/senha ao mesmo UID e reautenticação antes de adicionar senha. O admin tem um atalho para essa tela. Recuperação usa `sendPasswordResetEmail` e o handler hospedado padrão; não altera Firestore nem sessão. Não persistir senhas durante fallback/redirect e não usar `contactEmail` como credencial. Veja [os fluxos](autenticacao-e-admin.md).
+O frontend abre em `http://localhost:4200`. O gerador inicial já foi executado: não repetir `npm run setup`, pois ele pode sobrescrever arquivos auxiliares.
 
-`/game` redireciona para `/game/home`; Início, Coleção, Pacotes, Decks, Jogar e Perfil usam layout próprio em `view/game`, lazy loading e CSS responsivo. `/game/pacotes` lista instâncias/histórico; `/game/pacotes/abrir/:id` abre/revê resultado. Perfil reutiliza sessão e aponta para Minha conta em `/login`. Painel tem Área do jogador; jogo mostra Painel administrativo apenas para admin. Decks/jogar continuam placeholders: não preencher com consultas, números fictícios ou serviços vazios. Assets editáveis continuam administrativos, separados do PNG do jogador.
+Copie [environment.example.ts](config/environment.example.ts) para `src/environments/environment.ts` e `environment.development.ts`, preenchendo somente os valores públicos do Web App. Desenvolvimento usa `production: false`. Os arquivos reais são ignorados; nunca registrar senhas, tokens, chaves privadas ou service accounts.
 
-`PlayerCollectionService` persiste somente quantidade/datas em `users/{uid}/collection/{cardId}`, resolve cartas pelo domínio e permite read-only ao titular. Admin concede publicadas/define total/remove após confirmação na edição de perfil existente. Zero remove; teto 9999 é técnico, sem regra de decks. Cadastro prepara perfil; entrada em `/game` concede somente Starter Pack lacrado, e coleção nova fica vazia até abertura. Busca/raridade são locais; carta inacessível permanece indisponível, enquanto falha de rede chega como erro/retry.
+Sem a opção explícita de emuladores, localhost acessa o Firebase configurado no environment. Portanto, localhost não significa dados isolados. Provedores, domínios e primeiro admin são tratados em [autenticação e admin](autenticacao-e-admin.md); preparação/conteúdo inicial em [bootstrap](player-bootstrap.md) e [pacotes](pacotes.md).
 
-`PlayerInitializationService` solicita `initializePlayer({})`; backend usa somente `request.auth.uid`, valida perfil/player/definição/versão/cartas e grava `users/{uid}/packs/starter` lacrado + marcador no mesmo commit, sem ler/escrever coleção. Retorna `initialized`, `alreadyInitialized`, `starterPackGranted` e `starterPackInstanceId`, sem `cardsGranted`. `packDefinitions/starter` e `versions/{version}` substituem o fluxo `starterCollections/default`, que não tem acesso nas Rules atuais. Não há migração de produção: bootstrap anterior ainda local; dados antigos de emuladores podem ser recriados, sem reset/regrant remoto.
+## Backend e emuladores
 
-`PlayerPackService` lê somente instâncias próprias e solicita `openPack({packInstanceId})`. Backend usa a versão fixa da instância, valida auditoria/publicação/quantidades/datas e soma coleção atomicamente com estado opened/data/snapshot mínimo. Retry/concorrência não duplicam conteúdo; resultado persistido recupera resposta perdida/refresh. Reveal inicia somente após commit, uma entrada por vez pelo botão Próxima carta, e resumo encaminha à coleção com leitura nova. PNG reutiliza componente/Storage existentes, sem Konva/assets privados; CSS respeita reduced motion. Home consulta estado atual do starter, sem banner de pacote novo já aberto. Admin SDK fica somente em `functions/`; nenhum member escreve coleção/player/packs, nem cliente admin escreve player/instância.
+Backend mantém dependências e lock separados em `functions/`, com Node.js 22. Frontend não importa Admin SDK. Callables e provider Angular usam explicitamente `southamerica-east1`; a região do backend está em [functions/src/config.ts](../functions/src/config.ts) e a integração frontend em [app.config.ts](../src/app/app.config.ts). Ao usar outro projeto, verificar a localização e ajustar os dois lados juntos.
 
-`PackDefinitionService` administra definições e versões em `/admin/pacotes`, sem escrever propriedade/player/instâncias. **Configurar StarterPack** usa exclusivamente ID `starter` e nome fixo `StarterPack`; nomes equivalentes ignorando caixa, espaços, `_` e `-` são reservados. Criar pacote grava definição + versão 1 juntas; **Criar próxima versão** grava versão imutável + avanço do ponteiro em transação. Informações/ativação podem ser editadas, com controle de concorrência e validação de cartas publicadas; conteúdo histórico é somente leitura. Outros pacotes ficam como catálogo administrativo, sem distribuição ao jogador. Ausência da definição inicial retorna motivo seguro `starter-not-configured`, com orientação ao jogador e link administrativo para configurar, mantendo o gate.
+```powershell
+npm.cmd run build:functions
+npm.cmd run emulators:start
+```
 
-`PublishedCardPreviewService` reaproveita o renderer de `CardPreviewService` após salvar para sincronizar `published-cards/{cardId}/preview.png`; falhas posteriores são avisos, não reversão da gravação, preservados também após criar → editar. `/admin/cartas/lista` oferece sincronização global e regeneração individual de publicadas, uma carta por vez, com releitura/checagem de versão e resultado por carta. PNG autenticado até 20 MiB admite overwrite admin; artes/assets originais permanecem privados. Get exige perfil consistente e carta publicada, sem listagem; retirada/exclusão nega novos downloads independentemente de cleanup. Não há job automático nem transação entre serviços. O download usa `getBlob(ref)` sem tamanho opcional para preservar MIME no SDK 10.14.1 e valida PNG/tamanho posteriormente. Erros tipados mantêm code/cause, com diagnóstico seguro e retry sem Promise rejeitada em cache. Veja [coleção](colecao.md), [cartas](cartas.md) e [riscos](riscos-e-dividas-tecnicas.md).
+O script inicia Auth, Firestore, Storage e Functions no projeto isolado `demo-cardgame`. Copie [environment.emulators.example.ts](config/environment.emulators.example.ts) somente para `environment.development.ts`; preserve a configuração de produção.
 
-`authenticatedGuard`/`authenticatedChildGuard` exigem UID e `role`/`roleId` iguais em member/admin; `adminGuard`/`adminChildGuard` continuam exclusivos de admin. Login/cadastro member segue por padrão para `/game/home`, admin para `/admin/dashboard`; um `returnUrl` interno correspondente a rota permitida tem prioridade. Nome/contato do perfil são projetados em `AuthSession`, sem alterar o modelo persistido nem o e-mail Auth. Veja [rotas e divisão de telas](arquitetura-frontend.md) e [autorização](autenticacao-e-admin.md).
+A proteção em [firebase-runtime-config.ts](../src/app/model/services/fire/firebase-runtime-config.ts) permite emuladores apenas com `firebaseEmulators: true`, `production: false`, projeto `demo-` e hostname loopback. Não misturar serviços locais e reais. O roteiro completo cadastro → starter lacrado → abertura → coleção está em [pacotes: localhost isolado](pacotes.md#localhost-isolado).
 
-PNG já transparente deve preservar seu alpha: presets de imagem/arte e uploads PNG usam preenchimento transparente; imagens antigas podem usar **Usar fundo transparente** em Propriedades. A cor de preenchimento continua opcional e o fundo geral da carta é independente. Arquivos/contratos/Rules não mudam. Veja [transparência no editor](editor-de-cartas.md#imagens-png-transparentes).
-
-Personalização agora inclui espelhamento, controles de cor e estilos rápidos de imagem, bordas, decoração/alinhamento vertical de texto e alinhamento de camadas à carta. Campos visuais adicionais são opcionais em canvas v1, sem migração ou defaults gravados automaticamente nas leituras. Binários originais permanecem intactos. Leia [os contratos e limites](editor-de-cartas.md#personalização-visual) antes de alterar filtros/renderização/exportação.
-
-O ateliê acrescenta molduras/emblemas vetoriais em canvas v1, seis temas e composição ornamental inicial para novas cartas. Paleta atua em ornamentos desbloqueados; recriar layout pede confirmação, conserva dados/assets e ajusta a janela da arte principal, com Undo/Redo. Cartas antigas mantêm o design salvo e a adaptação Fantasy Basic. Não há integração de IA, mudança de Rules/dependências ou geração literalmente infinita; combine PNGs transparentes próprios para acabamentos ilustrados. Leia [o ateliê e compatibilidade](editor-de-cartas.md#ateliê-de-molduras-e-emblemas).
-
-O catálogo oferece Lista e Cartas inteiras: tabela administrativa ou galeria de snapshots completos do canvas salvo. Prévias são geradas localmente ao entrar perto da área visível, com fila de dois jobs, leitura autenticada e cancelamento/liberação de URLs. Não gravar PNGs nem novos campos para essa opção de display. Adaptação de cartas antigas é compartilhada por `savedCardDocument`; veja [cartas](cartas.md#templates-lista-e-segurança).
-
-A falha inicial de edição mostrou CORS bloqueando downloads em localhost:4200. O editor foi desacoplado desses downloads, com cache de falhas e retry manual. Salvar dados/design mantém referências de assets próprios sem novo download; exportações/cópias com binários ainda exigem imagens disponíveis. O bucket é `cardgame-6fdcb.firebasestorage.app`: consulta inicial `cors:[]`, metageneration `1`; após autorização explícita do proprietário em 11/10/2026, GET para `http://localhost:4200` e cache 3600s foram adicionados e confirmados com metageneration `2`. Naquela verificação, OPTIONS sem credenciais não comprovou o download de imagem real.
-
-Em 12/10/2026, a solicitação de editar Nyra no Deckfall e o relato de falha no site levaram à correção pontual de `https://deckfall.web.app`. O GET/Range da arte WebP atual retornou `206` sem `Access-Control-Allow-Origin`; apenas a entrada GET dessa origem, com cache 3600s, foi acrescentada, preservando localhost e usando `ifMetagenerationMatch=2`. A consulta confirmou metageneration `3`. GETs de mídia com origem hospedada e local receberam `206`, os cabeçalhos compatíveis e os 172.256 bytes com SHA-256 igual à imagem do Storage. A identidade OAuth da CLI foi usada nessas leituras; a sessão administrativa Firebase Auth e o editor no navegador não foram exercitados por esse teste. Nome/arte já editados pelo usuário foram preservados, sem reutilizar o caminho PNG antigo do recibo. Não houve deploy nem alteração de Rules/IAM/ACL, documentos ou imagens. [O guia](configuracao-cors-storage.md) registra estado, backups e procedimento.
-
-Publicações exigem escopo autorizado na sessão. A fundação de pacotes foi validada sem deploy; após o relato de preparação bloqueada, o proprietário autorizou a correção em Functions (`initializePlayer`/`openPack`), Firestore Rules e Hosting e pediu a administração de pacotes. Os resultados e recibos efetivos dessa publicação ficam no registro ao final deste documento. A autorização de infraestrutura não escolhe/publica cartas nem configura concessão por conta própria. [Pacotes](pacotes.md#publicação-posterior) lista o escopo e comandos; Storage Rules/índices não mudaram.
-
-## Operação do backend e emuladores
-
-- `functions/` mantém package/lock separados, Node.js 22, TypeScript 5.9.3, Firebase Functions 7.4.0 e Admin SDK 14.5.0. Angular/Firebase Web SDK/Konva não foram atualizados. Instale com `npm.cmd --prefix functions ci`.
-- `npm.cmd run build:functions` compila o backend; `npm.cmd run test:functions` roda domínio com Node Test Runner; `npm.cmd run test:functions:emulator` integra Callable/Auth/Firestore em `demo-cardgame`. `npm.cmd run test:rules` mantém a suíte Firestore/Storage separada.
-- `npm.cmd run emulators:start` inicia Auth/Firestore/Storage/Functions em projeto `demo-cardgame`, com UI local em `127.0.0.1:4000`. O environment development precisa de `production:false`, `firebaseEmulators:true` e projeto `demo-`; a opção é recusada fora de localhost/loopback, em produção ou para projeto real. Os environments reais ignorados não são alterados automaticamente.
-- Node.js 22.23.3 portátil foi obtido da distribuição oficial e extraído em `.local-tools/bootstrap-node22/node-v22.23.3-win-x64`, ignorado. SHA-256 do ZIP confirmado: `2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71`. Acrescente esse diretório ao PATH somente na sessão para executar backend/emuladores, junto do Java 21 portátil já disponível. Não mudar runtimes globais da máquina.
-- Callable e provider Angular usam explicitamente `southamerica-east1`. Leitura da API do Firestore confirmou essa localização da base `(default)` de `cardgame-6fdcb` em 12/10/2026 às 21h21 de São Paulo; recibo ignorado `.local-tools/player-bootstrap-firestore-location.json`. Essa verificação de metadata não criou/configurou Functions ou starter remoto.
-- `packDefinitions/starter` e sua versão precisam de IDs reais/quantidades/datas de servidor. Em 14/10/2026, o proprietário escolheu uma cópia de Nyra e o starter remoto foi criado ativo na versão 1, com a carta publicada e seu PNG verificado. Use `/admin/pacotes` para administrar versões futuras. No ambiente isolado, Emulator UI provisiona somente o primeiro admin local; conteúdo e versão são configurados pela aplicação. Siga [o passo a passo](pacotes.md#localhost-isolado).
-- Consulta somente leitura de 15/10/2026 reconfirmou CORS GET localhost + `deckfall.web.app` (metageneration 3), inclusive no PNG exato da Nyra. Authorized domains inclui `localhost`, `cardgame-6fdcb.firebaseapp.com`, `cardgame-6fdcb.web.app` e `deckfall.web.app`; o preflight de 13/10 registrava o estado anterior à inclusão. Recibo atual ignorado `.local-tools/preview-diagnosis-readonly.json`. Nenhuma configuração remota foi alterada neste diagnóstico. `.firebaserc` segue ausente; preservar site/project e usar `--project cardgame-6fdcb` nos comandos previstos.
-- Não executar novos deploys sem escopo autorizado. A publicação de infraestrutura de 13/10/2026 e a configuração do starter de 14/10/2026 estão registradas abaixo; não extrapolar essas verificações para toda a configuração externa ou uma sessão real do jogador. App Check/rate limiting/monitoramento/abuso estão em [riscos](riscos-e-dividas-tecnicas.md).
-
-## Validação desta fundação — 11/10/2026
-
-- Jasmine/Karma: 220 testes aprovados, cobrindo Auth/cadastro/guards, popup/redirect/vinculação Google e senha, recuperação sem mudança de sessão, Minha conta e limpeza em troca externa de UID, state/history, painéis, modos lista/galeria, prévias completas/legadas com pixels reais e cancelamento de filas/URLs, alinhamento com rotação/limites, canvas/exportação real, espelhamento/ajustes de cor, texto/bordas, PNG com pixels transparentes/semitransparentes em 1×/2×/4×, orçamento de cache de filtros, falha/cache/retry de downloads e edição antes das imagens, rascunho IndexedDB e persistência/reabertura do editor com repositório substituível em testes.
-- Security Rules: 17 cenários aprovados em `demo-cardgame`, incluindo cadastro member, cartas/templates/assets, perfis, revogação e os limites completos de oito atributos, 64 elementos e 24 assets. Permission-denied em operações que devem ser negadas é esperado.
-- Build de produção passou. TypeScript com `--noUnusedLocals --noUnusedParameters` e `git diff --check` passaram. Não há script de lint configurado.
-- Foi necessário executar Node/CLI fora do sandbox que retornava `EPERM` ao resolver caminhos do perfil Windows. Essa execução não realizou deploy.
-- A ferramenta de automação não disponibilizou navegador conectado para QA visual manual. Canvas/export foram exercitados no Chrome headless, incluindo dimensões e pixels. OAuth Google, vínculo de senha, entrega de recuperação e persistência contra Firebase remoto não foram testados com contas reais; provedores/domínios/templates/IAM e publicação continuam pendências externas. CORS de localhost foi corrigido e consultado remotamente com autorização; a sessão/browser do usuário ainda precisa conferir o download real após atualizar a página.
-
-Para repetir Rules nesta máquina com o runtime portátil já obtido, prefixe o PATH apenas na sessão PowerShell com o diretório `bin` dentro de `.local-tools/java21` e execute `npm.cmd run test:rules`. Não modificar Java do sistema. Em outro ambiente, use Java 21 e Firebase CLI disponíveis. [Referência oficial dos testes de Rules](https://firebase.google.com/docs/rules/unit-tests).
-
-## Validação do ateliê — 12/10/2026
-
-- Jasmine/Karma: 243 testes aprovados na suíte completa, incluindo 23 novos casos de contrato/importação de ornamentos, composições de zero a oito atributos em dimensões variadas, preservação de dados/assets/arte, paleta sem alteração de símbolos/geometria, bloqueios, confirmação e histórico. Rótulos/valores de atributos permanecem vinculados após renomear a chave por identidade.
-- Nove casos do renderer passaram no Chrome headless: pixels reais em PNG 1×/2×/4×, centro vazado sem apagar a arte inferior, clone/exportação, seleção da arte através da janela da moldura, doze motivos distintos sem emoji/imagens, seed determinístico, limites de geometria/nós em tamanhos extremos e cores vazias como transparência nos gradientes metálicos/de esmalte. Esses casos integram a suíte completa, sem somar uma segunda contagem ao total.
-- QA visual do PNG local: as seis composições de tema e os doze emblemas foram inspecionados, usando arte sintética para conferir layout. Não houve uso de conta Firebase real, gravação remota, geração de arte por IA ou deploy.
-- Security Rules: 17 cenários aprovados em `demo-cardgame`, com Rules/suíte inalteradas. O canvas v1 conserva limites e autorização; a validação profunda dos tipos novos continua no cliente. Emuladores Firestore/Storage foram encerrados ao concluir.
-- Build de produção final passou sem avisos; TypeScript com `--noEmit --noUnusedLocals --noUnusedParameters` passou para aplicação e specs. Após o ajuste de cores vazias, a suíte completa passou novamente. `git diff --check` passou e o status foi revisado, preservando a alteração local concomitante no favicon. O runtime portátil Java 21 foi usado apenas no PATH da sessão dos testes de Rules; a resolução do perfil Windows retornou `EPERM` no sandbox e a repetição fora dele foi aprovada automaticamente. Não houve alteração do Java do sistema nem publicação de Rules.
-
-## Validação do diagnóstico de CORS do site — 12/10/2026
-
-- A suíte Angular completa passou novamente: 243 testes, incluindo falhas/retry de imagens e prévias de cartas. Build de produção passou sem avisos. Não houve mudança de código, dependências ou Rules neste diagnóstico.
-- Os 17 cenários de Security Rules passaram novamente no projeto isolado `demo-cardgame`; Firestore/Storage foram encerrados ao concluir. Java 21 portátil foi usado somente no PATH da sessão PowerShell.
-- As três execuções iniciais encontraram `EPERM` no sandbox ao resolver o perfil Windows. As repetições fora dele receberam aprovação automática. Logs ignorados em `.local-tools/deckfall-cors-angular-test.log`, `deckfall-cors-production-build.log` e `deckfall-cors-rules-test.log`.
-- `git diff --check` passou após a atualização da documentação; status foi revisado, com mudanças apenas no README, guia CORS, exemplo de configuração, contexto operacional e riscos.
-
-## Validação da área do jogador — 12/10/2026
-
-- Jasmine/Karma: 274 testes aprovados na suíte completa, incluindo acesso de member/admin a `/game`, bloqueio administrativo para member, espera/negação de sessão inválida, preservação e validação de `returnUrl`, destinos padrão por papel, `/game` → `/game/home`, navegação e link administrativo condicional, logout/revogação, dados de perfil e controles de placeholders desabilitados. Os fluxos anteriores de autenticação, catálogo e editor continuam incluídos na suíte.
-- Build de produção final passou sem avisos após os ajustes mobile. Security Rules: 17 cenários aprovados em `demo-cardgame`, com Rules inalteradas; emuladores Firestore/Storage encerrados ao concluir. Java 21 portátil foi acrescentado somente ao PATH da sessão PowerShell.
-- QA visual e de layout: componentes reais compilados em uma prévia local em `127.0.0.1`, com `AuthService` substituído por sessões member/admin em memória. Chrome headless/CDP usou um perfil separado para conferir as cinco páginas em larguras de 320, 390, 768 e 1440 pixels, sem overflow horizontal. Screenshots desktop/mobile foram inspecionados; os cinco destinos da navegação permanecem visíveis no celular. Essa prévia não usou conta Firebase real nem exercitou OAuth, acesso remoto ou persistência no backend.
-- Os três comandos inicialmente encontraram `EPERM` no sandbox ao resolver o perfil Windows; as repetições fora dele receberam aprovação automática. Logs ignorados em `.local-tools/player-area-angular-test.log`, `player-area-production-build.log` e `player-area-rules-test.log`. Não houve atualização de dependências, alteração de modelos persistidos/Rules ou deploy.
-- Ao adicionar rotas, manter a lista explícita de destinos permitidos em `returnUrl` e seus testes. Naquela etapa, coleção, decks e partidas eram somente estrutura visual; nenhum serviço, documento ou coleção de gameplay foi criado. A coleção persistida é uma evolução posterior, descrita acima.
-
-## Validação da coleção funcional — 12/10/2026
-
-- Jasmine/Karma: 370 testes aprovados na suíte completa. Inclui leitura/autorização da coleção, concessão/quantidade absoluta/remoção, timestamps e concorrência, cartas indisponíveis versus falha de rede, busca e raridade combinadas, contadores, troca de UID, gestão apenas após encontrar perfil, loading/erro/retry e lifecycle de object URLs. Os testes anteriores de Auth, guards, catálogo e editor continuam passando.
-- Um teste de fluxo usa `CardService`, `PublishedCardPreviewService`, `CardPreviewService`, `PublishedCardStorageService` e `PlayerCollectionService` reais com clientes de persistência substituídos: confirma save → PNG renderizado com dimensões/pixels reais → concessão de duas cópias → resolução para member e bloqueio de escrita pelo membro. Stage e recursos temporários são liberados. Os testes de sincronização verificam warnings pós-commit e mudanças de versão durante upload/cleanup.
-- Security Rules: 30 cenários aprovados em `demo-cardgame`, preservando os 17 anteriores e acrescentando coleção/PNG publicado. Inclui get/list próprio, negação de terceiros e writes de membro, campos/quantidades/timestamps estritos, carta publicada e perfil existente, remoção de indisponíveis, PNG autenticado, overwrite admin, revogação por status/exclusão, limite exato de 20 MiB e bloqueio dos assets editáveis mesmo para cartas publicadas. Emuladores encerrados ao concluir; Java 21 portátil usado somente no PATH da sessão.
-- Build de produção aprovado sem avisos. As primeiras execuções dos três comandos encontraram `EPERM` ao resolver o perfil Windows; repetições fora do sandbox receberam aprovação automática. Logs ignorados: `.local-tools/collection-angular-test.log`, `collection-production-build.log` e `collection-rules-test.log`. Os testes novos foram corrigidos para tipar seletores DOM e usar o `serverTimestamp` modular nos clientes simulados, sem requerer configuração AngularFire de produção.
-- QA em Chrome headless/CDP: componentes reais numa prévia isolada em `127.0.0.1`, com sessões/coleção e PNGs sintéticos locais. Jogador e gestão administrativa foram conferidos em 320, 390, 768 e 1440 pixels, sem overflow horizontal da página; tabelas administrativas mantêm rolagem própria quando necessário. Busca + raridade retornaram uma carta com x2; definir total 3 e confirmar remoção refletiram na gestão. Imagens completas e estados vazio/erro/indisponíveis foram capturados; não há canvas Konva na apresentação do jogador.
-- `git diff --check` e status revisados. Não houve atualização de dependências, alteração do contrato de gameplay/canvas, aquisição automática, implementação de decks/partidas, conta Firebase real, publicação de Rules ou deploy. Cartas publicadas anteriormente precisam ser salvas para gerar PNG; preview ausente/desatualizada e a janela residual entre Firestore/Storage permanecem documentadas em [coleção](colecao.md) e [riscos](riscos-e-dividas-tecnicas.md).
-
-## Diagnóstico e publicação para localhost/domínio — 12/10/2026
-
-- O relato mostrou `storage/unauthorized` em `published-cards/.../preview.png`. Uma consulta somente leitura confirmou Rules remotas anteriores à coleção/preview; o diff continha apenas os novos controles/matches já testados. O status da carta do relato era `draft`, portanto falhou o cleanup da representação, após um save Firestore confirmado. O status da carta foi preservado.
-- Localhost e domínio usam `cardgame-6fdcb`/`cardgame-6fdcb.firebasestorage.app`; o código não conecta emuladores. CORS existente foi consultado: GET para `http://localhost:4200` e `https://deckfall.web.app`, metageneration 3. A conta interna Storage possuía `roles/firebaserules.firestoreServiceAgent`; nenhuma alteração de CORS/IAM foi necessária.
-- O proprietário autorizou publicar e manter funcionamento nos dois ambientes. `firebase deploy --only firestore:rules,storage --project cardgame-6fdcb --non-interactive` publicou somente as Rules; consulta posterior confirmou SHA-256 igual aos arquivos locais. Storage ruleset `514b665e-e4ac-4317-8740-905a77f06aee`; Firestore ruleset `9c2131b6-a6c5-452a-ba8d-59b12837e967`. Backups das versões anteriores e recibos ficam ignorados em `.local-tools/preview-permission-before*.json`/`.rules` e `preview-permission-rules-deploy.log`.
-- O domínio ainda servia a coleção placeholder em `main-CCGFVEQE.js`/`chunk-RQ2HN2Y4.js`. Para atender ao funcionamento solicitado no domínio, o build validado foi publicado com `firebase deploy --only hosting --project cardgame-6fdcb --non-interactive`, limitado aos 35 arquivos de `dist/card-game/browser`. GETs posteriores confirmaram HTML e todo o grafo de 30 JavaScripts iguais por SHA-256 ao build local, incluindo coleção funcional, concessão administrativa e preview publicada; o main atual é `main-5SSXXADO.js`. Rotas login/game/admin entregaram o index correto via rewrite SPA. Isso não valida a existência de um perfil específico nem executa Auth/guards com uma conta real.
-- Avisos locais distinguem remoção de preview de sincronização e orientam conferir Rules/perfil em erros de permissão antes de repetir; cleanup de carta excluída não pede salvar a carta já removida. Suíte completa: 373 testes aprovados; 30 cenários Rules aprovados em `demo-cardgame` e build produção sem avisos. Emuladores encerrados; Node/CLI executados fora do sandbox por `EPERM` já conhecido. Logs ignorados: `preview-permission-angular-test.log`, `preview-permission-production-build.log`, `preview-permission-rules-test.log`, `preview-permission-hosting-deploy.log` e `preview-permission-hosting-verification.json`.
-- Nenhuma carta, perfil, arquivo original ou credencial foi criado/editado/excluído. A preview de jogador continua dependendo de status `published`; publicar infraestrutura não publica rascunhos. Sessão Firebase Authentication real e novo upload de preview pelo titular não foram exercitados nesta verificação. `git diff --check` e status revisados após documentação.
-
-## Validação do bootstrap direto anterior — 13/10/2026
-
-Registro histórico da etapa anterior, substituída pelo Starter Pack lacrado e abertura abaixo. Esses totais não descrevem a suíte atual; o bootstrap direto não foi publicado.
-
-- Backend: 48 testes unitários aprovados com Node Test Runner, incluindo autenticação/payload, perfis consistentes, configuração estrita, cartas publicadas, primeira concessão, repetição/concorrência, soma com propriedade anterior, preservação da primeira aquisição, limites e falhas sem gravação parcial. Datas de player e entradas somadas são ordenadas e comparadas ao relógio confiável do backend; datas futuras não liberam marcador nem provocam uma concessão fora de ordem.
-- Build e typecheck do backend passaram. As dependências e o runtime Node.js 22 ficam separados em `functions/`; o frontend não recebeu Admin SDK nem atualização de Angular/Firebase Web SDK/Konva.
-- Security Rules: 40 cenários aprovados no projeto isolado `demo-cardgame`, incluindo os 30 anteriores e proteção de players/configuração default. Membros continuam sem writes de coleção; nenhum cliente escreve players, nem admin. A suíte distingue validação do envelope nas Rules da validação profunda obrigatória da Function. Java 21 portátil foi usado apenas no PATH da sessão, e os emuladores foram encerrados.
-- Callable real: 11 cenários aprovados integrando Functions/Auth/Firestore nos emuladores de `demo-cardgame`, com Node.js 22 e Java 21 portáteis. Incluem autenticação, recusa de UID no payload, perfis válidos/inválidos, timestamps de servidor, repetição após mudança de versão, duas chamadas HTTP simultâneas, soma com coleção anterior, draft e overflow sem gravação parcial. Os serviços foram encerrados ao concluir; esses testes não acessam dados de produção.
-- Jasmine/Karma: suíte completa com 403 testes aprovados. O novo fluxo verifica preparação, sucesso/alreadyInitialized, erro/retry, logout/troca de UID, deduplicação local e montagem da coleção somente após o commit. Um teste novo de rota foi sincronizado com a Promise pendente antes de conferir o erro. Um timeout inicial no teste legado de preview não se repetiu nas suítes isoladas nem na execução completa final; renderer, expectativas de pixels e timeouts não foram alterados.
-- Build Angular de produção aprovado sem avisos após os ajustes finais. `git diff --check` e status revisados. Os comandos Node/CLI foram executados fora do sandbox que já apresentava `EPERM` ao resolver o perfil Windows, sem alterar runtimes globais.
-- Logs ignorados: `.local-tools/player-bootstrap-backend-build.log`, `player-bootstrap-backend-typecheck.log`, `player-bootstrap-backend-test.log`, `player-bootstrap-functions-emulator-test.log`, `player-bootstrap-rules-test.log`, `player-bootstrap-angular-test.log` e `player-bootstrap-production-build.log`. Não houve deploy, criação de starter remoto ou alteração de cartas, perfis, CORS, Hosting ou configuração de produção. A consulta da localização Firestore foi somente leitura; Function e cliente usam `southamerica-east1`.
-
-## Validação da fundação de pacotes — 13/10/2026
-
-- Backend: 65 testes unitários aprovados com Node Test Runner. Incluem autenticação/payloads/perfis, uma instância lacrada concorrente sem coleção, conteúdo/versionamento estritos, abertura/soma/datas/limites atômicos, versão fixa, repetição, concorrência, resultado persistido e ausência de writes parciais. Build e typecheck de Functions passaram; Admin SDK permanece somente em `functions/`.
-- Integração: 15 cenários aprovados com Callables reais nos emuladores Auth/Firestore/Functions de `demo-cardgame`. O fluxo completo confirmou pack sealed e coleção vazia após bootstrap, pack opened/snapshot/quantidades após abertura e retry sem duplicação. Também cobriu concorrência de concessão/abertura, versão fixa após currentVersion novo/desativação, carta retirada/overflow sem writes, isolamento por UID, histórico depois de remover definições/cartas e recusa de player local antigo. Emuladores encerrados; nenhuma gravação em produção.
-- Security Rules: 49 cenários aprovados em `demo-cardgame`, preservando coleção read-only/member, player sem writes cliente, leitura própria/admin de packs, nenhuma escrita de instância pelo cliente, configuração admin-only, versões create-only, IDs decimais canônicos e negação do caminho starter antigo. Storage Rules ficaram inalteradas. Emuladores encerrados ao concluir.
-- Jasmine/Karma: suíte completa com 459 testes aprovados, incluindo contratos de bootstrap/packs, menu/rotas/returnUrl, Home lacrada versus aberta, listagem/estados/retry, abertura somente após backend, uma entrada por vez/resumo, revisão sem nova Callable, refresh, troca de UID, URLs e reduced motion. Um assert inicial da string CSS abreviada de animação foi corrigido para verificar `animationName`/`transitionProperty`, pois o Chrome normaliza abreviações; a execução final passou. Renderer/testes de pixels e timeouts antigos não foram alterados.
-- Build Angular de produção passou sem avisos. TypeScript da aplicação/specs com noUnusedLocals/noUnusedParameters passou. Frameworks/dependências, Storage Rules, CORS, IAM e configuração de produção não foram alterados nesta etapa. Node.js 22/Java 21 portáteis foram usados somente no PATH da sessão; limitações conhecidas de EPERM do sandbox exigiram execução local aprovada dos comandos, sem mudar runtimes globais.
-- Logs ignorados incluem `.local-tools/packs-functions-emulator-test.log`, `packs-angular-test.log` e `packs-production-build.log`; recibo histórico `packs-domain-preflight.json`. Naquele preflight `deckfall.web.app` ainda não estava nos Authorized domains; a inclusão foi confirmada pela consulta atual de 15/10/2026. Não houve conta real/OAuth, configuração real de Starter Pack ou deploy na etapa histórica da fundação. Não usar esse registro como estado atual da configuração.
-
-## Diagnóstico da preparação bloqueada — 13/10/2026
-
-- A captura mostra HTTP 400 em `initializePlayer` e a mensagem que o cliente usa para `functions/failed-precondition`. Todas as rotas `/game` compartilham o gate do layout; uma pré-condição pendente não é falha individual de cada página. O código não contém `reportAllChanges`; a stack anônima `startTime` da captura não comprova origem no Deckfall.
-- Consulta somente leitura às 18h43 de São Paulo confirmou `initializePlayer` ACTIVE, atualizada às 18h10, e `openPack` ausente (404). `packDefinitions/starter` e `starterCollections/default` estavam ausentes (404). Consultas não encontraram cartas com status `published` nem documentos em `players`. Não foi lido o corpo autenticado da chamada da captura; o motivo exato dessa resposta não deve ser inventado, mas a configuração exigida para o novo fluxo está comprovadamente incompleta.
-- O frontend development continua apontando ao projeto real `cardgame-6fdcb`, com emuladores desabilitados por padrão. A simples repetição não cria configuração nem publica infraestrutura. O gate e as Rules permanecem; não conceder cartas fake, relaxar writes de membro ou escolher/publicar cartas sem decisão administrativa.
-- Recibo local ignorado `.local-tools/starter-error-readonly.json`. O diagnóstico não fez deploy, alteração de status de carta, criação de starter ou concessão. O proprietário depois autorizou publicar Functions/Rules/Hosting e pediu uma opção administrativa para criar/configurar pacotes, reservando o nome StarterPack ao inicial. Essa infraestrutura foi publicada em 13/10/2026; a escolha e configuração de uma cópia de Nyra ocorreram em 14/10/2026, conforme o registro a seguir.
-
-## Configuração do StarterPack com Nyra — 14/10/2026
-
-- Consulta autenticada somente leitura confirmou `initializePlayer` e `openPack` ACTIVE, starter ausente (404) e nenhuma carta publicada. Nyra era a única carta cadastrada, em rascunho. O proprietário escolheu uma cópia dela para o inicial.
-- Às 17h55 de São Paulo, Nyra (`46f5c359-0d1e-423e-911e-4ba592567405`) foi publicada e `packDefinitions/starter` + `versions/1` criadas no mesmo commit. A definição está ativa, nome reservado `StarterPack`, `currentVersion: 1`; a versão contém somente Nyra com quantidade 1. Precondição de `updateTime` na carta e `exists:false` nos dois documentos impediram sobrescritas concorrentes. Datas são de servidor; os demais campos da carta e sua arte original foram preservados.
-- A representação `published-cards/46f5c359-0d1e-423e-911e-4ba592567405/preview.png` foi renderizada do documento e assets atuais com o renderer Konva 10.7.1 do projeto e fontes Georgia locais. WebP foi decodificado em memória, preservando seus bytes originais. PNG 1086 × 1448, 1.849.567 bytes; SHA-256 `22db2bd6823e95d277e511b38ab15409c86a8ccdc5a55fbc8c40d9a51fbb6f80`, geração Storage `1792011304657093`, `cacheControl: private, no-store`. Upload teve precondição de geração; bytes e documentos foram relidos e conferidos. Firestore e Storage continuam sem transação conjunta.
-- Validação local com as operações backend confirmou schema, preparação lacrada, abertura com uma carta e repetição sem duplicação. Nenhum `player`, instância, coleção, conta ou credencial foi gravado diretamente em produção. Não houve deploy ou alteração de Rules, IAM, ACL, CORS ou Auth. A sessão autenticada real no navegador não foi exercitada; use **Tentar novamente** para refazer a preparação e abra o pacote pelo fluxo normal.
-- A stack `reportAllChanges`/`startTime` coincide com o [problema relatado no Chrome DevTools e corrigido no Chrome 153](https://github.com/GoogleChrome/web-vitals/issues/792). Essa correspondência indica uma origem provável separada da pré-condição do starter; a origem do script da sessão do usuário não foi inspecionada diretamente.
-- Recibos e scripts desta intervenção ficaram na pasta `work/nyra-current` do chat de execução, fora do repositório, sem credenciais. O envio ao GitHub permaneceu cancelado. A aplicação e seus frameworks/dependências não foram alterados; dependências de renderização foram instaladas somente na pasta temporária do chat.
-
-## Diagnóstico das previews publicadas — 15/10/2026
-
-### Causa e correção verificadas no código
-
-`PublishedCardStorageService` passava 20 MiB como segundo argumento de `getBlob`. No Firebase SDK 10.14.1 instalado, `getBlobInternal` em `node_modules/@firebase/storage/dist/index.esm2017.js` aplica `blob.slice(0, maxDownloadSizeBytes)` sem contentType. O recorte mantém bytes, mas retorna `Blob.type === ''`; a validação `image/png` rejeitava a imagem válida. O adapter agora usa `getBlob(ref)` e conserva a validação de Blob/PNG/conteúdo/tamanho após baixar. Não houve coerção de MIME, troca de SDK ou relaxamento de Rules. O limite deixa de ser enviado na requisição; uploads permanecem limitados pelas Rules e um arquivo acima de 20 MiB é recusado pelo cliente após a transferência.
-
-O wrapper genérico também perdia `error.code`, e a UI escondia a distinção entre permissão, ausência, rede e conteúdo inválido. `PublishedCardPreviewError` agora conserva code/cardId/path/mensagem segura/cause original em memória. O jogador recebe mensagens por causa; em desenvolvimento o console registra somente `[Deckfall preview] {cardId, path, code}`. Causa/mensagem SDK, URLs com token e credenciais não são serializadas em UI/logs. O cache do pack mantém sucessos, remove rejeições/falhas de imagem e permite download novo no retry.
-
-### Leituras reais, sem mutação remota
-
-Consulta às APIs iniciada às 18h04 de São Paulo (`checkedAt: 2026-10-15T21:04:33.681Z`) usou a identidade OAuth existente da CLI. Uma tentativa inicial de field mask retornou HTTP 400 por formatação da consulta; foi corrigida e repetida antes de concluir sobre existência/status. Esse 400 foi do diagnóstico e não do download do jogador.
-
-| Item | Evidência atual |
+| Serviço | Host/porta em firebase.json |
 | --- | --- |
-| Nyra | `cards/46f5c359-0d1e-423e-911e-4ba592567405` existe, `status: published` |
-| `updatedAt` | `2026-10-14T22:27:37.186Z` válido; updateTime do documento `2026-10-14T22:27:37.228854Z` |
-| PNG | Existe em `published-cards/46f5c359-0d1e-423e-911e-4ba592567405/preview.png` |
-| Metadata | `image/png`, 2.575.604 bytes, 1086 × 1448; geração `1792016860478126`; updated `2026-10-14T22:27:40.508Z`; `private, no-store` |
-| Bytes | Assinatura PNG válida; SHA-256 `feede87a3556cee8704cc1a9f96d33a2e23f2f8b488f063821bfa38a7c479e1e` nas duas respostas |
-| GET com Origin localhost | HTTP 206, `Access-Control-Allow-Origin: http://localhost:4200`, `Content-Type: image/png`, conteúdo completo |
-| GET com Origin hospedada | HTTP 206, `Access-Control-Allow-Origin: https://deckfall.web.app`, `Content-Type: image/png`, conteúdo completo |
-| CORS bucket | GET das duas origens, maxAge 3600, metageneration 3; nenhuma mudança necessária |
-| Auth Authorized domains | `localhost`, `cardgame-6fdcb.firebaseapp.com`, `cardgame-6fdcb.web.app`, `deckfall.web.app` |
-| Firestore Rules | Iguais às locais; ruleset `3cc0cc99-b5ed-4404-87c0-19278ba8f09b` |
-| Storage Rules | Iguais às locais; ruleset `514b665e-e4ac-4317-8740-905a77f06aee` |
-| Integração cross-service | Conta interna Firebase Storage possui `roles/firebaserules.firestoreServiceAgent` |
-| Perfis | Dois perfis encontrados com papéis consistentes: um member/member e um admin/admin; sem autorização por e-mail |
+| Auth | 127.0.0.1:9099 |
+| Firestore | 127.0.0.1:8080 |
+| Storage | 127.0.0.1:9199 |
+| Functions | 127.0.0.1:5001 |
+| Emulator UI | 127.0.0.1:4000 |
 
-O titular informou o UID da sessão usada e a releitura confirmou perfil admin/admin. Após atualizar o localhost, respondeu **“agora esta funcionando”**. O relato confirma funcionamento local com essa sessão, mas não identifica individualmente coleção/reveal/resumo nem fornece status HTTP/código SDK/MIME do Network. Não inferir resultado de member real a partir disso.
+Sem export/import explícito, reiniciar os emuladores descarta dados. Fixtures locais do bootstrap antigo podem ser recriadas; isso não autoriza apagar marcadores ou reconceder starter em produção.
 
-O inventário de browser controlável estava vazio; a tentativa Chrome retornou indisponibilidade. O navegador Opera estava aberto, mas a ferramenta interrompeu o controle por não conseguir determinar a URL com segurança. Nenhum request autenticado do browser foi capturado. Os GETs OAuth acima não avaliam as Rules como member; **código corrigido; validação autenticada real ainda pendente** para member e cada etapa do domínio (coleção → reveal → resumo), além da coleta segura do request nos dois ambientes. Não foi capturado um código Firebase original dessa sessão: a causa encontrada é a validação local de MIME, agora classificável como `preview-invalid`.
+Os testes registrados usaram Node.js 22.23.3, Firebase CLI 15.9.0 e Java 21. Nesta máquina há Node portátil em `.local-tools/bootstrap-node22/node-v22.23.3-win-x64` e Java portátil sob `.local-tools`, ambos ignorados. Verificar disponibilidade e acrescentar os diretórios somente ao PATH da sessão; não alterar runtimes globais por rotina.
 
-### Reparo e limites operacionais
+## Comandos de validação
 
-`/admin/cartas/lista` oferece **Sincronizar previews publicadas** e **Regenerar preview**. O catálogo é relido e `PublishedCardPreviewService.repairPublished` regenera uma carta por vez, revalidando status/updatedAt antes/depois do upload e mostrando sucesso/falha/ignorada por carta. Não altera documentos, gameplay, propriedade, pacotes ou assets originais. Retirada/exclusão antes da geração é ignorada; uma corrida detectada não anuncia sucesso. Não há job automático nem transação entre Firestore/Storage. Nenhum reparo foi executado em produção neste diagnóstico: Nyra já possuía PNG válido.
+```powershell
+npm.cmd test -- --watch=false --browsers=ChromeHeadless
+npm.cmd run build -- --configuration production
+npm.cmd run test:rules
+npm.cmd run build:functions
+npm.cmd run test:functions
+npm.cmd run test:functions:emulator
+git diff --check
+git status --short
+```
 
-Os avisos pós-save agora sobrevivem à navegação criação → edição. O admin pode salvar uma publicada novamente ou usar o reparo. A galeria/admin usa renderer/assets privados; o jogador usa exclusivamente PNG achatado publicado pelo ID. Funcionar no admin não comprova o acesso de um member.
+Angular/Jasmine/Karma exige Chrome. Rules e integração exigem Java/Firebase CLI compatíveis; backend exige Node.js 22. `test:rules` usa Firestore/Storage em `demo-cardgame`; `test:functions:emulator` compila Functions e usa Auth/Firestore/Functions no mesmo projeto isolado. Não existe script de lint configurado.
 
-Não houve deploy nem mudança de Rules, Functions, CORS, IAM, Auth, cartas, perfis ou inventário. Para disponibilizar a correção no domínio, o único componente a publicar identificado é **Hosting**, após autorização. O erro histórico `VM… reportAllChanges/startTime` não foi observado nesta investigação e não motivou alterações no app.
+Selecionar verificações pelo impacto real da tarefa, conforme [AGENTS.md](../AGENTS.md). Em trabalho exclusivamente Markdown, revisar conteúdo, diff, links relativos, coerência dos status e escopo dos arquivos; não apresentar resultados anteriores como testes recém-executados. Mudanças de runtime, contratos, autorização ou Rules exigem os checks correspondentes.
 
-### Validação executada nesta correção
+Falhas `EPERM` ao resolver o perfil Windows ocorreram em execuções anteriores no sandbox. Não são falhas de domínio nem justificam alterar testes/segurança. Inspecionar o erro e seguir a aprovação de execução exigida pelo ambiente; não presumir autorização permanente.
 
-| Comando | Resultado final |
+### Validação disponível
+
+Nesta revisão documental de **15/10/2026**, o build Angular de produção e a suíte Firestore/Storage Rules foram reexecutados e aprovados; os emuladores de `demo-cardgame` foram encerrados. As tentativas no sandbox falharam por `EPERM`; as execuções locais aprovadas fora dele passaram, sem deploy ou alteração de produção. Não houve alteração de código, Rules ou dependências.
+
+Os demais resultados pertencem à correção de previews de **15/10/2026**: seus logs locais foram relidos, sem repetir as suítes Angular/backend/integração nesta tarefa exclusivamente Markdown.
+
+| Verificação | Resultado registrado | Evidência e escopo |
+| --- | --- | --- |
+| Jasmine/Karma | 574/574, Chrome Headless 155 | Anterior: `.local-tools/preview-fix-angular-test-exitcode.log` |
+| Build Angular de produção | Aprovado, sem avisos | Reexecutado nesta revisão: `npm.cmd run build -- --configuration production`, exit 0 |
+| Firestore/Storage Rules | 56/56 em demo-cardgame | Reexecutado nesta revisão: `npm.cmd run test:rules`, exit 0 |
+| Build Functions | Aprovado | Anterior: `.local-tools/preview-fix-build-functions.log` |
+| Domínio backend | 67/67 | Anterior: `.local-tools/preview-fix-test-functions.log` |
+| Integração Callable | 15/15 em demo-cardgame | Anterior: `.local-tools/preview-fix-test-functions-emulator.log` |
+
+A cobertura atual pode ser conferida em specs junto aos serviços/componentes, [functions/tests](../functions/tests) e [tests/rules/cardgame.rules.test.mjs](../tests/rules/cardgame.rules.test.mjs). Inclui concessão/abertura transacionais e idempotentes, versão histórica, concorrência/limites/falhas sem writes parciais, negação de writes de member, reveal/revisão, MIME com SDK instalado, retry/lifecycle de URLs e reparo administrativo. Testes locais não comprovam sessão real em produção.
+
+## Evidências externas registradas
+
+Esta seção conserva fatos de configuração/publicação confirmados nas intervenções anteriores e seus limites. **Nenhuma consulta remota ou alteração de produção foi realizada nesta revisão documental.** Recibos ignorados são apoio local e não estão disponíveis automaticamente em outro clone; quando necessário, conferir o estado remoto novamente por leitura autorizada.
+
+| Elemento | Último registro disponível | Fonte/limite |
+| --- | --- | --- |
+| Projeto, bucket e Hosting | `cardgame-6fdcb`, `cardgame-6fdcb.firebasestorage.app`, site `deckfall`, `https://deckfall.web.app` | firebase.json + environments locais + leituras anteriores; não substituir nomes por suposição |
+| Região Firestore | `southamerica-east1` | Leitura de 12/10; `.local-tools/player-bootstrap-firestore-location.json` |
+| Infraestrutura de pacotes | initializePlayer/openPack e Firestore Rules/Hosting publicados com autorização em 13/10 | Registro operacional anterior e histórico do Git; não autoriza outra publicação |
+| Conteúdo inicial | Nyra publicada; StarterPack ativo, versão 1, uma cópia | Configuração de 14/10 descrita abaixo |
+| Firestore/Storage Rules | Remotas iguais às locais na leitura de 15/10 | `.local-tools/preview-diagnosis-readonly.json`; não é auditoria de todos os dados |
+| Integração Storage → Firestore | Papel exigido presente na leitura de 15/10 | Mesmo recibo; não substitui sessão member |
+| Auth Authorized domains | localhost, cardgame-6fdcb.firebaseapp.com, cardgame-6fdcb.web.app, deckfall.web.app | Leitura de 15/10; provedores e Google/redirect real não auditados |
+| CORS | GET localhost:4200 e deckfall.web.app, maxAge 3600, metageneration 3 | Leitura de 15/10; procedimento e detalhes em [CORS](configuracao-cors-storage.md) |
+| Correção local de previews | Código corrigido e testes aprovados; sem deploy registrado dessa correção | Validação autenticada e publicação permanecem em [riscos](riscos-e-dividas-tecnicas.md#configuração-externa-e-pendências) |
+
+`firebase.json` aponta Hosting para `dist/card-game/browser` com rewrite SPA `** → /index.html`; `.firebaserc` está ausente. Comandos remotos devem preservar projeto/site explicitamente. A falta de openPack/starter registrada no diagnóstico de 13/10 foi superada pela publicação e configuração posteriores; não tratá-la como pendência atual.
+
+### Diagnóstico da preparação bloqueada — 13/10/2026
+
+Incidente encerrado: a leitura de 13/10 encontrou initializePlayer ativa, mas openPack, configuração inicial e cartas publicadas ausentes. A publicação autorizada das duas Callables/Rules/Hosting e a configuração de Nyra/StarterPack no dia seguinte superaram essas ausências. O recibo histórico `.local-tools/starter-error-readonly.json` não representa o estado posterior. O gate continua sendo obrigatório: outro ambiente sem pré-condições válidas deve falhar sem concessão parcial.
+
+### Configuração do StarterPack com Nyra — 14/10/2026
+
+O proprietário escolheu uma cópia de **Nyra**, ID `46f5c359-0d1e-423e-911e-4ba592567405`. A carta foi publicada e `packDefinitions/starter` + `versions/1` criadas no mesmo commit, com datas de servidor e precondições de versão/ausência. Nome `StarterPack`, `active: true`, `currentVersion: 1`; a versão contém somente Nyra com `quantity: 1`. Documento/configuração/imagem foram relidos na intervenção; a arte original foi preservada.
+
+Preparação, abertura e repetição foram exercitadas localmente com o backend. Nenhum player, pack ou coleção foi criado diretamente em produção para simular o fluxo, e a sessão real de um jogador não foi validada nessa intervenção. Recibos originais ficaram em `work/nyra-current` no ambiente do chat de execução, fora do repositório. A leitura de 15/10 abaixo fornece evidência local disponível de Nyra/preview, mas não relê a configuração do starter.
+
+### Diagnóstico das previews publicadas — 15/10/2026
+
+A causa e o contrato da correção estão em [coleção](colecao.md#diagnóstico-de-15102026): o limite opcional de `getBlob` no SDK instalado removia o MIME via `Blob.slice`. O adapter atual omite esse argumento e mantém validação estrita depois do download. O problema de MIME está corrigido no código; QA member e disponibilização no Hosting são pendências distintas.
+
+O recibo seguro `.local-tools/preview-diagnosis-readonly.json`, relido nesta revisão, registra `checkedAt: 2026-10-15T21:04:33.681Z` e `remoteWrites: false`. A identidade utilizada foi OAuth da CLI, sem request autenticado de navegador.
+
+| Objeto conferido | Resultado registrado |
 | --- | --- |
-| `npm.cmd test -- --watch=false --browsers=ChromeHeadless` | 574/574, Chrome Headless 155 |
-| `npm.cmd run build -- --configuration production` | Aprovado, sem avisos |
-| `npm.cmd run test:rules` | 56/56, Firestore/Storage em `demo-cardgame` |
-| `npm.cmd run build:functions` | Aprovado |
-| `npm.cmd run test:functions` | 67/67 |
-| `npm.cmd run test:functions:emulator` | 15/15, Auth/Firestore/Functions em `demo-cardgame` |
-| `tsc --noEmit -p tsconfig.spec.json` | Aprovado durante implementação; bundle final dos specs também compilado |
-| `git diff --check` e `git status --short` | Revisados após implementação/documentação; sem erros de whitespace |
+| Nyra | status published; updatedAt 2026-10-14T22:27:37.186Z |
+| PNG publicado | `published-cards/46f5c359-0d1e-423e-911e-4ba592567405/preview.png` |
+| Conteúdo | image/png, 2.575.604 bytes, 1086 × 1448; private, no-store |
+| Geração | 1792016860478126, atualização 2026-10-14T22:27:40.508Z |
+| GET/Range com as duas origens | HTTP 206, bytes PNG completos e Access-Control-Allow-Origin correspondente |
+| Hash dos bytes | `feede87a3556cee8704cc1a9f96d33a2e23f2f8b488f063821bfa38a7c479e1e` |
 
-A regressão do SDK usa `getBlob` instalado e XMLHttpRequest/Blob nativos do Chrome, redirecionando somente a requisição do projeto demo para um object URL local. Confirma MIME vazio com o argumento de tamanho e `image/png` com os mesmos bytes sem esse argumento; não usa credencial, request de produção nem resposta XHR simulada. Os testes de coleção e pack confirmam UUID Nyra, componente compartilhado, mensagens, nova chamada no retry, remoção de Promise rejeitada e reaproveitamento em reveal/resumo; testes de reparo cobrem falha por carta, concorrência 1, mudança de versão e interrupção da fila. As Rules acrescentam perfis malformados, revogação e UUID da Nyra, preservando os testes de published/member/admin e negação de anônimo/draft/archived/assets originais.
+O titular confirmou funcionamento no localhost com perfil admin/admin; não identificou individualmente coleção, reveal e resumo nem forneceu Network HTTP/código/MIME. Leituras OAuth não avaliam as Rules como member. O escopo de QA ainda necessário e as demais dívidas são mantidos somente em [riscos](riscos-e-dividas-tecnicas.md).
 
-Uma execução inicial completa encontrou timeout no renderer e falha em cascata que não voltaram nas execuções seguintes; não foram alterados renderer, expectativas de pixels ou timeout. O teste novo de SDK inicialmente precisava receber a função modular diretamente, pois não configura provider AngularFire; o setup foi corrigido. O teste de geometria também media o último campo dentro de `<details>` fechado: sua preparação agora abre os detalhes de atributos, além dos menus da toolbar já abertos. Isso corrige a medição sem mudar layout/estilos do aplicativo ou enfraquecer assertions. A execução completa final passou.
+## Operações remotas futuras
 
-Node/CLI precisaram de execução local aprovada fora do sandbox devido ao `EPERM` conhecido ao resolver o diretório do perfil Windows. Backend/emuladores usaram Node 22 e Java 21 portáteis somente no PATH dos processos; emuladores foram encerrados. A última execução Angular confirmou explicitamente `$LASTEXITCODE = 0`, além de 574 sucessos, evitando confundir o status do redirecionamento stderr do PowerShell com o npm. Logs ignorados: `.local-tools/preview-fix-angular-test-exitcode.log`, `preview-fix-production-build.log`, `preview-fix-build-functions.log`, `preview-fix-test-functions.log`, `preview-fix-test-rules.log` e `preview-fix-test-functions-emulator.log`. Recibo remoto seguro: `.local-tools/preview-diagnosis-readonly.json`. Não versionar tokens, URLs assinadas ou conteúdo bruto de erros.
+Deploy e alterações remotas exigem autorização explícita para o escopo concreto. Autorizações de intervenções anteriores não persistem como permissão genérica. A preparação de memória documental não executa o roadmap nem publica nada.
+
+O procedimento da correção local identifica somente Hosting como componente a publicar após autorização; os comandos revisáveis estão em [pacotes: publicação posterior](pacotes.md#publicação-posterior). Não há mudança demonstrada de Functions, Rules, CORS, IAM, Auth ou índices necessária para esse defeito. Para CORS, preservar entradas existentes e usar o [roteiro específico](configuracao-cors-storage.md#aplicar-somente-quando-a-alteração-remota-estiver-autorizada).
+
+Antes de alterar conteúdo inicial, ler [configuração/versionamento de pacotes](pacotes.md#configurar-o-starter). Nova versão afeta futuras concessões; preservar definitionVersion de instâncias históricas e nunca editar versões existentes ou apagar marcadores para regrant.

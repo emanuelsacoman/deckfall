@@ -28,7 +28,7 @@ Cada `PackOpenedCard` persiste somente `{cardId, name, rarity, quantity}`. Nome/
 
 Uma repetição valida marcador/instância e retorna `alreadyInitialized`, sem modificar instância, player ou coleção. Instância ausente/inconsistente ou marcador antigo inválido exige revisão, sem reconcessão automática. Transações concorrentes resultam em exatamente uma instância. Contrato e entrada em `/game` estão em [Player Bootstrap](player-bootstrap.md).
 
-O mecanismo anterior `starterCollections/default` não é consultado. Ele foi substituído por definição/versionamento de pack; as Rules atuais não permitem acesso ao caminho antigo. A consulta posterior ao relato de preparação bloqueada encontrou somente `initializePlayer` ativa no Firebase, sem `openPack`, starter configurado ou players; não há migração remota a executar nesse estado observado. Dados locais antigos podem ser descartados/recriados nos emuladores; não há reset/regrant de produção.
+O mecanismo anterior `starterCollections/default` não é consultado. Ele foi substituído por definição/versionamento de pack; as Rules atuais não permitem acesso ao caminho antigo. O [diagnóstico histórico de 13/10/2026](contexto-operacional-para-ias.md#diagnóstico-da-preparação-bloqueada--13102026) encontrou somente `initializePlayer` ativa no Firebase, sem `openPack`, starter configurado ou players. Esse estado antecede a publicação das duas Functions no mesmo dia e a configuração de Nyra/StarterPack em 14/10; não representa uma pendência atual confirmada. Não houve migração de produção do bootstrap direto. Dados locais antigos podem ser descartados/recriados nos emuladores; não há reset/regrant de produção.
 
 ## openPack e atomicidade
 
@@ -111,7 +111,7 @@ As operações ficam no serviço tipado `PackDefinitionService`, não nos compon
 4. No jogador, use **Tentar novamente** após configurar. A ausência do starter produz a mensagem **O pacote inicial ainda não foi configurado por um administrador.**; admin possui link **Configurar pacotes**. Outros erros continuam indicando retry/contato, sem liberar concessão parcial.
 5. Para conteúdo novo, use **Criar próxima versão**. Novas versões afetam futuras concessões, sem dar outro pack a jogadores inicializados; packs antigos continuam com sua versão fixa. Nunca edite/exclua versões existentes, inclusive no Console.
 
-Não foi criada configuração remota nem escolhido conteúdo real por esta implementação. Publicar infraestrutura não escolhe nem publica cartas automaticamente.
+Publicar infraestrutura não escolhe nem publica cartas automaticamente. A implementação inicial não criou conteúdo remoto; posteriormente, por escolha do proprietário, o [registro de 14/10/2026](contexto-operacional-para-ias.md#configuração-do-starterpack-com-nyra--14102026) documentou Nyra publicada e StarterPack ativo na versão 1, com uma cópia dela. O procedimento acima continua necessário para ambientes novos e alterações administrativas futuras. A revisão documental não revalidou o estado remoto nem concluiu a conferência com sessão member real.
 
 ## Localhost isolado
 

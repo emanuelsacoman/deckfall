@@ -1,23 +1,52 @@
-# Memória operacional
+# Memória operacional do Deckfall
 
-O [README principal](../README.md) apresenta o Deckfall no GitHub. Para trabalhar no projeto, comece pelo [AGENTS.md](../AGENTS.md) e abra somente os documentos relacionados à tarefa.
+Status: Active
 
-| Documento | Conteúdo |
+Last reviewed: 2026-10-15
+
+Source of truth for: mapa da documentação e localização da fonte principal de cada assunto
+
+O [README do projeto](../README.md) apresenta o Deckfall. Agentes começam em [AGENTS.md](../AGENTS.md), seguem a leitura abaixo e abrem somente os domínios necessários à tarefa.
+
+## Comece aqui
+
+| Documento | Pergunta que responde |
 | --- | --- |
-| [Apresentação e manutenção do README](apresentacao-readme.md) | Regra permanente de apresentação fiel ao código |
-| [Contexto operacional](contexto-operacional-para-ias.md) | Produto, versões, comandos, ambiente e validação |
-| [Arquitetura frontend](arquitetura-frontend.md) | Responsabilidades, componentes, serviços e rotas |
-| [Autenticação e admin](autenticacao-e-admin.md) | Login, cadastro, vínculo Google/senha, recuperação, guards e bootstrap |
-| [CORS do Storage](configuracao-cors-storage.md) | Diagnóstico de imagens bloqueadas, backup e ajuste da origem local |
-| [Modelo Firestore](modelo-dados-firestore.md) | Contratos persistidos e limites das Rules |
-| [Cartas](cartas.md) | Gameplay, arte, assets e CRUD com compensação |
-| [Coleção do jogador](colecao.md) | Propriedade, gestão administrativa, PNG publicado, acesso e limites |
-| [Player Bootstrap](player-bootstrap.md) | Callable autenticada, players, concessão única de Starter Pack lacrado e entrada em /game |
-| [Pacotes](pacotes.md) | StarterPack reservado, administração de definições/versões, abertura atômica, reveal, emuladores e publicação |
-| [Editor de cartas](editor-de-cartas.md) | Modelo próprio, Konva, painéis, histórico, bindings, templates e exportação |
-| [Usuários](usuarios.md) | Perfis Firestore, vínculo por UID e edição de papéis |
-| [Riscos e dívidas](riscos-e-dividas-tecnicas.md) | Pendências externas e limites da implementação |
+| [Estado atual](project-state.md) | O que existe hoje, o que bloqueia e qual ação é segura? |
+| [Roadmap](roadmap.md) | Qual é o único marco ativo e quais são dependências e critérios? |
+| [Game Design](game-design.md) | Quais regras do jogo foram propostas ou aprovadas pelo proprietário? |
+| [Arquitetura frontend](arquitetura-frontend.md) | Onde ficam rotas, componentes, serviços e fronteiras de responsabilidade? |
 
-A aplicação atual usa Firebase Authentication, guards de sessão para `/game` e guards administrativos para `/admin`. Cadastro por e-mail/senha ou Google prepara o perfil member; admin exige `role` e `roleId` iguais a `admin`. Ao entrar em `/game`, o cliente solicita `initializePlayer`; o backend concede uma única instância lacrada do Starter Pack e registra o estado em `players/{uid}`, sem conceder cartas. `openPack` soma a coleção e persiste estado/resultado atomicamente antes do reveal. A coleção conserva a gestão manual administrativa e a consulta pelo titular. O editor persiste dados e canvas próprios; o jogador baixa apenas a representação PNG publicada, sem acesso aos assets editáveis privados.
+`project-state` descreve o presente; `roadmap`, a direção; `game-design`, regras do jogo; `AGENTS`, regras de trabalho; ADRs, razões arquiteturais. Histórico fica no Git. Nenhum documento concede autorização para deploy ou decisões de produto.
 
-Consulte código, Rules e tipos quando houver divergência. Atualize documentos e README no mesmo trabalho. Functions, Firestore Rules e Hosting de pacotes/administração foram publicados e conferidos com autorização em 13/10/2026. O site continua `https://deckfall.web.app`, agora incluído nos Authorized domains do Auth preservando os anteriores. Em 14/10/2026, o proprietário escolheu uma cópia de Nyra: a carta foi publicada e o StarterPack versão 1 ativado, com configuração e imagem relidas e verificadas. A infraestrutura não escolhe conteúdo automaticamente. Testes locais e leituras administrativas não confirmam a sessão real do jogador. Siga os fatos e pendências em [pacotes](pacotes.md), [contexto operacional](contexto-operacional-para-ias.md#configuração-do-starterpack-com-nyra--14102026) e [riscos](riscos-e-dividas-tecnicas.md).
+## Domínios
+
+| Fonte principal | Conteúdo |
+| --- | --- |
+| [Autenticação e admin](autenticacao-e-admin.md) | Login/cadastro, vínculo Google/senha, recuperação, guards e primeiro admin |
+| [Usuários](usuarios.md) | Perfis Firestore, vínculo por UID e gestão de papéis |
+| [Cartas](cartas.md) | Contrato atual de dados, arte, assets e CRUD |
+| [Editor de cartas](editor-de-cartas.md) | Canvas próprio, Konva, bindings, templates, histórico e exportação |
+| [Coleção do jogador](colecao.md) | Propriedade, gestão administrativa, PNG publicado e reparo de previews |
+| [Player Bootstrap](player-bootstrap.md) | Entrada em `/game`, preparação e concessão única de pack lacrado |
+| [Pacotes](pacotes.md) | Definições/versões, StarterPack, abertura atômica e reveal |
+| [Modelo Firestore](modelo-dados-firestore.md) | Coleções/campos persistidos e limites das Rules |
+
+## Operação e manutenção
+
+| Fonte principal | Conteúdo |
+| --- | --- |
+| [Contexto operacional](contexto-operacional-para-ias.md) | Setup, Firebase, comandos, emuladores, validação e evidências remotas datadas |
+| [Riscos e dívidas](riscos-e-dividas-tecnicas.md) | Limites, falhas possíveis e pendências ainda abertas |
+| [CORS do Storage](configuracao-cors-storage.md) | Diagnóstico, backup, alteração revisada e reversão de CORS |
+| [Apresentação do README](apresentacao-readme.md) | Manutenção da apresentação pública no mesmo trabalho |
+
+Exemplos de configuração: [Firebase Web](config/environment.example.ts), [ambiente isolado](config/environment.emulators.example.ts) e [CORS](config/storage.cors.example.json). Não são credenciais nem comprovação de configuração remota.
+
+## Decisões arquiteturais
+
+O [índice de ADRs](decisions/README.md) registra apenas decisões duráveis comprovadas e suas consequências. Contratos detalhados continuam nos documentos de domínio; propostas de jogo continuam no Game Design.
+
+## Como manter esta memória
+
+Siga os protocolos de início/fim e os comandos **“Valide o que falta”** e **“Continue o roadmap”** em [AGENTS.md](../AGENTS.md#pedidos-de-continuidade). Atualize somente as fontes afetadas, remova pendências resolvidas e use links para evitar duplicação. Mude `Last reviewed` somente após revisar o conteúdo; nunca use a data como substituto da verificação.

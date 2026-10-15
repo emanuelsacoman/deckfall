@@ -1,50 +1,64 @@
-# Guia de agentes — CardGame / Deckfall
+# Guia de agentes — Deckfall
 
-Antes de editar, execute `git status --short`, inspecione a estrutura e leia as configurações relacionadas. Preserve alterações locais. Não execute novamente o gerador de estrutura nem atualize frameworks sem necessidade. Não faça deploy nem altere produção nesta fase.
+Status: Active
 
-## Fontes de verdade
+Last reviewed: 2026-10-15
 
-1. Código executável.
-2. Firebase Rules e configurações.
-3. Interfaces e tipos.
-4. Testes.
-5. Documentação.
-6. Comentários e histórico.
+Source of truth for: regras permanentes de trabalho dos agentes
 
-Se houver divergência, use o código atual, não invente comportamento, corrija a documentação e registre a dívida/incerteza em `docs/riscos-e-dividas-tecnicas.md`. Separe fatos verificados de decisões e pendências externas.
+## Início de tarefa e leitura progressiva
 
-Estado atual: editor Konva com modelo próprio, login/cadastro por e-mail/senha e Google, guards, coleção persistida e Starter Pack lacrado com abertura backend/reveal. Cadastro cria membro; primeiro admin é provisionado no Console. Não enfraqueça Rules nem use e-mail como autorização.
+Antes de editar, execute `git status --short`, leia este guia e inspecione a estrutura/configuração relacionada. Preserve alterações locais. Não execute novamente o gerador de estrutura nem atualize frameworks sem necessidade.
 
-## Leia apenas o contexto necessário
+Em tarefa relevante, leia [o estado atual](docs/project-state.md), [o roadmap](docs/roadmap.md) e identifique o marco ativo e seus bloqueadores. Use [o índice](docs/README.md) para abrir somente os documentos de domínio necessários; confira código e testes correspondentes. Determine se há decisão do proprietário pendente antes de implementar. Comandos e procedimentos detalhados ficam no [contexto operacional](docs/contexto-operacional-para-ias.md).
 
-- Contexto e comandos: [contexto operacional](docs/contexto-operacional-para-ias.md).
-- Pastas, componentes e rotas: [arquitetura frontend](docs/arquitetura-frontend.md).
-- Login, cadastro, Google, papéis e bootstrap: [autenticação e admin](docs/autenticacao-e-admin.md).
-- Coleções e campos persistidos: [modelo Firestore](docs/modelo-dados-firestore.md).
-- Starter Pack, instâncias, abertura e reveal: [pacotes](docs/pacotes.md).
-- Gameplay, CRUD, arte e assets: [cartas](docs/cartas.md).
-- Canvas, Konva, histórico, bindings, templates e exportação: [editor de cartas](docs/editor-de-cartas.md).
-- Perfis de usuários e cargos: [usuários](docs/usuarios.md).
-- Limitações e configuração externa: [riscos e dívidas](docs/riscos-e-dividas-tecnicas.md).
-- Apresentação no GitHub: [regra do README](docs/apresentacao-readme.md).
-- Índice: [docs/README.md](docs/README.md).
+## Evidências e responsabilidade documental
 
-Atualize os documentos correspondentes no MESMO trabalho ao mudar arquitetura, rotas, autenticação, autorização, pastas, modelos de carta/canvas/template, coleções/campos persistidos, Storage, Rules, fluxo administrativo ou dependências importantes. Não registre suposições como fatos.
+Ordem de confiança: código executável atual; Security Rules/configuração; testes; interfaces/tipos; documentação; comentários; histórico Git. Se houver divergência, corrija a documentação a partir das evidências e registre dívida/incerteza real em [riscos](docs/riscos-e-dividas-tecnicas.md). Separe fatos verificados, decisões e pendências externas. Teste local não comprova configuração ou funcionamento em produção.
 
-Sempre revise e atualize `README.md` no MESMO trabalho relevante: ele deve apresentar bem o projeto no GitHub e acompanhar mudanças de funcionalidades, configuração, arquitetura, estágio, comandos, documentação ou desenvolvimento. Siga [a regra de apresentação](docs/apresentacao-readme.md), mantenha detalhes longos em `docs/` e não invente capacidades nem faça alterações artificiais apenas de data.
+Cada informação tem uma fonte principal: estado presente em `project-state`, direção e critérios em `roadmap`, regras de jogo em `game-design`, contratos nos docs de domínio e razões arquiteturais em [ADRs](docs/decisions/README.md). Linke em vez de duplicar contratos. Histórico pertence ao Git; o estado não é changelog.
 
-Ao terminar uma tarefa relevante, informe: `Documentação impactada: sim/não`, `Documentos atualizados: ...`, `Motivo: ...`.
+Nunca invente decisões de game design nem transforme `PROPOSTA` em `APROVADO` sem aprovação explícita do proprietário. Campos, defaults e limites técnicos existentes não aprovam vida inicial, tamanho de deck, combate, raridade como regra de jogo, economia ou monetização.
 
-Use standalone, Firebase modular e serviços tipados. `view` apresenta/orquestra; persistência fica em `model/services`. Konva renderiza o estado próprio; nunca persistir `stage.toJSON()`, nós, listeners, histórico, Files ou Blob URLs no Firestore. Design e gameplay são separados, bindings são seguros e o editor permanece genérico. Guards protegem navegação; Rules protegem dados, sem prometer validação profunda de todo canvas no servidor.
+## Limites da autonomia
 
-Operações que concedem propriedade, moeda, recompensa, resultado de partida ou qualquer valor de jogo não devem ser confiadas ao cliente Angular. Use backend confiável e valide autenticação/autorização no servidor; Admin SDK fica somente em `functions/` e seus testes, nunca no frontend.
+Uma tarefa técnica pode ser executada autonomamente dentro do pedido autorizado quando pertence ao marco ativo, tem requisitos documentados, não exige nova decisão de produto, respeita a arquitetura e não amplia significativamente o escopo. Correções/manutenção explicitamente solicitadas continuam permitidas fora do marco, sem alterar prioridades por conta própria.
 
-Não liberar writes de coleção para membros como atalho para funcionalidades de jogo. Bootstrap e starter são transacionais e idempotentes; não criar reset/regrant nem marcar inicialização concluída em falhas parciais.
+Não avance sozinho para outro grande marco. Pare a parte dependente e peça decisão ao proprietário quando faltarem requisitos/aprovação de Game Design ou quando o avanço envolver monetização, nova fronteira de segurança, mudança arquitetural significativa ou migração destrutiva ainda não autorizadas. Roadmap é direção, não autorização automática. Mantenha somente um grande milestone marcado como `CURRENT` no roadmap.
 
-Instâncias de pack, abertura e concessão de cartas são server-authoritative. O frontend nunca cria packs, marca abertura ou concede conteúdo. `initializePlayer` concede uma instância lacrada; somente `openPack` soma cartas e marca abertura em um commit atômico.
+Não faça deploy nem altere produção sem autorização explícita para o escopo na sessão. Autorizações históricas registradas em documentos não autorizam novas publicações, configurações, concessões ou migrações. Nunca adicione senhas, tokens, chaves privadas ou service accounts ao repositório.
 
-Um PlayerPack preserva `definitionVersion`; nunca usar automaticamente a versão atual ao abrir uma instância histórica. Versões existentes são imutáveis; criar outra versão e avançar a definição para futuras concessões.
+## Arquitetura e autorização
 
-O nome `StarterPack` é reservado à definição `packDefinitions/starter`, usada exclusivamente pelo bootstrap inicial. Seu nome não pode ser alterado; outros pacotes não podem usar variantes que normalizem para esse nome (caixa, espaços, `_` e `-`). A administração de definições/versões não cria instâncias nem concede cartas. Criar definição e primeira versão, ou nova versão e avanço do ponteiro, em um commit atômico; nunca reescrever versões existentes.
+- Use Angular standalone, Firebase modular e serviços tipados. `view` apresenta/orquestra; persistência fica em `model/services`. Componentes não acessam Firestore diretamente.
+- Angular solicita; o backend confiável decide operações de valor de jogo. Valide autenticação/autorização no servidor. Admin SDK fica somente em `functions/` e seus testes, nunca no frontend.
+- Guards protegem navegação; Rules protegem dados. Não enfraqueça Rules, não use e-mail como autorização nem prometa validação profunda de todo canvas no servidor. Cadastro público cria membro; o primeiro admin exige provisionamento privilegiado conforme [autenticação](docs/autenticacao-e-admin.md).
+- Não conceda writes de coleção/player/packs a membros como atalho. Preserve o fluxo administrativo manual de coleção existente; novas concessões de propriedade, moeda, recompensa ou resultado exigem backend confiável, sem ampliar writes cliente.
 
-Nunca adicione senhas, tokens, chaves privadas ou service accounts. Valide testes aplicáveis, build de produção, Rules, `git diff --check` e status antes de concluir.
+## Cartas, canvas e previews
+
+- Gameplay e design permanecem separados; o editor é genérico e bindings são seguros. `CardCanvasData` é o contrato visual persistido; Konva apenas o renderiza.
+- Nunca persista `stage.toJSON()`, nós, listeners, histórico, Files ou Blob URLs no Firestore.
+- Preserve a separação entre assets editáveis privados e PNG publicado autenticado do jogador. Mudanças em publicação/reparo devem manter os limites de autorização e os avisos de falha entre Firestore e Storage. Consulte [cartas](docs/cartas.md), [editor](docs/editor-de-cartas.md) e [coleção](docs/colecao.md).
+
+## Bootstrap e pacotes
+
+- Bootstrap e starter são transacionais e idempotentes. Não crie reset/regrant nem marque inicialização concluída após falha parcial.
+- Instâncias, abertura e concessão de cartas por pack são server-authoritative. Frontend não cria instâncias, marca abertura nem concede conteúdo. `initializePlayer` concede uma instância lacrada; `openPack` soma cartas e marca abertura em um commit atômico.
+- `PlayerPack` preserva `definitionVersion`; nunca use automaticamente a versão atual ao abrir uma instância histórica. Versões existentes são imutáveis: crie outra versão e avance o ponteiro somente para concessões futuras.
+- `StarterPack` é nome reservado à definição `packDefinitions/starter`, exclusiva do bootstrap inicial e com nome fixo. Outros pacotes não podem usar variantes equivalentes ignorando caixa, espaços, `_` e `-`.
+- Administração de definições/versões não concede instâncias nem cartas. Crie definição + primeira versão, ou nova versão + avanço do ponteiro, atomicamente; nunca reescreva versões existentes. Consulte [bootstrap](docs/player-bootstrap.md) e [pacotes](docs/pacotes.md).
+
+## Final de tarefa relevante
+
+1. Revise o diff e execute a validação necessária ao escopo: testes aplicáveis, build de produção e testes de Rules para mudanças que os afetem. Use a matriz do [contexto operacional](docs/contexto-operacional-para-ias.md). Não marque como validado o que não foi executado; informe falhas ou limitações.
+2. Atualize os docs de domínio no mesmo trabalho ao mudar arquitetura, rotas, autenticação/autorização, pastas, contratos de carta/canvas/template, coleções/campos, Storage, Rules, fluxo administrativo ou dependências importantes.
+3. Atualize `project-state` se o presente mudou e `roadmap` se status/critérios/bloqueadores mudaram. Crie ADR somente para decisão arquitetural durável; remova pendências resolvidas e registre novas dívidas reais.
+4. Revise e atualize `README.md` no mesmo trabalho relevante, conforme [a regra de apresentação](docs/apresentacao-readme.md), sem trocas artificiais de data.
+5. Confira links, `git diff --check` e `git status --short`. Informe: `Documentação impactada: sim/não`, `Documentos atualizados: ...`, `Motivo: ...`.
+
+## Pedidos de continuidade
+
+**“Valide o que falta”**: confira status Git, código/testes, estado e roadmap; compare critérios do marco ativo e docs do domínio. Não implemente automaticamente. Retorne um relatório curto com `Current milestone`, `Done`, `Missing`, `Blocked by owner` e `Next safe action`.
+
+**“Continue o roadmap” / “continue o próximo item seguro”**: identifique o marco ativo, critérios e bloqueadores. Se faltar decisão do proprietário, explique e solicite somente a decisão bloqueante. Caso contrário, execute apenas o próximo incremento pequeno autorizado, valide e atualize os documentos. Não atravesse múltiplos milestones em uma solicitação genérica.

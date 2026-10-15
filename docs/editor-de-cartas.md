@@ -4,7 +4,7 @@
 
 O editor usa Konva 10.7.1 diretamente em Angular 18 standalone, mantendo CSS e a organização existente. Konva renderiza; `CardEditorDocument` contém os dados da aplicação. Nunca substituir esse modelo por `stage.toJSON()` nem persistir nós, listeners, histórico, Files ou Blob URLs no Firestore.
 
-`CardEditorDocument` separa `data: CardDataInput` de `canvas: CardCanvasData`. Gameplay inclui nome, descrição, raridade, status e atributos. Canvas contém dimensões, fundo, elementos e metadados dos assets. A geometria ou cor de um texto não altera o valor de um atributo de jogo.
+`CardEditorDocument` separa `data: CardDataInput` de `canvas: CardCanvasData`. Os dados estruturados incluem nome, descrição, raridade, status e atributos; ainda não constituem um contrato de batalha aprovado no [Game Design](game-design.md). Canvas contém dimensões, fundo, elementos e metadados dos assets. A geometria ou cor de um texto não altera o valor de um atributo de jogo.
 
 Contratos ficam em `model/interfaces/Cards`. Estado, fábricas, validação, assets, rascunhos e auxiliares de renderização ficam em `model/services/tools`. `CardEditorComponent` orquestra os serviços CRUD/Storage e o componente canvas. Os painéis apresentam e editam estado local, sem acesso Firebase próprio.
 
