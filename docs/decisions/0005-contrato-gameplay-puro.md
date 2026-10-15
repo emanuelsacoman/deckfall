@@ -16,7 +16,7 @@ Manter o contrato em [shared/gameplay/src](../../shared/gameplay/src), com TypeS
 
 Exportar constantes aprovadas, tipos readonly, parsers estruturais, invariantes de snapshots estáveis e projeção explícita por participante. Perfis de batalha são separados do contrato de catálogo/canvas. No incremento inicial, um descritor mínimo de efeito definia somente o envelope da Ação. A evolução de [Typed Effects](../gameplay-contract.md#efeitos-tipados-e-alvos) acrescenta catálogo/parâmetros fechados e validação de destinatários, preservando o isolamento e sem executor.
 
-Não integrar o módulo ao frontend ou às Functions neste incremento. Não criar transições, legalidade de comandos, composição/posse de decks, algoritmo aleatório, persistência, Callables ou UI. A integração futura deve autenticar/derivar o seat, validar o snapshot e só então projetar sua whitelist; o objeto autoritativo nunca é uma resposta de participante.
+O incremento inicial não integrou o módulo ao frontend ou às Functions nem criou transições, legalidade de comandos, composição/posse de decks, algoritmo aleatório, persistência, Callables ou UI. A evolução de [Deck Rules](../gameplay-contract.md#deck-rules-e-contexto-confiável) acrescenta validação pura de composição contra contexto confiável, preservando o isolamento, sem consultar ou conceder propriedade. A integração futura deve autenticar/derivar o seat, validar o snapshot e só então projetar sua whitelist; o objeto autoritativo nunca é uma resposta de participante.
 
 ## Consequences
 

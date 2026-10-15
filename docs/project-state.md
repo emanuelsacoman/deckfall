@@ -25,19 +25,20 @@ Angular 18 standalone, TypeScript, Firebase modular/AngularFire, Authentication,
 - **Player Bootstrap e packs:** starter único lacrado, definições determinísticas e versões imutáveis, abertura atômica/idempotente, reveal e recuperação do resultado após refresh.
 - **Gameplay Contract:** módulo TypeScript puro em `shared/gameplay`, com constantes aprovadas, perfis/estados/intenções tipados, validação de formato e invariantes de snapshots, projeções privadas por participante e testes próprios. Ainda não é importado pela aplicação ou por Functions.
 - **Typed Effects:** catálogo fechado de dano, cura e compra, com parâmetros aprovados e validação de alvos por participante/campo. Tipos, parsers de perfil e projeções usam a mesma união; o módulo não executa efeitos nem altera estado.
+- **Deck Rules:** validador puro de 24 cartas e até duas cópias por identidade, com revisão/elegibilidade do catálogo versionado e quantidades pessoais ou referência exata de treino em contexto confiável. Retorna composição canônica independente, sem autenticar, consultar coleção ou criar instâncias. API em [Gameplay Contract](gameplay-contract.md#deck-rules-e-contexto-confiável).
 
 “Implementado” descreve código e cobertura existentes, sem encerrar o QA remoto pendente. Contratos e referências de implementação ficam nos [docs de domínio](README.md#domínios).
 
 ## Sistemas parciais
 
 - `/game/decks` e `/game/jogar` são placeholders com ações desabilitadas.
-- O [Game Design v0.1](game-design.md#aprovações-registradas) foi aprovado explicitamente por Emanuel. O [Gameplay Contract e Typed Effects](gameplay-contract.md) estão implementados e validados; ainda não há resolução de batalha ou validação de composição/posse de decks.
+- O [Game Design v0.1](game-design.md#aprovações-registradas) foi aprovado explicitamente por Emanuel. O [Gameplay Contract, Typed Effects e Deck Rules](gameplay-contract.md) estão implementados e validados; ainda não há resolução de batalha ou integração de decks com propriedade/autorização no backend.
 - O modelo persistido `Card` continua genérico e separado dos perfis de gameplay. Não houve conversão de cartas existentes, adaptação de Nyra ou criação do pool didático no catálogo.
 - Definições adicionais de packs existem no admin; não há distribuição genérica de instâncias ao jogador.
 
 ## Não implementado
 
-Regras funcionais de decks/deck builder, Battle Engine, sandbox, bot de treino, persistência de partidas, matchmaking/PvP/reconexão, moedas/recompensas/loja/packs compráveis ou aleatórios, XP/níveis/conquistas/ranked/MMR/leaderboard/seasons. A ordem pretendida e seus bloqueios estão no [roadmap](roadmap.md).
+Deck Builder, persistência/autorização integrada de decks, catálogo/referência reais de gameplay, Battle Engine, sandbox, bot de treino, persistência de partidas, matchmaking/PvP/reconexão, moedas/recompensas/loja/packs compráveis ou aleatórios, XP/níveis/conquistas/ranked/MMR/leaderboard/seasons. A ordem pretendida e seus bloqueios estão no [roadmap](roadmap.md).
 
 ## Backend atual
 
@@ -59,14 +60,14 @@ As últimas evidências registradas confirmam publicação de Functions/Firestor
 
 Fonte principal: [riscos e dívidas](riscos-e-dividas-tecnicas.md). Permanecem QA autenticado member de coleção/reveal/resumo e publicação autorizada da correção local; falta de atomicidade entre documento e preview/cleanup; leituras sem paginação; limites de validação profunda do canvas; ausência de controles adicionais de abuso no backend. Falta antiga de `openPack`/StarterPack e CORS das origens registradas não são bugs atuais comprovados.
 
-## Próximo marco recomendado
+## Marco atual e continuidade
 
-Implementar o próximo incremento de Deck Rules, o único marco ativo no [roadmap](roadmap.md#deck-rules), a partir do Game Design v0.1 e dos contratos/efeitos já validados.
+Deck Rules está concluído e permanece como único marco CURRENT no [roadmap](roadmap.md#deck-rules), conforme o pedido de limitar esta tarefa a esse marco. Deck Builder continua planejado, sem promoção ou execução. Evidências locais estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
 
 ## Owner decisions required
 
-Nenhuma decisão bloqueante no momento para o próximo incremento de Deck Rules conforme v0.1 aprovado. Mudanças de regras/números, economia e multiplayer futuros conservam seus próprios limites de aprovação.
+Nenhuma decisão de produto pendente para Deck Rules v0.1 concluído. Mudanças de regras/números, persistência/autorização, economia e multiplayer futuros conservam seus próprios requisitos e limites de aprovação.
 
 ## Next safe action
 
-Em uma próxima solicitação de continuidade, implementar o validador puro de decks: exatamente 24 cartas, até duas cópias por identidade canônica e elegibilidade/revisão/quantidades de propriedade conferidas a partir de contexto confiável. Distinguir a referência de treino aprovada sem conceder inventário. Testar casos válidos/inválidos sem iniciar Deck Builder, persistência ou batalha. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.
+Não há incremento pendente nos critérios atuais de Deck Rules. Encerrar o marco nesta tarefa e aguardar nova solicitação para rever a continuidade, sem iniciar Deck Builder, persistência ou batalha. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.

@@ -10,7 +10,7 @@ Source of truth for: direção do produto, ordem dos marcos, dependências e cri
 
 As fases e a ordem abaixo registram o direcionamento explícito do proprietário. Não tornam cada item inevitável nem autorizam implementação automática. A situação presente está em [Project State](project-state.md); regras de jogo e aprovações em [Game Design](game-design.md); autonomia em [AGENTS.md](../AGENTS.md#limites-da-autonomia).
 
-Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. A marca do único milestone ativo aparece na seção Deck Rules. Ela é independente do status: indicar o próximo trabalho não inicia sua implementação nem autoriza decisões pendentes.
+Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. A marca do único milestone em foco aparece na seção Deck Rules. Ela é independente do status e foi mantida nesse marco concluído a pedido do proprietário, sem promover o seguinte nesta tarefa. Indicar trabalho futuro não inicia sua implementação nem autoriza decisões pendentes.
 
 Os critérios das fases futuras são alvos de planejamento, a detalhar e confirmar com o proprietário antes de executar cada marco. Não aprovam valores, regras de jogo, desenho de economia ou uma arquitetura futura. Só avance de status com evidência; código placeholder não satisfaz conclusão. Referências apontam para documentos existentes; crie novos contratos somente quando o marco permitir, sem arquivos vazios antecipados.
 
@@ -39,7 +39,7 @@ Fora da fase: regras de batalha, decks funcionais, PvP, economia e progressão.
 
 ## Fase II — Core Game
 
-**Status: IN PROGRESS — design aprovado, Gameplay Contract e Typed Effects validados.** Objetivo: chegar a um núcleo jogável verificável antes de multiplayer ou economia. Dependências: fundação e regras de v0.1 aprovadas; demais incrementos seguem a ordem abaixo.
+**Status: IN PROGRESS — design aprovado, Gameplay Contract, Typed Effects e Deck Rules validados.** Objetivo: chegar a um núcleo jogável verificável antes de multiplayer ou economia. Dependências: fundação e regras de v0.1 aprovadas; demais incrementos seguem a ordem abaixo.
 
 Critério de conclusão: design aprovado, contratos/efeitos/regras tipados, decks válidos e motor exercitável em sandbox e treino conforme critérios aprovados. Fora da fase: matchmaking/PvP, recompensas, moedas, loja, monetização e progressão competitiva.
 
@@ -55,7 +55,7 @@ Evidência: [aprovação registrada](game-design.md#aprovações-registradas). A
 
 **Status: DONE.** Objetivo: expressar o design aprovado em contratos tipados. Dependência atendida: Game Design v0.1 aprovado. Critério de conclusão atendido: módulo puro `shared/gameplay`, testes de tipos e testes de execução para envelopes, invariantes de snapshots e projeções por participante, sem integração de batalha.
 
-Referência: [Gameplay Contract](gameplay-contract.md). O perfil de Ação agora usa o catálogo fechado descrito em Typed Effects; não há validação de composição/posse de decks, resolvedor de comandos, PRNG concreto ou persistência de partidas. Resultados executados estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
+Referência: [Gameplay Contract](gameplay-contract.md). O perfil de Ação usa o catálogo fechado descrito em Typed Effects, e a composição de decks tem validador separado em Deck Rules. Não há integração de propriedade com backend, resolvedor de comandos, PRNG concreto ou persistência de partidas. Resultados executados estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
 
 ### Typed Effects
 
@@ -67,9 +67,9 @@ Referências: [Game Design](game-design.md) e [contrato](gameplay-contract.md). 
 
 **Milestone: CURRENT**
 
-**Status: PLANNED.** Objetivo: validar composição de decks conforme regras aprovadas. Dependências atendidas: Typed Effects e Game Design v0.1. Critério de conclusão: validador puro testado para 24 cartas, duas cópias por identidade, elegibilidade/revisão e quantidades possuídas em contexto confiável, com referência de treino explicitamente distinguida. Referências: [Game Design](game-design.md), [contrato](gameplay-contract.md) e [coleção](colecao.md).
+**Status: DONE.** Objetivo: validar composição de decks conforme regras aprovadas. Dependências atendidas: Typed Effects e Game Design v0.1. Critério de conclusão atendido: validador puro testado para 24 cartas, até duas cópias agregadas por identidade, elegibilidade/revisão canônica e quantidades pessoais em contexto confiável. Referência de treino é distinguida e exige composição exatamente igual à referência confiável, sem propriedade ou concessão. Referências: [Game Design](game-design.md), [contrato/API](gameplay-contract.md#deck-rules-e-contexto-confiável) e [coleção](colecao.md).
 
-Próximo incremento permitido em nova solicitação: implementar esse validador e seus testes, sem criar Deck Builder, writes de propriedade, persistência de decks ou Battle Engine. Deck Rules não foi executado junto de Typed Effects.
+Evidência: [testes de execução](../tests/gameplay/gameplay-deck.test.mjs), [testes de tipos](../shared/gameplay/type-tests/decks.typecheck.ts) e [validação local](contexto-operacional-para-ias.md#validação-disponível). Não foram criados Deck Builder, writes de propriedade, persistência de decks ou Battle Engine; não há integração com frontend/Functions. O marco fica em foco mesmo concluído, conforme a instrução de não avançar nesta tarefa. A promoção do próximo marco está fora deste escopo.
 
 | Próximos itens, na ordem desejada | Status | Objetivo | Dependências | Critério de conclusão | Referência principal |
 | --- | --- | --- | --- | --- | --- |

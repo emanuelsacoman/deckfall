@@ -84,14 +84,14 @@ Falhas `EPERM` ao resolver o perfil Windows ocorreram em execuções anteriores 
 
 ### Validação disponível
 
-Na implementação de **Typed Effects em 15/10/2026**, `test:gameplay` passou com **45/45 testes**, além do build TypeScript e dos testes de tipos. Inclui os 30 casos anteriores do Gameplay Contract e 15 novos de catálogo, parâmetros, alvos para ambos os participantes, Guarda, cura cheia, informação privada, ausência de mutação/execução e integração perfil → snapshot → projeção. O descritor aberto anterior foi fechado nos valores aprovados; os parsers de perfis/snapshots usam o mesmo catálogo. O build Angular de produção passou sem avisos. Nenhum executor de efeitos/batalha foi implementado.
+Na implementação de **Deck Rules em 15/10/2026**, `test:gameplay` passou com **59/59 testes**, além do build TypeScript e dos testes de tipos. Inclui os 45 casos anteriores de Gameplay Contract/Typed Effects e 14 casos de decks: tamanho, cópias únicas/duplas/agregadas, revisão e conteúdo canônicos, elegibilidade, quantidades pessoais, referência exata de treino, ordenação determinística, entradas adversariais, erros seguros e ausência de mutação/concessão. O build Angular de produção passou sem avisos. O módulo permanece isolado: nenhum Deck Builder, persistência ou executor de efeitos/batalha foi implementado.
 
-O EPERM conhecido no sandbox exigiu execução local escalada aprovada. Nenhum deploy, acesso remoto, alteração de Rules, dados persistidos ou dependências ocorreu. Suítes Angular, Rules, backend e integração não foram repetidas nesta etapa: o módulo novo ainda não é importado por esses caminhos. Os resultados anteriores abaixo conservam sua identificação e não são apresentados como novas execuções.
+Build/testes de gameplay passaram com Node.js 22 portátil no sandbox. O build Angular primeiro falhou com acesso negado na resolução dos arquivos locais; a mesma execução fora do sandbox, com escalada aprovada, passou. Nenhum deploy, acesso remoto, alteração de Rules, dados persistidos ou dependências ocorreu. Suítes Angular, Rules, backend e integração não foram repetidas nesta etapa: o módulo novo ainda não é importado por esses caminhos. Os resultados anteriores abaixo conservam sua identificação e não são apresentados como novas execuções.
 
 | Verificação | Resultado registrado | Evidência e escopo |
 | --- | --- | --- |
 | Jasmine/Karma | 574/574, Chrome Headless 155 | Anterior: `.local-tools/preview-fix-angular-test-exitcode.log` |
-| Gameplay Contract + Typed Effects | Build, testes de tipos e 45/45 Node Test Runner | Execução atual: `npm.cmd run test:gameplay`, exit 0; suíte anterior do Contract tinha 30/30 |
+| Gameplay Contract + Typed Effects + Deck Rules | Build, testes de tipos e 59/59 Node Test Runner | Execução atual: `npm.cmd run test:gameplay`, exit 0; suíte anterior tinha 45/45 |
 | Build Angular de produção | Aprovado, sem avisos | Execução atual: `npm.cmd run build -- --configuration production`, exit 0 |
 | Firestore/Storage Rules | 56/56 em demo-cardgame | Anterior: revisão documental de 15/10, `npm.cmd run test:rules`, exit 0 |
 | Build Functions | Aprovado | Anterior: `.local-tools/preview-fix-build-functions.log` |

@@ -43,7 +43,7 @@ Emanuel aprovou a recomendação de cada linha. A coluna final conserva as alter
 3. Os dois jogadores concluem o mulligan antes do primeiro turno. P1 começa e **não compra no seu primeiro turno**; P2 compra normalmente. A carta adicional acessível a P2 é a compensação inicial adotada, sem moeda extra ou energia temporária.
 4. Todas as cartas do deck pertencem ao conjunto de gameplay versionado da partida e têm perfil explicitamente validado para v0.1. Não há mínimo obrigatório de Unidades/Ações, facção, raridade ou sideboard.
 5. O limite de duas cópias usa a identidade canônica da carta, não nome, imagem, template ou ID da cópia em batalha. Revisões da mesma carta não criam um novo limite; a partida usa uma única revisão fixada por identidade. Cada cópia física em batalha tem identidade própria.
-6. Um futuro deck pessoal persistido deverá conferir quantidade possuída e elegibilidade no backend antes de iniciar a partida; esse contrato não existe hoje. O conjunto inicial de treino/sandbox aprovado usa **decks de referência iguais e acessíveis a todos**, independentes da coleção, sem conceder propriedade. Essa exceção é uma configuração explícita de teste/treino, sem permissão de writes no cliente.
+6. Um futuro deck pessoal persistido deverá conferir quantidade possuída e elegibilidade no backend antes de iniciar a partida; essa integração ainda não existe. O [validador puro de Deck Rules](gameplay-contract.md#deck-rules-e-contexto-confiável) confere os dados fornecidos por contexto confiável, sem consultar a coleção. O conjunto inicial de treino/sandbox aprovado usa **decks de referência iguais e acessíveis a todos**, independentes da coleção, sem conceder propriedade. Essa exceção é uma configuração explícita de teste/treino, sem permissão de writes no cliente.
 7. O StarterPack registrado com Nyra ×1 não forma um deck de 24 cartas. O design aprovado não altera seu conteúdo nem prevê reset/regrant. O conjunto de referência abaixo é conteúdo aprovado para teste, sem criar cartas, pacotes ou documentos reais.
 
 **Motivo:** separar o acesso necessário ao protótipo da aquisição persistida permite validar o jogo sem antecipar economia nem converter inventário em requisito artificial de teste.
@@ -247,7 +247,7 @@ A validação centralizada de ações e a manutenção de estado autoritativo s�
 
 ## Cenários mínimos de aceitação — APROVADO
 
-Estes casos definem a aceitação do jogo completo. O [contrato e efeitos tipados](gameplay-contract.md) já testam formato, invariantes de snapshots, parâmetros/alvos de efeitos e projeções; transições de combate, execução de efeitos, composição de decks e integração permanecem nos respectivos marcos. Resultados executados ficam no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível); esta lista não anuncia todos os cenários como implementados.
+Estes casos definem a aceitação do jogo completo. O [contrato, efeitos tipados e Deck Rules](gameplay-contract.md) já testam formato, invariantes de snapshots, parâmetros/alvos de efeitos, projeções e composição de decks contra contexto confiável; transições de combate, execução de efeitos e integração permanecem nos respectivos marcos. Resultados executados ficam no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível); esta lista não anuncia todos os cenários como implementados.
 
 | Cenário | Resultado esperado pelo design aprovado |
 | --- | --- |
@@ -284,7 +284,7 @@ A adaptação das cartas e perfis de batalha pertence aos respectivos marcos do 
 
 O critério foi atendido: o documento cobre parâmetros, preparação, zonas, recursos, legalidade, combate, resolução, término, conteúdo de referência e casos de aceitação. A aprovação explícita do pacote foi recebida e está registrada abaixo; as alternativas de comparação não foram adotadas.
 
-O [Project State](project-state.md) e o [roadmap](roadmap.md) refletem a aprovação e a implementação efetivamente validada. O [Gameplay Contract](gameplay-contract.md) aplica o primeiro incremento técnico sem antecipar executor de efeitos, Deck Rules, deck builder, Battle Engine, interface de batalha ou deploy. Os próximos passos seguem o roadmap; revisões futuras do design precisam identificar a alteração e obter nova aprovação explícita.
+O [Project State](project-state.md) e o [roadmap](roadmap.md) refletem a aprovação e a implementação efetivamente validada. O [Gameplay Contract](gameplay-contract.md) evoluiu com Typed Effects e Deck Rules, sem antecipar executor de efeitos, deck builder, Battle Engine, interface de batalha ou deploy. Os próximos passos seguem o roadmap; revisões futuras do design precisam identificar a alteração e obter nova aprovação explícita.
 
 ## Aprovações registradas
 

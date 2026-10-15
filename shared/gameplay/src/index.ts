@@ -8,3 +8,8 @@ export { GAMEPLAY_EFFECT_CATALOG, parseGameplayEffect, validateGameplayEffectTar
 export type {
   GameplayEffect, GameplayDamageEffect, GameplayHealEffect, GameplayDrawEffect, GameplayEffectDestination,
 } from './effects';
+export { parseGameplayDeckList, validateGameplayDeck, GameplayDeckValidationError } from './decks';
+export type {
+  GameplayDeckEntry, GameplayDeckList, GameplayDeckCatalog, GameplayOwnedCardQuantity,
+  GameplayDeckValidationContext, GameplayValidatedDeckEntry, GameplayValidatedDeck, GameplayDeckValidationReason,
+} from './decks';

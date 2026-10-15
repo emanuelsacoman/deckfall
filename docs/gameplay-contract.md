@@ -6,7 +6,7 @@ Last reviewed: 2026-10-15
 
 Source of truth for: API, fronteiras e validação do contrato puro de gameplay implementado
 
-O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado. O módulo TypeScript isolado em [shared/gameplay/src](../shared/gameplay/src) contém constantes, tipos, validação estrutural, catálogo fechado de efeitos/parâmetros/alvos, invariantes de snapshots e projeção por participante. Ele ainda não é importado pelo frontend ou pelas Functions e não oferece partida jogável. A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md); estado e sequência dos marcos permanecem em [Project State](project-state.md) e [roadmap](roadmap.md).
+O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado. O módulo TypeScript isolado em [shared/gameplay/src](../shared/gameplay/src) contém constantes, tipos, validação estrutural, catálogo fechado de efeitos/parâmetros/alvos, validação de composição de decks, invariantes de snapshots e projeção por participante. Ele ainda não é importado pelo frontend ou pelas Functions e não oferece partida jogável. A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md); estado e sequência dos marcos permanecem em [Project State](project-state.md) e [roadmap](roadmap.md).
 
 ## Fonte e responsabilidade
 
@@ -19,6 +19,7 @@ O ponto de entrada é [index.ts](../shared/gameplay/src/index.ts). O módulo usa
 | [contract-validation.ts](../shared/gameplay/src/contract-validation.ts) | Helpers estruturais e erro seguro compartilhados, sem dependências de runtime dos contratos |
 | [targets.ts](../shared/gameplay/src/targets.ts) | Formato dos alvos; existência/lado são conferidos separadamente |
 | [effects.ts](../shared/gameplay/src/effects.ts) | Catálogo, parâmetros fechados e validação do destinatário de efeito, sem execução |
+| [decks.ts](../shared/gameplay/src/decks.ts) | Composição e validação contra catálogo/quantidades ou referência de treino confiáveis |
 | [validation.ts](../shared/gameplay/src/validation.ts) | Parsing de perfis e pedidos; delega parâmetros de Ação ao parser de efeitos |
 | [invariants.ts](../shared/gameplay/src/invariants.ts) | Consistência de um snapshot estável, sem executar transições |
 | [projection.ts](../shared/gameplay/src/projection.ts) | Cópia explícita dos campos permitidos ao participante |
@@ -41,6 +42,9 @@ O ponto de entrada é [index.ts](../shared/gameplay/src/index.ts). O módulo usa
 | `parseGameplayEffect(unknown)` | Um efeito com kind/amount exatos e uma das cinco combinações aprovadas | Seleção de carta canônica, destinatário ou execução |
 | `validateGameplayEffectTarget(state, actorSeat, effect, target?)` | Existência, lado e Vida positiva do destinatário de dano/cura; compra ao próprio ator | Validar snapshot, autenticar, checar fase/turno/custo/término ou executar |
 | `parseGameplayCommandRequest(unknown)` | Envelope e formato de uma intenção, sem campos de autoridade injetados | Autenticação, participação, turno, alvo legal, custo disponível ou aplicação |
+| `parseGameplayDeckList(unknown)` | Versões e entradas exatas de identidade/revisão/quantidade positiva, copiadas | Tamanho, cópias, elegibilidade, propriedade ou permissão de treino |
+| `validateGameplayDeck(unknown, trustedContext)` | Composição v0.1, conteúdo canônico e quantidades pessoais ou referência exata de treino | Autenticação, origem do contexto, consulta à coleção, persistência ou início de partida |
+| `GameplayDeckValidationError` | Código `invalid-gameplay-deck`, motivo enumerado e mensagem genérica | Detalhes do deck, catálogo ou inventário em erros |
 | `assertGameplayMatchState(unknown)` | Snapshot estruturalmente consistente com as invariantes abaixo | Se ele foi produzido por uma sequência legal de comandos |
 | `projectGameplayParticipant(state, viewerSeat)` | Visão montada por whitelist, sem compartilhar estruturas aninhadas da entrada | Autenticar o solicitante ou conferir o snapshot automaticamente |
 | `GameplayContractError` | Código `invalid-gameplay-contract` e mensagem genérica | Diagnóstico que exponha payload, seed ou cartas ocultas |
@@ -75,11 +79,30 @@ O envelope contém `matchId`, `commandId`, `expectedRevision` e `command`. As fo
 
 Mulligan valida até quatro IDs distintos, mas não confirma que a seleção pertence à mão de um pedido em execução. Jogar carta pode ter ou não alvo estruturalmente válido; o parser do pedido não resolve a carta para verificar se ela exige alvo. O helper de efeitos é separado e não transforma esse parser em um resolvedor. Legalidade completa de comandos e execução pertencem aos marcos posteriores.
 
+## Deck Rules e contexto confiável
+
+`GameplayDeckList` descreve somente `{rulesVersion, contentVersion, entries}`. Cada entrada contém `{cardId, revision, quantity}`; não há nome, raridade, instância de batalha, definição inline, UID, propriedade, elegibilidade ou modo de treino enviados como autoridade. `parseGameplayDeckList` valida o formato e cria uma cópia independente, sem afirmar que o deck é legal. A versão de regras deve ser `0.1`, a versão de conteúdo é um identificador e revisões/quantidades são inteiros seguros positivos.
+
+`validateGameplayDeck` recebe essa composição e um `GameplayDeckValidationContext` confiável, separado do pedido. Confere exatamente 24 cartas e até duas cópias por identidade canônica. Entradas repetidas com a mesma identidade/revisão são somadas antes do limite; revisões diferentes da mesma identidade são recusadas. Não há mínimo de Unidades/Ações, facção, raridade ou sideboard. Quantidades excessivas são recusadas antes de somar além de 24, evitando overflow.
+
+O `GameplayDeckCatalog` fixa `rulesVersion`, `contentVersion` e uma lista `cards` de `{definition, eligible}`. Deve haver uma única definição/revisão por identidade nesse conjunto; duplicatas são configuração inválida. Cada perfil é revalidado pelo parser de Unidade/Ação e efeitos aprovados. Toda identidade solicitada precisa existir, ser elegível e ter a revisão canônica do conjunto. A versão de conteúdo solicitada deve corresponder ao catálogo recebido. Ser `Card` publicado ou possuir uma carta na coleção não estabelece esse perfil ou sua elegibilidade automaticamente.
+
+| Contexto fornecido pelo chamador confiável | Verificação adicional |
+| --- | --- |
+| `{kind: 'owned', catalog, ownership}` | `ownership` contém `{cardId, quantity}` únicos, com quantidades inteiras seguras não negativas. Identidade ausente equivale a zero; quantidade deve cobrir as cópias agregadas solicitadas. O teto administrativo 9999 da coleção não é regra de composição. |
+| `{kind: 'training-reference', catalog, referenceId, referenceDeck}` | A referência confiável também deve ser válida nesse catálogo. A composição solicitada deve coincidir exatamente com suas identidades, revisões e quantidades, independentemente da ordem/divisão das linhas. Não exige propriedade nem concede cartas. |
+
+A exceção de treino exige uma composição de referência fornecida pela infraestrutura confiável; um boolean ou `kind` recebido livremente do cliente não autoriza usá-la. A integração futura deverá autenticar, obter a coleção do titular, escolher o conjunto versionado e resolver uma referência permitida igual para os participantes. O módulo não prova a origem dessas entradas e não consulta Firebase; validar um contexto forjado não o torna confiável. Nenhum catálogo ou deck de referência real foi cadastrado neste incremento; as fixtures são somente testes.
+
+O retorno `GameplayValidatedDeck` distingue `kind: 'owned'` e `kind: 'training-reference'` (este inclui `referenceId`), fixa as versões e contém entradas `{definition, quantity}` com perfis copiados do catálogo. Agrega as linhas e ordena por `cardId` usando comparação lexical ASCII, sem locale. Essa ordem normaliza a composição; não é embaralhamento ou ordem de compra. A saída não compartilha estruturas com pedido/contexto, não consome inventário, não cria IDs/instâncias nem inicia partida. `readonly` continua sendo contrato de tipos, sem congelamento em runtime e sem recibo de autorização.
+
+Forma/contexto malformados lançam `GameplayContractError`. Violações das regras lançam `GameplayDeckValidationError` com `reason` entre `size`, `copies`, `revision`, `unknown-card`, `ineligible-card`, `ownership`, `content-version` e `reference-mismatch`. O erro não inclui IDs, quantidades, perfis ou inventário. A verificação termina na primeira falha; não é uma lista completa de problemas de edição. Transporte, persistência/autorização de decks e validação integrada antes de criar partida permanecem futuros.
+
 ## Invariantes do snapshot
 
 `assertGameplayMatchState` confere envelopes e versões, recursos e contadores numéricos do domínio, limites de mão/campo, vagas únicas e unidades vivas com Vida dentro do máximo. Conserva exatamente 24 instâncias por participante entre deck, mão, campo e descarte, com IDs globalmente únicos. Exige perfil/revisão consistentes para cada identidade canônica nos dois lados.
 
-Essa conservação **não valida composição de deck**: não aplica o limite de duas cópias, não verifica posse na coleção nem elegibilidade de conteúdo. Essas responsabilidades continuam no futuro Deck Rules/integração apropriada; a constante `maxCopies` não é um validador de deck.
+Essa conservação **não valida composição de deck**: não aplica o limite de duas cópias, não verifica posse na coleção nem elegibilidade de conteúdo. São responsabilidades do [validador separado de Deck Rules](#deck-rules-e-contexto-confiável) e da futura integração confiável; validar um snapshot não executa esse validador automaticamente.
 
 O checkpoint inicial de mulligan conserva abertura, recursos e seleções privadas consistentes. Estados de turno exigem ambos os mulligans confirmados, jogador ativo válido, líderes vivos e ausência de resultado. Estado final exige ausência de jogador ativo e resultado coerente com Vida/desistência; desistência na abertura é admitida nas condições verificadas pelo código. Nenhuma dessas verificações executa compra, troca, fadiga, combate ou passagem de fase.
 
@@ -105,8 +128,8 @@ npm.cmd run test:gameplay
 
 [Testes de comando](../tests/gameplay/gameplay-command.test.mjs) cobrem formatos, campos indevidos, envelopes, cópias independentes e perfis. [Testes de efeitos](../tests/gameplay/gameplay-effects.test.mjs) cobrem catálogo/parâmetros, alvos, entradas inválidas, ausência de mutação, limites do helper e integração perfil → snapshot → projeção. [Testes de estado](../tests/gameplay/gameplay-state.test.mjs) cobrem invariantes, fronteiras numéricas e confirmação de mulligan/término. [Testes de projeção](../tests/gameplay/gameplay-projection.test.mjs) cobrem informação oculta, whitelist e independência da saída. [Testes de tipos do contrato](../shared/gameplay/type-tests/contracts.typecheck.ts) e [dos efeitos](../shared/gameplay/type-tests/effects.typecheck.ts) incluem usos inválidos que devem continuar falhando na compilação.
 
-Resultados executados pertencem ao [contexto operacional](contexto-operacional-para-ias.md). Esta suíte não comprova motor jogável, balanceamento, autenticação de partidas ou integração frontend/backend.
+[Testes de decks](../tests/gameplay/gameplay-deck.test.mjs) e [de tipos de decks](../shared/gameplay/type-tests/decks.typecheck.ts) cobrem composição, contexto canônico, quantidades pessoais, referência exata de treino, entradas adversariais e independência dos dados. Resultados executados pertencem ao [contexto operacional](contexto-operacional-para-ias.md). Esta suíte não comprova motor jogável, balanceamento, autenticação de partidas ou integração frontend/backend.
 
 ## Fora deste incremento
 
-Permanecem futuros: Deck Rules e posse/elegibilidade, Deck Builder, executor de efeitos e transições/legalidade de Battle Engine, PRNG concreto, sandbox/bot, persistência de partidas, Callables de batalha, UI e recompensas. Catálogo/parâmetros/alvos não são execução. O contrato não autoriza implementar esses marcos em conjunto; consulte a próxima ação permitida no [roadmap](roadmap.md).
+Permanecem futuros: integração de propriedade/elegibilidade com backend, catálogo/referência reais de gameplay, Deck Builder, executor de efeitos e transições/legalidade de Battle Engine, PRNG concreto, sandbox/bot, persistência de decks/partidas, Callables de batalha, UI e recompensas. Catálogo/parâmetros/alvos e composição válida não são execução. O contrato não autoriza implementar esses marcos em conjunto; consulte o escopo permitido no [roadmap](roadmap.md).

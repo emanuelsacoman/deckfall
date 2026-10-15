@@ -6,7 +6,9 @@
 
 O documento `users/{uid}/collection/{cardId}` persiste somente `quantity`, `firstAcquiredAt` e `lastAcquiredAt`. `cardId` vem do caminho na leitura. Nome, raridade, atributos, arte e canvas continuam em `cards/{cardId}`; `PlayerOwnedCard` une os dois contratos apenas em memória. Veja [o modelo Firestore](modelo-dados-firestore.md).
 
-`quantity` é um inteiro de 1 a 9999. Esse teto é técnico, sem relação com futuros limites de deck. Zero é uma instrução de remoção, nunca um valor persistido. Criação usa timestamps de servidor nos dois campos; atualização conserva `firstAcquiredAt` e renova `lastAcquiredAt`, inclusive ao reduzir a quantidade.
+`quantity` é um inteiro de 1 a 9999. Esse teto é técnico e não determina o limite de duas cópias por identidade no deck aprovado em v0.1. Zero é uma instrução de remoção, nunca um valor persistido. Criação usa timestamps de servidor nos dois campos; atualização conserva `firstAcquiredAt` e renova `lastAcquiredAt`, inclusive ao reduzir a quantidade.
+
+O validador puro de [Deck Rules](gameplay-contract.md#deck-rules-e-contexto-confiável) compara a composição pessoal com quantidades fornecidas em contexto confiável, sem consultar esta coleção ou autenticar o titular. A futura integração deve obter propriedade e catálogo elegível pela infraestrutura autorizada. Treino usa referência de composição explícita e confiável, sem exigir ou conceder inventário; não é um modo que o cliente possa escolher para ignorar propriedade. Ainda não há Deck Builder, persistência de decks ou partida iniciada por esse validador.
 
 | Conta | Leitura | Escrita |
 | --- | --- | --- |
