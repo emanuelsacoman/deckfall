@@ -16,11 +16,11 @@ Cartas antigas sem canvas são carregadas com composição Fantasy Basic e, quan
 
 ## Perfil de batalha separado
 
-O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado, e `GameplayCardDefinition`, em [shared/gameplay/src/contracts.ts](../shared/gameplay/src/contracts.ts), representa o perfil de batalha versionado. Esse contrato usa identidade/revisão/custo e dados de Unidade ou descritor de Ação, sem canvas, arte, raridade ou atributos livres do editor. A cópia física de partida possui ID próprio; não é um novo documento de carta ou entrada de coleção.
+O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado, e `GameplayCardDefinition`, em [shared/gameplay/src/contracts.ts](../shared/gameplay/src/contracts.ts), representa o perfil de batalha versionado. Esse contrato usa identidade/revisão/custo e dados de Unidade ou efeito de Ação da união fechada `GameplayEffect`, sem canvas, arte, raridade ou atributos livres do editor. A cópia física de partida possui ID próprio; não é um novo documento de carta ou entrada de coleção.
 
 Não há conversão automática de `Card`, attack/defense/speed/magic ou type/subtype livres para esse perfil. Nenhuma carta publicada, incluindo Nyra, se torna elegível apenas por existir no catálogo. A futura adaptação/conteúdo e as regras de composição/posse continuam nos respectivos marcos. O editor, Firestore e StarterPack mantêm seus contratos atuais; o módulo ainda não é importado pelo frontend/backend.
 
-O parser confere estrutura e envelopes numéricos, sem balancear conteúdo ou executar efeitos; as invariantes de snapshot não substituem Deck Rules. [Gameplay Contract](gameplay-contract.md) é a fonte da API/limites, e [ADR-0005](decisions/0005-contrato-gameplay-puro.md) explica o isolamento.
+O parser confere estrutura, envelopes numéricos e parâmetros de efeito aprovados. O catálogo/validator de alvos permanece separado de execução e balanceamento: deve receber o efeito da definição canônica, não de texto livre ou escolha do cliente. As invariantes de snapshot não substituem Deck Rules. [Gameplay Contract](gameplay-contract.md#efeitos-tipados-e-alvos) é a fonte da API/limites, e [ADR-0005](decisions/0005-contrato-gameplay-puro.md) explica o isolamento.
 
 ## Firestore e arquivos
 

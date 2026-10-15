@@ -247,7 +247,7 @@ A validação centralizada de ações e a manutenção de estado autoritativo s�
 
 ## Cenários mínimos de aceitação — APROVADO
 
-Estes casos definem a aceitação do jogo completo. O [Gameplay Contract](gameplay-contract.md) já testa formato, invariantes de snapshots e projeções; transições de combate, efeitos, composição de decks e integração permanecem nos respectivos marcos. Resultados executados ficam no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível); esta lista não anuncia todos os cenários como implementados.
+Estes casos definem a aceitação do jogo completo. O [contrato e efeitos tipados](gameplay-contract.md) já testam formato, invariantes de snapshots, parâmetros/alvos de efeitos e projeções; transições de combate, execução de efeitos, composição de decks e integração permanecem nos respectivos marcos. Resultados executados ficam no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível); esta lista não anuncia todos os cenários como implementados.
 
 | Cenário | Resultado esperado pelo design aprovado |
 | --- | --- |

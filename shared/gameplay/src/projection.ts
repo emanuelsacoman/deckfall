@@ -4,13 +4,22 @@ import type {
   GameplayPublicParticipantView, GameplayResult,
 } from './contracts';
 import type { GameplaySeat } from './rules';
-import { GameplayContractError } from './validation';
+import type { GameplayEffect } from './effects';
+import { GameplayContractError } from './contract-validation';
+
+function effectView(effect: GameplayEffect): GameplayEffect {
+  switch (effect.kind) {
+    case 'damage': return { kind: 'damage', amount: effect.amount };
+    case 'heal': return { kind: 'heal', amount: effect.amount };
+    case 'draw': return { kind: 'draw', amount: effect.amount };
+  }
+}
 
 function definitionView(definition: GameplayCardDefinition): GameplayCardDefinition {
   const { cardId, revision, cost } = definition;
   return definition.kind === 'unit'
     ? { kind: 'unit', cardId, revision, cost, power: definition.power, maxLife: definition.maxLife, guard: definition.guard }
-    : { kind: 'action', cardId, revision, cost, effect: { kind: definition.effect.kind, amount: definition.effect.amount } };
+    : { kind: 'action', cardId, revision, cost, effect: effectView(definition.effect) };
 }
 
 function cardView(card: GameplayCardInstance): GameplayCardInstance {

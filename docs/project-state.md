@@ -24,13 +24,14 @@ Angular 18 standalone, TypeScript, Firebase modular/AngularFire, Authentication,
 - **Área do jogador e coleção:** navegação/perfil, leitura da própria propriedade, busca/filtro e gestão manual de quantidades pelo admin.
 - **Player Bootstrap e packs:** starter único lacrado, definições determinísticas e versões imutáveis, abertura atômica/idempotente, reveal e recuperação do resultado após refresh.
 - **Gameplay Contract:** módulo TypeScript puro em `shared/gameplay`, com constantes aprovadas, perfis/estados/intenções tipados, validação de formato e invariantes de snapshots, projeções privadas por participante e testes próprios. Ainda não é importado pela aplicação ou por Functions.
+- **Typed Effects:** catálogo fechado de dano, cura e compra, com parâmetros aprovados e validação de alvos por participante/campo. Tipos, parsers de perfil e projeções usam a mesma união; o módulo não executa efeitos nem altera estado.
 
 “Implementado” descreve código e cobertura existentes, sem encerrar o QA remoto pendente. Contratos e referências de implementação ficam nos [docs de domínio](README.md#domínios).
 
 ## Sistemas parciais
 
 - `/game/decks` e `/game/jogar` são placeholders com ações desabilitadas.
-- O [Game Design v0.1](game-design.md#aprovações-registradas) foi aprovado explicitamente por Emanuel. O [Gameplay Contract](gameplay-contract.md) foi implementado e validado; Typed Effects ainda não tem catálogo/validação semântica próprios, e não há resolução de batalha.
+- O [Game Design v0.1](game-design.md#aprovações-registradas) foi aprovado explicitamente por Emanuel. O [Gameplay Contract e Typed Effects](gameplay-contract.md) estão implementados e validados; ainda não há resolução de batalha ou validação de composição/posse de decks.
 - O modelo persistido `Card` continua genérico e separado dos perfis de gameplay. Não houve conversão de cartas existentes, adaptação de Nyra ou criação do pool didático no catálogo.
 - Definições adicionais de packs existem no admin; não há distribuição genérica de instâncias ao jogador.
 
@@ -60,12 +61,12 @@ Fonte principal: [riscos e dívidas](riscos-e-dividas-tecnicas.md). Permanecem Q
 
 ## Próximo marco recomendado
 
-Implementar o próximo incremento de Typed Effects, o único marco ativo no [roadmap](roadmap.md#typed-effects), a partir do Game Design v0.1 aprovado e do contrato já validado.
+Implementar o próximo incremento de Deck Rules, o único marco ativo no [roadmap](roadmap.md#deck-rules), a partir do Game Design v0.1 e dos contratos/efeitos já validados.
 
 ## Owner decisions required
 
-Nenhuma decisão bloqueante no momento para o próximo incremento de Typed Effects conforme v0.1 aprovado. Mudanças de regras/números, economia e multiplayer futuros conservam seus próprios limites de aprovação.
+Nenhuma decisão bloqueante no momento para o próximo incremento de Deck Rules conforme v0.1 aprovado. Mudanças de regras/números, economia e multiplayer futuros conservam seus próprios limites de aprovação.
 
 ## Next safe action
 
-Em uma próxima solicitação de continuidade, implementar o catálogo tipado e a validação semântica dos efeitos dano, cura e compra conforme as regras aprovadas, com testes isolados. Não integrar turnos/batalha ou persistência nesse incremento; o descritor estrutural existente não conclui Typed Effects. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.
+Em uma próxima solicitação de continuidade, implementar o validador puro de decks: exatamente 24 cartas, até duas cópias por identidade canônica e elegibilidade/revisão/quantidades de propriedade conferidas a partir de contexto confiável. Distinguir a referência de treino aprovada sem conceder inventário. Testar casos válidos/inválidos sem iniciar Deck Builder, persistência ou batalha. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.

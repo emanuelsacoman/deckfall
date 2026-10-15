@@ -1,4 +1,5 @@
 import type { GameplayRulesVersion, GameplaySeat } from './rules';
+import type { GameplayEffect } from './effects';
 
 export interface GameplayDefinitionIdentity {
   readonly cardId: string;
@@ -13,11 +14,8 @@ export interface GameplayUnitDefinition extends GameplayDefinitionIdentity {
   readonly guard: boolean;
 }
 
-/** Structural descriptors only; effect semantics/execution are a later milestone. */
-export interface GameplayEffectDescriptor {
-  readonly kind: 'damage' | 'heal' | 'draw';
-  readonly amount: number;
-}
+/** Preserved API name for the closed v0.1 effect union; no execution is implemented. */
+export type GameplayEffectDescriptor = GameplayEffect;
 
 export interface GameplayActionDefinition extends GameplayDefinitionIdentity {
   readonly kind: 'action';

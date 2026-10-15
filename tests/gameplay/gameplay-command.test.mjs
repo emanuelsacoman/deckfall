@@ -110,11 +110,12 @@ test('unit definitions use only canonical battle data and accept zero power', ()
 });
 
 test('action descriptors recognize the approved vocabulary without running effects', () => {
-  for (const kind of ['damage', 'heal', 'draw']) {
-    const definition = { kind: 'action', cardId: 'action', revision: 1, cost: 8, effect: { kind, amount: 1 } };
+  for (const effect of [{ kind: 'damage', amount: 1 }, { kind: 'heal', amount: 3 }, { kind: 'draw', amount: 1 }]) {
+    const definition = { kind: 'action', cardId: 'action', revision: 1, cost: 8, effect };
     assert.deepEqual(parseGameplayCardDefinition(definition), definition);
   }
   for (const effect of [{ kind: 'grant-coin', amount: 1 }, { kind: 'draw', amount: 0 },
+    { kind: 'damage', amount: 2 }, { kind: 'heal', amount: 1 }, { kind: 'draw', amount: 3 },
     { kind: 'draw', amount: 1, script: 'arbitrary text' }, { kind: 'draw', amount: Number.MAX_SAFE_INTEGER + 1 }]) {
     assert.throws(() => parseGameplayCardDefinition({ kind: 'action', cardId: 'a', revision: 1, cost: 1, effect }), GameplayContractError);
   }

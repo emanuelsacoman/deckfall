@@ -26,7 +26,7 @@ O [README do projeto](../README.md) apresenta o Deckfall. Agentes começam em [A
 | [Autenticação e admin](autenticacao-e-admin.md) | Login/cadastro, vínculo Google/senha, recuperação, guards e primeiro admin |
 | [Usuários](usuarios.md) | Perfis Firestore, vínculo por UID e gestão de papéis |
 | [Cartas](cartas.md) | Contrato atual de dados, arte, assets e CRUD |
-| [Gameplay Contract](gameplay-contract.md) | API pura de batalha: tipos, validação estrutural, invariantes e projeção, ainda sem motor/integração |
+| [Gameplay Contract](gameplay-contract.md) | API pura: tipos, efeitos/parâmetros/alvos, invariantes e projeção, ainda sem executor/motor/integração |
 | [Editor de cartas](editor-de-cartas.md) | Canvas próprio, Konva, bindings, templates, histórico e exportação |
 | [Coleção do jogador](colecao.md) | Propriedade, gestão administrativa, PNG publicado e reparo de previews |
 | [Player Bootstrap](player-bootstrap.md) | Entrada em `/game`, preparação e concessão única de pack lacrado |

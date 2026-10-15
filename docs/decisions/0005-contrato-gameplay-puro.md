@@ -14,7 +14,7 @@ O [Game Design v0.1](../game-design.md#aprovações-registradas) foi aprovado pe
 
 Manter o contrato em [shared/gameplay/src](../../shared/gameplay/src), com TypeScript/ECMAScript puro, independente de Angular, Firebase, Konva, Node e DOM. O [tsconfig isolado](../../shared/gameplay/tsconfig.json) usa ES2022 sem tipos ambientais. O compilador da raiz gera CommonJS e declarações em uma saída ignorada; testes Node ficam fora do módulo.
 
-Exportar constantes aprovadas, tipos readonly, parsers estruturais, invariantes de snapshots estáveis e projeção explícita por participante. Perfis de batalha são separados do contrato de catálogo/canvas. Um descritor mínimo de efeito define o envelope necessário à Ação sem implementar o marco Typed Effects.
+Exportar constantes aprovadas, tipos readonly, parsers estruturais, invariantes de snapshots estáveis e projeção explícita por participante. Perfis de batalha são separados do contrato de catálogo/canvas. No incremento inicial, um descritor mínimo de efeito definia somente o envelope da Ação. A evolução de [Typed Effects](../gameplay-contract.md#efeitos-tipados-e-alvos) acrescenta catálogo/parâmetros fechados e validação de destinatários, preservando o isolamento e sem executor.
 
 Não integrar o módulo ao frontend ou às Functions neste incremento. Não criar transições, legalidade de comandos, composição/posse de decks, algoritmo aleatório, persistência, Callables ou UI. A integração futura deve autenticar/derivar o seat, validar o snapshot e só então projetar sua whitelist; o objeto autoritativo nunca é uma resposta de participante.
 

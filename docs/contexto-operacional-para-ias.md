@@ -84,14 +84,14 @@ Falhas `EPERM` ao resolver o perfil Windows ocorreram em execuções anteriores 
 
 ### Validação disponível
 
-Na implementação do **Gameplay Contract em 15/10/2026**, `test:gameplay` passou com **30/30 testes**, além do build TypeScript e dos testes de tipos. O build Angular de produção passou sem avisos. A revisão independente identificou array esparso mascarado por propriedade nomeada; o caso foi corrigido e a execução completa final inclui sua regressão em comandos e snapshots. Nenhum executor de efeitos/batalha foi implementado.
+Na implementação de **Typed Effects em 15/10/2026**, `test:gameplay` passou com **45/45 testes**, além do build TypeScript e dos testes de tipos. Inclui os 30 casos anteriores do Gameplay Contract e 15 novos de catálogo, parâmetros, alvos para ambos os participantes, Guarda, cura cheia, informação privada, ausência de mutação/execução e integração perfil → snapshot → projeção. O descritor aberto anterior foi fechado nos valores aprovados; os parsers de perfis/snapshots usam o mesmo catálogo. O build Angular de produção passou sem avisos. Nenhum executor de efeitos/batalha foi implementado.
 
 O EPERM conhecido no sandbox exigiu execução local escalada aprovada. Nenhum deploy, acesso remoto, alteração de Rules, dados persistidos ou dependências ocorreu. Suítes Angular, Rules, backend e integração não foram repetidas nesta etapa: o módulo novo ainda não é importado por esses caminhos. Os resultados anteriores abaixo conservam sua identificação e não são apresentados como novas execuções.
 
 | Verificação | Resultado registrado | Evidência e escopo |
 | --- | --- | --- |
 | Jasmine/Karma | 574/574, Chrome Headless 155 | Anterior: `.local-tools/preview-fix-angular-test-exitcode.log` |
-| Gameplay Contract | Build, testes de tipos e 30/30 Node Test Runner | Execução atual: `npm.cmd run test:gameplay`, exit 0 |
+| Gameplay Contract + Typed Effects | Build, testes de tipos e 45/45 Node Test Runner | Execução atual: `npm.cmd run test:gameplay`, exit 0; suíte anterior do Contract tinha 30/30 |
 | Build Angular de produção | Aprovado, sem avisos | Execução atual: `npm.cmd run build -- --configuration production`, exit 0 |
 | Firestore/Storage Rules | 56/56 em demo-cardgame | Anterior: revisão documental de 15/10, `npm.cmd run test:rules`, exit 0 |
 | Build Functions | Aprovado | Anterior: `.local-tools/preview-fix-build-functions.log` |

@@ -4,3 +4,7 @@ export type * from './contracts';
 export { GameplayContractError, parseGameplayCardDefinition, parseGameplayCommandRequest } from './validation';
 export { assertGameplayMatchState } from './invariants';
 export { projectGameplayParticipant } from './projection';
+export { GAMEPLAY_EFFECT_CATALOG, parseGameplayEffect, validateGameplayEffectTarget } from './effects';
+export type {
+  GameplayEffect, GameplayDamageEffect, GameplayHealEffect, GameplayDrawEffect, GameplayEffectDestination,
+} from './effects';
