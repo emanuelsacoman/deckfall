@@ -65,6 +65,7 @@ Os testes registrados usaram Node.js 22.23.3, Firebase CLI 15.9.0 e Java 21. Nes
 ```powershell
 npm.cmd test -- --watch=false --browsers=ChromeHeadless
 npm.cmd run build -- --configuration production
+npm.cmd run test:gameplay
 npm.cmd run test:rules
 npm.cmd run build:functions
 npm.cmd run test:functions
@@ -73,7 +74,9 @@ git diff --check
 git status --short
 ```
 
-Angular/Jasmine/Karma exige Chrome. Rules e integração exigem Java/Firebase CLI compatíveis; backend exige Node.js 22. `test:rules` usa Firestore/Storage em `demo-cardgame`; `test:functions:emulator` compila Functions e usa Auth/Firestore/Functions no mesmo projeto isolado. Não existe script de lint configurado.
+Angular/Jasmine/Karma exige Chrome. Rules e integração exigem Java/Firebase CLI compatíveis; backend exige Node.js 22. `test:rules` usa Firestore/Storage em `demo-cardgame`; `test:functions:emulator` compila Functions e usa Auth/Firestore/Functions no mesmo projeto isolado. `test:gameplay` compila o módulo puro, executa testes de tipos e Node Test Runner sem emuladores; a execução registrada usou Node.js 22. Não existe script de lint configurado.
+
+`shared/gameplay` tem build isolado com TypeScript já instalado na raiz: `build:gameplay` gera JS/CommonJS e declarações em `shared/gameplay/lib`, ignorado pelo Git; `typecheck:gameplay` verifica casos positivos/negativos de tipos sem emitir arquivos. O Angular não importa o módulo nesta etapa, e Functions conserva seu `rootDir: src`. Para validar o contrato, execute explicitamente `test:gameplay`; o build Angular sozinho não o verifica. API e limites estão em [Gameplay Contract](gameplay-contract.md).
 
 Selecionar verificações pelo impacto real da tarefa, conforme [AGENTS.md](../AGENTS.md). Em trabalho exclusivamente Markdown, revisar conteúdo, diff, links relativos, coerência dos status e escopo dos arquivos; não apresentar resultados anteriores como testes recém-executados. Mudanças de runtime, contratos, autorização ou Rules exigem os checks correspondentes.
 
@@ -81,15 +84,16 @@ Falhas `EPERM` ao resolver o perfil Windows ocorreram em execuções anteriores 
 
 ### Validação disponível
 
-Nesta revisão documental de **15/10/2026**, o build Angular de produção e a suíte Firestore/Storage Rules foram reexecutados e aprovados; os emuladores de `demo-cardgame` foram encerrados. As tentativas no sandbox falharam por `EPERM`; as execuções locais aprovadas fora dele passaram, sem deploy ou alteração de produção. Não houve alteração de código, Rules ou dependências.
+Na implementação do **Gameplay Contract em 15/10/2026**, `test:gameplay` passou com **30/30 testes**, além do build TypeScript e dos testes de tipos. O build Angular de produção passou sem avisos. A revisão independente identificou array esparso mascarado por propriedade nomeada; o caso foi corrigido e a execução completa final inclui sua regressão em comandos e snapshots. Nenhum executor de efeitos/batalha foi implementado.
 
-Os demais resultados pertencem à correção de previews de **15/10/2026**: seus logs locais foram relidos, sem repetir as suítes Angular/backend/integração nesta tarefa exclusivamente Markdown.
+O EPERM conhecido no sandbox exigiu execução local escalada aprovada. Nenhum deploy, acesso remoto, alteração de Rules, dados persistidos ou dependências ocorreu. Suítes Angular, Rules, backend e integração não foram repetidas nesta etapa: o módulo novo ainda não é importado por esses caminhos. Os resultados anteriores abaixo conservam sua identificação e não são apresentados como novas execuções.
 
 | Verificação | Resultado registrado | Evidência e escopo |
 | --- | --- | --- |
 | Jasmine/Karma | 574/574, Chrome Headless 155 | Anterior: `.local-tools/preview-fix-angular-test-exitcode.log` |
-| Build Angular de produção | Aprovado, sem avisos | Reexecutado nesta revisão: `npm.cmd run build -- --configuration production`, exit 0 |
-| Firestore/Storage Rules | 56/56 em demo-cardgame | Reexecutado nesta revisão: `npm.cmd run test:rules`, exit 0 |
+| Gameplay Contract | Build, testes de tipos e 30/30 Node Test Runner | Execução atual: `npm.cmd run test:gameplay`, exit 0 |
+| Build Angular de produção | Aprovado, sem avisos | Execução atual: `npm.cmd run build -- --configuration production`, exit 0 |
+| Firestore/Storage Rules | 56/56 em demo-cardgame | Anterior: revisão documental de 15/10, `npm.cmd run test:rules`, exit 0 |
 | Build Functions | Aprovado | Anterior: `.local-tools/preview-fix-build-functions.log` |
 | Domínio backend | 67/67 | Anterior: `.local-tools/preview-fix-test-functions.log` |
 | Integração Callable | 15/15 em demo-cardgame | Anterior: `.local-tools/preview-fix-test-functions-emulator.log` |

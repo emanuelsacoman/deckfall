@@ -23,13 +23,15 @@ Angular 18 standalone, TypeScript, Firebase modular/AngularFire, Authentication,
 - **Publicação e previews:** PNG achatado autenticado para coleção/reveal/resumo; sincronização após save e reparo administrativo global/individual com avisos por carta.
 - **Área do jogador e coleção:** navegação/perfil, leitura da própria propriedade, busca/filtro e gestão manual de quantidades pelo admin.
 - **Player Bootstrap e packs:** starter único lacrado, definições determinísticas e versões imutáveis, abertura atômica/idempotente, reveal e recuperação do resultado após refresh.
+- **Gameplay Contract:** módulo TypeScript puro em `shared/gameplay`, com constantes aprovadas, perfis/estados/intenções tipados, validação de formato e invariantes de snapshots, projeções privadas por participante e testes próprios. Ainda não é importado pela aplicação ou por Functions.
 
 “Implementado” descreve código e cobertura existentes, sem encerrar o QA remoto pendente. Contratos e referências de implementação ficam nos [docs de domínio](README.md#domínios).
 
 ## Sistemas parciais
 
 - `/game/decks` e `/game/jogar` são placeholders com ações desabilitadas.
-- O modelo de carta possui atributos genéricos e raridade cadastral, sem contrato de combate ou Typed Effects. O [Game Design](game-design.md) contém somente estrutura pendente de definição/aprovação.
+- O [Game Design v0.1](game-design.md#aprovações-registradas) foi aprovado explicitamente por Emanuel. O [Gameplay Contract](gameplay-contract.md) foi implementado e validado; Typed Effects ainda não tem catálogo/validação semântica próprios, e não há resolução de batalha.
+- O modelo persistido `Card` continua genérico e separado dos perfis de gameplay. Não houve conversão de cartas existentes, adaptação de Nyra ou criação do pool didático no catálogo.
 - Definições adicionais de packs existem no admin; não há distribuição genérica de instâncias ao jogador.
 
 ## Não implementado
@@ -58,12 +60,12 @@ Fonte principal: [riscos e dívidas](riscos-e-dividas-tecnicas.md). Permanecem Q
 
 ## Próximo marco recomendado
 
-Definir e obter aprovação explícita do proprietário para Game Design v0.1, o único marco ativo no [roadmap](roadmap.md#game-design-v01).
+Implementar o próximo incremento de Typed Effects, o único marco ativo no [roadmap](roadmap.md#typed-effects), a partir do Game Design v0.1 aprovado e do contrato já validado.
 
 ## Owner decisions required
 
-- Definir e aprovar o Game Design v0.1: ainda não há regras propostas completas ou aprovação registrada no repositório. Os tópicos bloqueantes estão no [Game Design](game-design.md).
+Nenhuma decisão bloqueante no momento para o próximo incremento de Typed Effects conforme v0.1 aprovado. Mudanças de regras/números, economia e multiplayer futuros conservam seus próprios limites de aprovação.
 
 ## Next safe action
 
-**Blocked pending owner decision:** obter as definições e a aprovação do Game Design v0.1; não iniciar Gameplay Contract a partir de defaults do editor. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não muda o marco nem autoriza deploy.
+Em uma próxima solicitação de continuidade, implementar o catálogo tipado e a validação semântica dos efeitos dano, cura e compra conforme as regras aprovadas, com testes isolados. Não integrar turnos/batalha ou persistência nesse incremento; o descritor estrutural existente não conclui Typed Effects. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.

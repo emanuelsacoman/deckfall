@@ -14,7 +14,7 @@ Cada carta combina dados estruturados de gameplay com um design editável. A ima
 
 A fundação da plataforma está implementada: autenticação, catálogo/editor administrativo, publicação de cartas, área do jogador, coleção persistida e pacotes determinísticos versionados. O backend concede um **StarterPack** lacrado uma única vez; a abertura autenticada e atômica concede as cartas antes do reveal. Definições adicionais existem no admin, ainda sem distribuição ao jogador.
 
-O próximo marco é **Game Design v0.1**, aguardando definição e aprovação do proprietário. Decks e Jogar permanecem placeholders; gameplay, partidas/PvP, economia e progressão são fases futuras. Consulte [o estado atual](docs/project-state.md), [o roadmap](docs/roadmap.md) e [a estrutura inicial do Game Design](docs/game-design.md).
+O **Game Design v0.1 foi aprovado explicitamente** e o **Gameplay Contract** está implementado em TypeScript puro, com perfis, estados, intenções, invariantes e projeções que preservam informação oculta. O módulo ainda não está integrado à aplicação ou a Functions. O próximo marco é **Typed Effects**; Decks e Jogar continuam placeholders, e partidas/PvP, economia e progressão são fases futuras. Consulte [o estado atual](docs/project-state.md), [o roadmap](docs/roadmap.md), [as regras aprovadas](docs/game-design.md) e [o contrato](docs/gameplay-contract.md).
 
 O ambiente remoto documentado usa `https://deckfall.web.app`, projeto `cardgame-6fdcb`, com infraestrutura de pacotes publicada e StarterPack configurado com uma Nyra. As [evidências de 13–15/10/2026](docs/contexto-operacional-para-ias.md#evidências-externas-registradas) têm escopo e data; não equivalem a uma nova auditoria de produção. A correção local do MIME das previews e o reparo administrativo estão implementados, mas a publicação posterior e o QA completo com member não têm confirmação. Veja [as pendências reais](docs/riscos-e-dividas-tecnicas.md).
 
@@ -40,7 +40,8 @@ Localhost usa o Firebase configurado no environment, real por padrão. Para dese
 - **Edição com imagens indisponíveis:** a carta abre sem esperar downloads; falhas têm nova tentativa manual e referências dos arquivos próprios podem ser conservadas ao salvar dados/design.
 - **Usuários e coleção:** consultar, vincular por UID e editar perfis Firestore/papéis; na edição de um perfil existente, conceder cartas publicadas, definir quantidade total e remover propriedade com confirmação. Alterar contato não muda credenciais.
 - **Minha conta:** vincular Google e e-mail/senha ao mesmo usuário, consultar métodos ativos e recuperar senha por e-mail.
-- **Memória operacional:** estado presente, roadmap com um único marco ativo, estrutura de Game Design, decisões arquiteturais e protocolos de continuidade em [docs/](docs/README.md).
+- **Contrato de gameplay:** módulo puro compartilhável, sem dependência de Angular/Firebase; tipos, formatos, invariantes de snapshots e visibilidade por participante testados, sem executar batalha.
+- **Memória operacional:** estado presente, roadmap com um único marco ativo, Game Design aprovado, decisões arquiteturais e protocolos de continuidade em [docs/](docs/README.md).
 
 O acesso Google tenta popup e continua por redirecionamento quando o navegador o bloqueia. Em **Minha conta**, quem entrou por e-mail/senha pode vincular Google; quem entrou com Google pode adicionar uma senha após confirmar sua identidade. Os dois métodos preservam UID e perfil. **Esqueci minha senha** envia o link de recuperação pelo Firebase. Veja [o fluxo de autenticação](docs/autenticacao-e-admin.md).
 
@@ -101,6 +102,7 @@ O gerador inicial já foi executado. Não repita `npm run setup`: ele pode sobre
 ```powershell
 npm.cmd test -- --watch=false --browsers=ChromeHeadless
 npm.cmd run build -- --configuration production
+npm.cmd run test:gameplay
 npm.cmd run test:rules
 npm.cmd run build:functions
 npm.cmd run test:functions
@@ -110,14 +112,15 @@ git diff --check
 
 Os testes Angular precisam do Chrome. Backend usa Node.js 22; emuladores precisam da Firebase CLI e Java compatíveis. Nesta máquina, CLI 15.9.0 e Java 21 são usados para essa validação. `test:rules` executa Firestore/Storage em `demo-cardgame`; `test:functions:emulator` integra Auth/Firestore/Callable no mesmo projeto isolado.
 
-Backend testa uma instância lacrada sem coleção no bootstrap, abertura única/atômica, versão histórica, soma com inventário prévio, limites e falhas sem gravação parcial. Frontend cobre administração/versionamento, preparação, sessão, pacotes, reveal/revisão, lifecycle de URLs, erros de preview, retry e reparo administrativo. O teste de regressão do download usa o Firebase SDK instalado e Blob nativo do navegador. Rules preservam coleção read-only para member e isolam players/packs/configuração. Comandos e resultados anteriores, identificados por data, ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Testes isolados e leituras OAuth não substituem a validação autenticada real; [pacotes](docs/pacotes.md#publicação-posterior) registra o procedimento de publicação da correção, sujeito a autorização.
+`test:gameplay` compila o contrato isolado, confere os testes de tipos e executa Node Test Runner; o build Angular não inclui esse módulo ainda. Não há nova dependência ou migração de cartas. Backend testa uma instância lacrada sem coleção no bootstrap, abertura única/atômica, versão histórica, soma com inventário prévio, limites e falhas sem gravação parcial. Frontend cobre administração/versionamento, preparação, sessão, pacotes, reveal/revisão, lifecycle de URLs, erros de preview, retry e reparo administrativo. O teste de regressão do download usa o Firebase SDK instalado e Blob nativo do navegador. Rules preservam coleção read-only para member e isolam players/packs/configuração. Comandos e resultados, identificados por escopo/data, ficam no [contexto operacional](docs/contexto-operacional-para-ias.md). Testes isolados e leituras OAuth não substituem a validação autenticada real; [pacotes](docs/pacotes.md#publicação-posterior) registra o procedimento de publicação da correção, sujeito a autorização.
 
 ## Documentação e desenvolvimento
 
 - [Índice da memória operacional](docs/README.md)
 - [Estado atual e próxima ação segura](docs/project-state.md)
 - [Roadmap e dependências](docs/roadmap.md)
-- [Game Design — proposta pendente](docs/game-design.md)
+- [Game Design v0.1 aprovado](docs/game-design.md)
+- [Gameplay Contract](docs/gameplay-contract.md)
 - [Decisões arquiteturais](docs/decisions/README.md)
 - [Editor visual, histórico e templates](docs/editor-de-cartas.md)
 - [Cartas, assets e persistência](docs/cartas.md)

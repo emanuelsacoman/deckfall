@@ -10,7 +10,7 @@ Source of truth for: direção do produto, ordem dos marcos, dependências e cri
 
 As fases e a ordem abaixo registram o direcionamento explícito do proprietário. Não tornam cada item inevitável nem autorizam implementação automática. A situação presente está em [Project State](project-state.md); regras de jogo e aprovações em [Game Design](game-design.md); autonomia em [AGENTS.md](../AGENTS.md#limites-da-autonomia).
 
-Status: **DONE** = implementação do escopo existente com evidência local; **IN PROGRESS** = execução iniciada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = direção futura, sem execução autorizada. A marca do único milestone ativo aparece na seção Game Design v0.1. Ela é independente do status: um marco ativo pode estar bloqueado.
+Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. A marca do único milestone ativo aparece na seção Typed Effects. Ela é independente do status: indicar o próximo trabalho não inicia sua implementação nem autoriza decisões pendentes.
 
 Os critérios das fases futuras são alvos de planejamento, a detalhar e confirmar com o proprietário antes de executar cada marco. Não aprovam valores, regras de jogo, desenho de economia ou uma arquitetura futura. Só avance de status com evidência; código placeholder não satisfaz conclusão. Referências apontam para documentos existentes; crie novos contratos somente quando o marco permitir, sem arquivos vazios antecipados.
 
@@ -39,24 +39,34 @@ Fora da fase: regras de batalha, decks funcionais, PvP, economia e progressão.
 
 ## Fase II — Core Game
 
-**Status: BLOCKED — etapa ativa, aguardando definição/aprovação de Game Design.** Objetivo: chegar a um núcleo jogável verificável antes de multiplayer ou economia. Dependências: fundação e decisões explícitas do proprietário sobre v0.1.
+**Status: IN PROGRESS — design aprovado e Gameplay Contract validado.** Objetivo: chegar a um núcleo jogável verificável antes de multiplayer ou economia. Dependências: fundação e regras de v0.1 aprovadas; demais incrementos seguem a ordem abaixo.
 
 Critério de conclusão: design aprovado, contratos/efeitos/regras tipados, decks válidos e motor exercitável em sandbox e treino conforme critérios aprovados. Fora da fase: matchmaking/PvP, recompensas, moedas, loja, monetização e progressão competitiva.
 
 ### Game Design v0.1
 
-**Milestone: CURRENT**
-
-**Status: BLOCKED.** Objetivo: definir e aprovar o escopo mínimo do jogo. Dependências: definições e aprovação explícita do proprietário; nenhum design completo/aprovado foi localizado no repositório auditado.
+**Status: DONE.** Objetivo: definir e aprovar o escopo mínimo do jogo. Dependência atendida: Emanuel aprovou explicitamente v0.1 em 2026-10-15, incluindo recomendações, regras, números iniciais, conjunto de referência e cenários. Alternativas comparativas não foram adotadas; duração e balanceamento ainda exigem playtest.
 
 Critério de conclusão: tópicos de v0.1 preenchidos, ambiguidades relevantes resolvidas, cenários mínimos descritos e aprovação do proprietário registrada com data/escopo/referência. Documento de referência: [Game Design](game-design.md). Nenhum default do editor substitui essa decisão.
 
-Próximo incremento permitido: obter as definições do proprietário e registrar a proposta para revisão. Sem elas, a continuação técnica do Core Game está bloqueada. Não implementar o Gameplay Contract nesta preparação documental.
+Evidência: [aprovação registrada](game-design.md#aprovações-registradas). A aprovação não comprova partida funcional nem autoriza deploy ou execução automática de vários marcos.
+
+### Gameplay Contract
+
+**Status: DONE.** Objetivo: expressar o design aprovado em contratos tipados. Dependência atendida: Game Design v0.1 aprovado. Critério de conclusão atendido: módulo puro `shared/gameplay`, testes de tipos e testes de execução para envelopes, invariantes de snapshots e projeções por participante, sem integração de batalha.
+
+Referência: [Gameplay Contract](gameplay-contract.md). A validação estrutural do descritor de efeitos não implementa sua semântica; não há validação de composição/posse de decks, resolvedor de comandos, PRNG concreto ou persistência de partidas. Resultados executados estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
+
+### Typed Effects
+
+**Milestone: CURRENT**
+
+**Status: PLANNED.** Objetivo: formalizar catálogo fechado e validação semântica dos efeitos aprovados. Dependências: Gameplay Contract e semântica de v0.1, já disponíveis. Critério de conclusão: efeitos/parâmetros/alvos cobertos por testes conforme o design, sem executar texto livre. Referências: [Game Design](game-design.md) e [contrato](gameplay-contract.md).
+
+Próximo incremento permitido em nova solicitação: catálogo tipado/validação semântica de dano, cura e compra com testes isolados. Não implementar Deck Rules, transições de batalha ou integração de UI/backend nesse incremento. Este marco não foi executado junto do Gameplay Contract.
 
 | Próximos itens, na ordem desejada | Status | Objetivo | Dependências | Critério de conclusão | Referência principal |
 | --- | --- | --- | --- | --- | --- |
-| Gameplay Contract | BLOCKED | Expressar o design em contratos tipados | Game Design v0.1 aprovado | Tipos e invariantes implementados/testados, sem integrar batalha ainda | [Game Design](game-design.md), [arquitetura](arquitetura-frontend.md) |
-| Typed Effects | PLANNED | Dar semântica tipada aos efeitos | Gameplay Contract e semântica aprovada | Efeitos e validação cobertos por casos aprovados, sem executar texto livre | [Game Design](game-design.md) |
 | Deck Rules | PLANNED | Validar composição de decks | Typed Effects e regras de deck aprovadas | Validador cobre elegibilidade/limites aprovados, sem inferir limites da coleção | [Game Design](game-design.md), [coleção](colecao.md) |
 | Deck Builder | PLANNED | Montar/salvar decks válidos | Deck Rules e contrato de persistência/autorização revisado | Criar, editar e reabrir decks com validação; acesso e casos inválidos cobertos | [Game Design](game-design.md), [modelo Firestore](modelo-dados-firestore.md) |
 | Battle Engine | PLANNED | Resolver ações e estado do combate | Marcos anteriores e resolução aprovada | Transições/ações legais, término e efeitos testados com execução reproduzível | [Game Design](game-design.md), [ADR-0001](decisions/0001-autoridade-backend.md) |

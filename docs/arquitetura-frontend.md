@@ -10,9 +10,18 @@ model/services/fire = infraestrutura Firebase/Auth/Storage/Functions
 model/services/tools = estado, validação e utilitários reutilizáveis
 model/guards = autorização de navegação e proteção de saída
 functions/src = backend confiável, Admin SDK e operações de jogo
+shared/gameplay/src = contrato puro e isolado de batalha, sem integração às aplicações ainda
 ```
 
 Componentes não acessam Firestore diretamente. `AuthService` resolve sessão/perfil; `CardService`, `CardTemplateService`, `UserService`, `PlayerCollectionService` e `PackDefinitionService` persistem seus domínios. `CardStorageService` organiza arquivos editáveis e materializa uploads/cópias; `PublishedCardStorageService` trata a imagem final publicada em namespace separado. Guard não substitui Rules.
+
+## Contrato puro de gameplay
+
+O [Gameplay Contract](gameplay-contract.md) fica em `shared/gameplay/src`, fora do build Angular e das Functions. Usa TypeScript/ECMAScript sem Angular, Firebase, Konva, Node ou DOM no domínio; scripts próprios na raiz compilam/testam o módulo. Atualmente não há imports dele em `src/` ou `functions/src/`. A decisão está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md).
+
+Perfis de batalha, cópias físicas, snapshot autoritativo, intenções e visões não dependem de `Card`/canvas ou atributos livres do editor. Parsers validam formato, invariantes conferem snapshots estáveis e uma whitelist produz a visão do participante. Essa projeção exige snapshot previamente validado e seat derivado de autenticação/autorização pela futura integração; não cria uma fronteira de acesso sozinha.
+
+O descritor mínimo de efeito não é um executor de Typed Effects. Não há composição/posse de decks, legalidade/transições de batalha, RNG concreto, persistência, Callable ou UI de partida; Decks/Jogar continuam placeholders. A API e seus limites têm fonte principal em [Gameplay Contract](gameplay-contract.md), e a sequência de implementação está no [roadmap](roadmap.md).
 
 ## Autoridade backend
 

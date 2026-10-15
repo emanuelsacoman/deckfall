@@ -2,7 +2,7 @@
 
 > A imagem renderizada da carta é somente uma representação visual. A fonte de verdade da carta são seus dados estruturados.
 
-Cartas publicadas alimentam a coleção persistida, concedida pela abertura única do Starter Pack no backend ou manualmente por admin, e seus filtros locais. Bootstrap concede somente pack lacrado; concessão e abertura validam existência/publicação, sem modificar dados/design da carta ou gerar preview. A abertura guarda snapshot mínimo de ID/nome/raridade/quantidade e reutiliza PNG publicado no reveal. Retirada antes de abrir mantém pacote lacrado; histórico aberto conserva resultado, mas novos downloads da imagem seguem o status atual. Decks, batalhas, efeitos, loja, economia e marketplace continuam futuros. O design é genérico e separado do gameplay; veja [editor](editor-de-cartas.md), [bootstrap](player-bootstrap.md) e [pacotes](pacotes.md).
+Cartas publicadas alimentam a coleção persistida, concedida pela abertura única do Starter Pack no backend ou manualmente por admin, e seus filtros locais. Bootstrap concede somente pack lacrado; concessão e abertura validam existência/publicação, sem modificar dados/design da carta ou gerar preview. A abertura guarda snapshot mínimo de ID/nome/raridade/quantidade e reutiliza PNG publicado no reveal. Retirada antes de abrir mantém pacote lacrado; histórico aberto conserva resultado, mas novos downloads da imagem seguem o status atual. Existe um [contrato puro de gameplay](gameplay-contract.md), ainda sem integração ao catálogo. Decks funcionais, resolução de batalhas/efeitos, loja, economia e marketplace continuam futuros. O design é genérico e separado do gameplay; veja [editor](editor-de-cartas.md), [bootstrap](player-bootstrap.md) e [pacotes](pacotes.md).
 
 ## Contrato atual e compatibilidade
 
@@ -13,6 +13,14 @@ Raridades: `common`, `rare`, `epic`, `legendary`. Status: `draft`, `published`, 
 `CardAttribute` tem chave, rótulo e valor; ID estável, min/max, ícone e cor são opcionais para compatibilidade. Defaults continuam Ataque, Defesa, Velocidade e Magia, com faixa 0–100. O editor permite remover/adicionar/reordenar/renomear até oito atributos e configurar limites dentro de ±1.000.000, com mínimo estritamente menor que máximo e valor finito dentro da faixa. Chaves únicas seguem `^[a-z][a-z0-9_-]{0,39}$`.
 
 Cartas antigas sem canvas são carregadas com composição Fantasy Basic e, quando existir, asset derivado da arte legada. A adaptação e IDs faltantes acontecem no estado local, sem write automático. Salvar explicitamente grava o novo modelo. `setId` é preservado mesmo sem UI de sets.
+
+## Perfil de batalha separado
+
+O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado, e `GameplayCardDefinition`, em [shared/gameplay/src/contracts.ts](../shared/gameplay/src/contracts.ts), representa o perfil de batalha versionado. Esse contrato usa identidade/revisão/custo e dados de Unidade ou descritor de Ação, sem canvas, arte, raridade ou atributos livres do editor. A cópia física de partida possui ID próprio; não é um novo documento de carta ou entrada de coleção.
+
+Não há conversão automática de `Card`, attack/defense/speed/magic ou type/subtype livres para esse perfil. Nenhuma carta publicada, incluindo Nyra, se torna elegível apenas por existir no catálogo. A futura adaptação/conteúdo e as regras de composição/posse continuam nos respectivos marcos. O editor, Firestore e StarterPack mantêm seus contratos atuais; o módulo ainda não é importado pelo frontend/backend.
+
+O parser confere estrutura e envelopes numéricos, sem balancear conteúdo ou executar efeitos; as invariantes de snapshot não substituem Deck Rules. [Gameplay Contract](gameplay-contract.md) é a fonte da API/limites, e [ADR-0005](decisions/0005-contrato-gameplay-puro.md) explica o isolamento.
 
 ## Firestore e arquivos
 

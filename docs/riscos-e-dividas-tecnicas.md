@@ -52,6 +52,10 @@ Assets de outro proprietário são copiados pelo serviço antes da gravação fi
 
 ## Área do jogador
 
+O Game Design v0.1 foi aprovado e o [Gameplay Contract](gameplay-contract.md) está implementado em `shared/gameplay`, ainda sem integração no frontend/Functions. Seu parser verifica formato e seus validadores verificam invariantes de snapshots; não autenticam, autorizam, executam comandos ou comprovam legalidade de ataques/efeitos. O contexto do ator deve ser derivado no servidor, nunca de uma posição enviada pelo cliente. Tipos readonly não são uma barreira de segurança em runtime.
+
+Typed Effects, Deck Rules e Battle Engine continuam marcos futuros. O descritor estrutural de efeito não valida semântica/balanceamento, e a conservação de 24 instâncias não valida composição, cópias ou propriedade do deck. A integração futura deve preservar o módulo puro e resolver seu consumo pelos builds separados sem importar Angular/Firebase/Admin SDK nele. Não converter `Card`/atributos atuais nem preencher o pool de referência automaticamente. Duração e balanceamento aprovados como metas ainda precisam de playtest.
+
 A área do jogador oferece perfil/navegação, coleção persistida, Starter Pack único lacrado e abertura/reveal decididos pelo backend. A gestão manual administrativa e a consulta pelo titular permanecem. Decks e modos de jogo continuam placeholders: não há deck builder, treino funcional, partidas, PvP, loja, packs compráveis/aleatórios ou economia.
 
 Artes/assets editáveis do Storage continuam acessíveis somente a admin. O jogador baixa exclusivamente a representação achatada em `published-cards/{cardId}/preview.png`, por `getBlob` sujeito a perfil válido e carta publicada. Não se usa `getDownloadURL` nem se libera acesso aos originais. A imagem exige CORS e integração Rules Storage → Firestore; validação local não confirma essas permissões/configuração remotas.

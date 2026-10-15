@@ -56,3 +56,6 @@ environments/
 # Saídas TypeScript do backend Functions
 /functions/lib/
 /functions/lib-test/
+
+# Saída do contrato puro compartilhado de gameplay
+/shared/gameplay/lib/
