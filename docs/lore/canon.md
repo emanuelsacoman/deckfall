@@ -2,7 +2,7 @@
 
 Status: Active — governança da Lore Bible v0.1
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
 Source of truth for: níveis de cânone, aprovação e limites da criação narrativa
 

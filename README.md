@@ -4,7 +4,7 @@ Uma plataforma de cartas digitais de Emanuel Sacoman, com área do jogador, edit
 
 Status: em desenvolvimento
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
 Source of truth for: apresentação pública do projeto
 
@@ -15,6 +15,8 @@ Cada carta combina dados estruturados de gameplay com um design editável. A ima
 A fundação da plataforma está implementada: autenticação, catálogo/editor administrativo, publicação de cartas, área do jogador, coleção persistida e pacotes determinísticos versionados. O backend concede um **StarterPack** lacrado uma única vez; a abertura autenticada e atômica concede as cartas antes do reveal. Definições adicionais existem no admin, ainda sem distribuição ao jogador.
 
 O **Game Design v0.1 foi aprovado explicitamente**, e o **Gameplay Contract, Typed Effects e Deck Rules** estão implementados em TypeScript puro. Há perfis, estados, intenções, invariantes, projeções privadas, validação de efeitos/alvos e de decks contra conteúdo e quantidades confiáveis ou referência exata de treino. O módulo ainda não executa batalha nem está integrado à aplicação ou a Functions. **Deck Rules permanece como marco CURRENT, agora concluído**, sem iniciar Deck Builder. Decks e Jogar continuam placeholders; partidas/PvP, economia e progressão são fases futuras. Consulte [o estado atual](docs/project-state.md), [o roadmap](docs/roadmap.md), [as regras aprovadas](docs/game-design.md) e [o contrato](docs/gameplay-contract.md).
+
+A [Lore Bible v0.1](docs/lore/README.md) inaugura o eixo narrativo de dark fantasy: Vélar reúne reinos, florestas, ruínas e histórias pessoais séculos depois da misteriosa Queda. Há cinco regiões, cinco facções e oito personagens iniciais, com contraste entre beleza e decadência. O Hard Canon está proposto e pendente de aprovação; o Soft Canon inicial é a base editorial expansível. Lore e gameplay permanecem separados.
 
 O ambiente remoto documentado usa `https://deckfall.web.app`, projeto `cardgame-6fdcb`, com infraestrutura de pacotes publicada e StarterPack configurado com uma Nyra. As [evidências de 13–15/10/2026](docs/contexto-operacional-para-ias.md#evidências-externas-registradas) têm escopo e data; não equivalem a uma nova auditoria de produção. A correção local do MIME das previews e o reparo administrativo estão implementados, mas a publicação posterior e o QA completo com member não têm confirmação. Veja [as pendências reais](docs/riscos-e-dividas-tecnicas.md).
 
@@ -121,6 +123,7 @@ Os testes Angular precisam do Chrome. Backend usa Node.js 22; emuladores precisa
 - [Estado atual e próxima ação segura](docs/project-state.md)
 - [Roadmap e dependências](docs/roadmap.md)
 - [Game Design v0.1 aprovado](docs/game-design.md)
+- [Lore Bible: universo, cânone e criação de conteúdo](docs/lore/README.md)
 - [Gameplay Contract](docs/gameplay-contract.md)
 - [Decisões arquiteturais](docs/decisions/README.md)
 - [Editor visual, histórico e templates](docs/editor-de-cartas.md)

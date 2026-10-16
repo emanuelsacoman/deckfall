@@ -2,7 +2,7 @@
 
 Status: PROPOSTAS / NÃO CANÔNICAS
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
 Source of truth for: perguntas e ganchos narrativos ainda não incorporados à continuidade
 
@@ -26,7 +26,7 @@ Os ganchos deste grupo podem originar histórias menores dentro da delegação c
 
 **Gancho:** Inês do Cais poderia ajudar uma pequena comunidade a confrontar marcos de margem, um recibo antigo e lembranças incompatíveis de seus barqueiros.
 
-**Limite:** história local ou erro cartográfico; preservar o percurso do rio de Namar, através de Auren, até o delta em Lísria. Não criar uma mudança continental ou uma era esquecida como explicação.
+**Limite:** história local ou erro cartográfico; preservar o percurso do rio de Namar, através de Auren, até a foz em Lísria. Não criar uma mudança continental ou uma era esquecida como explicação.
 
 ### 3. O sonho de um ofício desconhecido
 
@@ -78,7 +78,7 @@ As perguntas seguintes permanecem propostas para revisão. Agentes podem organiz
 
 **Gancho:** versões incompatíveis de um testemunho associado aos primeiros refúgios poderiam colocar Elian Varo diante de uma escolha sobre dever, proteção e memória.
 
-**Limite:** nenhum segredo está confirmado. Não reescrever o papel histórico de Iria do Vau, desfazer a Ordem ou determinar o destino de Elian sem aprovação; a fundadora permanece uma figura histórica morta.
+**Limite:** nenhum segredo está confirmado. Não reescrever significativamente o papel histórico de Iria do Vau, desfazer a Ordem, matar ou remover Elian como elemento central sem aprovação; a fundadora permanece uma figura histórica morta. Ações e conflitos locais de Elian continuam dentro da autonomia delegada quando não exigem essas mudanças.
 
 ### 9. Além da última linha do mapa
 
@@ -86,7 +86,7 @@ As perguntas seguintes permanecem propostas para revisão. Agentes podem organiz
 
 **Gancho:** um desenho sem procedência segura poderia circular entre comerciantes e estudiosos, alimentando expedições propostas e relatos mutuamente incompatíveis.
 
-**Limite:** não confirmar novas terras principais, povos ou continentes pela simples existência do desenho. Uma expansão geográfica dessa escala precisa de aprovação antes de integrar o mundo.
+**Limite:** não confirmar novas terras principais, civilizações centrais ou continentes pela simples existência do desenho. Uma expansão geográfica dessa escala precisa de aprovação antes de integrar o mundo; pequenas comunidades locais continuam dentro da autonomia definida no cânone.
 
 ### 10. Quem deu um nome à Queda?
 

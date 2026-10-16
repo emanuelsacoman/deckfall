@@ -2,7 +2,7 @@
 
 Status: Active
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
 Source of truth for: regras permanentes de trabalho dos agentes
 
@@ -16,9 +16,17 @@ Em tarefa relevante, leia [o estado atual](docs/project-state.md), [o roadmap](d
 
 Ordem de confiança: código executável atual; Security Rules/configuração; testes; interfaces/tipos; documentação; comentários; histórico Git. Se houver divergência, corrija a documentação a partir das evidências e registre dívida/incerteza real em [riscos](docs/riscos-e-dividas-tecnicas.md). Separe fatos verificados, decisões e pendências externas. Teste local não comprova configuração ou funcionamento em produção.
 
-Cada informação tem uma fonte principal: estado presente em `project-state`, direção e critérios em `roadmap`, regras de jogo em `game-design`, contratos nos docs de domínio e razões arquiteturais em [ADRs](docs/decisions/README.md). Linke em vez de duplicar contratos. Histórico pertence ao Git; o estado não é changelog.
+Cada informação tem uma fonte principal: estado presente em `project-state`, direção e critérios em `roadmap`, regras de jogo em `game-design`, narrativa na [Lore Bible](docs/lore/README.md), contratos nos docs de domínio e razões arquiteturais em [ADRs](docs/decisions/README.md). Linke em vez de duplicar contratos. Histórico pertence ao Git; o estado não é changelog.
 
 Nunca invente decisões de game design nem transforme `PROPOSTA` em `APROVADO` sem aprovação explícita do proprietário. Campos, defaults e limites técnicos existentes não aprovam vida inicial, tamanho de deck, combate, raridade como regra de jogo, economia ou monetização.
+
+## Lore e criação de conteúdo
+
+- Antes de criar conteúdo narrativo, leia a [Lore Bible](docs/lore/README.md), seu [cânone](docs/lore/canon.md) e os registros relacionados.
+- Respeite Hard Canon e o status de suas propostas; somente Emanuel pode ratificá-lo ou autorizar sua alteração.
+- Expanda Soft Canon com personagens menores, lugares e conflitos locais dentro da autonomia delegada, sem contradizer a continuidade; Story Seeds não são fatos.
+- Mudanças centrais exigem aprovação explícita conforme os [limites da autonomia narrativa](docs/lore/canon.md#limites-da-autonomia). Registre ideias dependentes como propostas e continue o trabalho independente permitido.
+- Lore não define gameplay: facção, região, religião, profissão ou importância narrativa não conferem bônus, efeitos ou raridade automaticamente.
 
 ## Limites da autonomia
 

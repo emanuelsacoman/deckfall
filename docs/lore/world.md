@@ -2,7 +2,7 @@
 
 Status: Active — Soft Canon inicial v0.1
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
 Source of truth for: premissa, cotidiano, magia e direção de tom do universo
 

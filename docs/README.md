@@ -2,7 +2,7 @@
 
 Status: Active
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
 Source of truth for: mapa da documentação e localização da fonte principal de cada assunto
 
@@ -15,9 +15,10 @@ O [README do projeto](../README.md) apresenta o Deckfall. Agentes começam em [A
 | [Estado atual](project-state.md) | O que existe hoje, o que bloqueia e qual ação é segura? |
 | [Roadmap](roadmap.md) | Qual é o único marco ativo e quais são dependências e critérios? |
 | [Game Design](game-design.md) | Quais regras do jogo foram propostas ou aprovadas pelo proprietário? |
+| [Lore Bible](lore/README.md) | Qual é a base narrativa e o que um agente pode expandir sem contradizer o cânone? |
 | [Arquitetura frontend](arquitetura-frontend.md) | Onde ficam rotas, componentes, serviços e fronteiras de responsabilidade? |
 
-`project-state` descreve o presente; `roadmap`, a direção; `game-design`, regras do jogo; `AGENTS`, regras de trabalho; ADRs, razões arquiteturais. Histórico fica no Git. Nenhum documento concede autorização para deploy ou decisões de produto.
+`project-state` descreve o presente; `roadmap`, a direção; `game-design`, regras do jogo; `lore/`, narrativa e autonomia criativa; `AGENTS`, regras de trabalho; ADRs, razões arquiteturais. Histórico fica no Git. Autorizações explícitas do proprietário e seus limites devem ser preservados; nenhum documento concede autorização de deploy ou ratifica propostas por si só.
 
 ## Domínios
 
@@ -26,6 +27,7 @@ O [README do projeto](../README.md) apresenta o Deckfall. Agentes começam em [A
 | [Autenticação e admin](autenticacao-e-admin.md) | Login/cadastro, vínculo Google/senha, recuperação, guards e primeiro admin |
 | [Usuários](usuarios.md) | Perfis Firestore, vínculo por UID e gestão de papéis |
 | [Cartas](cartas.md) | Contrato atual de dados, arte, assets e CRUD |
+| [Lore Bible](lore/README.md) | Cânone, mundo, eras, regiões, facções, personagens, mistérios e workflow narrativo de cartas; sem mecânicas automáticas |
 | [Gameplay Contract](gameplay-contract.md) | API pura: tipos, efeitos/alvos, validação de decks, invariantes e projeção, ainda sem executor/motor/integração |
 | [Editor de cartas](editor-de-cartas.md) | Canvas próprio, Konva, bindings, templates, histórico e exportação |
 | [Coleção do jogador](colecao.md) | Propriedade, gestão administrativa, PNG publicado e reparo de previews |

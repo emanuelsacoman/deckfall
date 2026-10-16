@@ -2,7 +2,7 @@
 
 Status: Active — Soft Canon inicial v0.1
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
 Source of truth for: geografia regional, comunidades e identidade visual
 

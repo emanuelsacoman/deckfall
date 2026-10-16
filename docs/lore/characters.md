@@ -2,7 +2,7 @@
 
 Status: Active — Soft Canon inicial v0.1
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
 Source of truth for: identidade, estado temporal, vínculos e conflitos dos oito personagens iniciais
 
@@ -34,7 +34,7 @@ Os vínculos narrativos não estabelecem poderes, raridade ou habilidades de gam
 
 - **Estado e alcance:** viva, no Presente; recorrente. Sua influência se concentra em embarcadouros do Candeia e nas negociações de Lísria.
 - **Papel e vínculo:** dirigente de uma assembleia da [Liga das Pontes](factions.md#liga-das-pontes). Representa acordos entre algumas travessias, sem autoridade automática sobre toda a associação.
-- **Aparência:** casaco de lã bem remendado, mangas protegidas para trabalho e uma chave de depósito presa ao cinto. Pequenas flores de margem ficam num copo sobre a mesa onde confere manifestos de carga.
+- **Aparência:** casaco de lã bem remendado, mangas protegidas para trabalho e uma chave de depósito presa ao cinto. Pesos de cobre e um pedaço de madeira marcado pelas cheias ocupam a mesa onde confere manifestos de carga.
 - **História pessoal:** trabalhou em embarcações antes de organizar o reparo conjunto de uma passagem. Sua reputação nasceu de fazer entregas chegarem durante uma estação difícil; agora responde por contas e promessas que não pode resolver apenas com esforço pessoal.
 - **Desejo e conflito:** pretende financiar manutenção sem vender exclusividade a um patrono. Já adiou cobranças para permitir uma retirada e depois exigiu pagamentos duros de comunidades igualmente frágeis. Sabe explicar seus números melhor do que reconhecer a desigualdade de seus efeitos.
 - **Relações:** precisa da confiança de Elian para manter acessos e da experiência de Maela sobre as margens. Pode contratar Sava e contestar a forma como a Companhia interpreta uma escolta. Dessa lhe fornece notícias de rotas que ainda não merecem um compromisso de carga.
@@ -43,7 +43,7 @@ Os vínculos narrativos não estabelecem poderes, raridade ou habilidades de gam
 
 - **Estado e alcance:** vivo, no Presente; recorrente e ambíguo. Atua nos arquivos de [Lísria](regions.md#lísria).
 - **Papel e vínculo:** arquivista do [Conclave da Lâmpada Baixa](factions.md#conclave-da-lâmpada-baixa), responsável por proveniências e pedidos de consulta de parte do acervo.
-- **Aparência:** roupa escura de tecido fino já gasto, dedos marcados por tinta e lentes simples usadas para examinar inscrições. Guarda flores prensadas como marcadores de leitura, sem atribuir a elas poder comprovado.
+- **Aparência:** roupa escura de tecido fino já gasto, dedos marcados por tinta e lentes simples usadas para examinar inscrições. Pequenas tiras de pano de cores diferentes distinguem consultas em andamento, sem depender de adornos preciosos.
 - **História pessoal:** ajudou a recuperar um arquivo danificado pela umidade e descobriu quanto uma cópia incompleta pode mudar uma acusação. Depois restringiu a consulta de um conjunto de registros por receio de seu uso político, sem avisar todas as famílias mencionadas.
 - **Desejo e conflito:** quer evitar que o passado seja usado para justificar violência no presente. Ao decidir sozinho quem pode lê-lo, repete parte do controle que condena. Seus índices e hipóteses não revelam a causa da Queda nem tornam confiável todo eco preservado.
 - **Relações:** procura os cadernos de Maela e os relatos de Dessa. Teren coopera na identificação de nomes, mas discorda da retenção de objetos de luto. Oren conserva uma transcrição tardia atribuída à tradição de Iria; a atribuição não comprova cada palavra do documento.
@@ -52,7 +52,7 @@ Os vínculos narrativos não estabelecem poderes, raridade ou habilidades de gam
 
 - **Estado e alcance:** viva, no Presente; recorrente, antagonista eventual e possível aliada circunstancial. Seu campo de ação são as [Marcas do Ferro](regions.md#marcas-do-ferro) e os caminhos que chegam a elas.
 - **Papel e vínculo:** capitã do contingente recorrente da [Companhia do Pendão Roto](factions.md#companhia-do-pendão-roto).
-- **Aparência:** ferro escurecido, faixa cor de argila e capa com costuras aparentes. Mantém o tecido do pendão, incluindo pequenas flores secas presas às emendas, em vez de substituí-lo por um símbolo de vitória impecável.
+- **Aparência:** ferro escurecido, faixa cor de argila e capa com costuras aparentes. Mantém o tecido do pendão, incluindo nós coloridos junto às emendas, em vez de substituí-lo por um símbolo de vitória impecável.
 - **História pessoal:** reuniu parte de seus companheiros depois de um contrato abandonado pelo pagador. Uma escolta de civis concluída sem remuneração lhe deu confiança local e deixou dívidas que ainda condicionam seus serviços.
 - **Desejo e conflito:** deseja uma forma estável de sustentar o contingente sem depender de uma guerra interminável. Enquanto não a encontra, aceita cláusulas que retêm provisões ou fecham caminhos. Protege civis, mas pode tratar o acesso à proteção como instrumento de negociação.
 - **Relações:** disputa com Elian a prioridade de certos carregamentos e negocia com Inês condições de escolta. Oferece proteção exclusiva a Dessa em troca de informação sobre rotas. Essas relações mudam por contrato; não tornam facções inteiras inimigas permanentes.

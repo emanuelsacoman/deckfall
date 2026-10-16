@@ -2,7 +2,7 @@
 
 Status: Active — base editorial v0.1
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
 Source of truth for: entrada da Lore Bible e processo de criação narrativa de cartas
 
@@ -89,7 +89,7 @@ O prompt não deve incluir custos e estatísticas como elementos desenhados. O c
 
 ## Os 16 arquétipos de referência
 
-Os nomes e perfis aprovados continuam no [conjunto de referência do Game Design](../game-design.md#conjunto-inicial-de-referência--aprovado). A tabela abaixo aponta possibilidades narrativas, **não cria cartas, novos nomes oficiais ou mapeamentos canônicos de gameplay**.
+Os nomes e perfis aprovados continuam no [conjunto de referência do Game Design](../game-design.md#conjunto-de-referência-para-sandboxtreino--aprovado). A tabela abaixo aponta possibilidades narrativas, **não cria cartas, novos nomes oficiais ou mapeamentos canônicos de gameplay**.
 
 | Arquétipos de protótipo | Espaço para desenvolvimento futuro |
 | --- | --- |

@@ -2,7 +2,7 @@
 
 Status: Active — Soft Canon inicial v0.1
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
 Source of truth for: identidade, interesses e relações das cinco facções narrativas iniciais
 
@@ -26,7 +26,7 @@ As facções atuam em [Vélar](world.md) e possuem membros com interesses difere
 - **Nome:** Liga das Pontes.
 - **Objetivo:** sustentar travessias, embarcadouros e circulação de mantimentos pelo rio Candeia, entre Namar, Auren e [Lísria](regions.md#lísria). Reúne barqueiros, mercadores e responsáveis por obras locais; sua presença varia de porto para porto.
 - **Filosofia:** nenhuma comunidade atravessa uma estação difícil inteiramente sozinha. Comércio e cooperação mantêm caminhos abertos, mas a Liga cobra pelo trabalho e discute até onde uma necessidade coletiva permite adiar pagamentos.
-- **Aparência:** casacos de trabalho encerados, cordas claras e placas de madeira com o sinal de duas margens unidas. Nas assembleias, tecidos bem cuidados encontram botas ainda cobertas de lama; flores de beira-rio aparecem junto às ferramentas dos reparadores.
+- **Aparência:** casacos de trabalho encerados, cordas claras e placas de madeira com o sinal de duas margens unidas. Nas assembleias, tecidos bem cuidados encontram botas ainda cobertas de lama; tábuas marcadas por enchentes e ferramentas polidas pelo uso distinguem cada travessia.
 - **Origem:** acordos entre travessias durante os Séculos das Pontes deram continuidade ao abastecimento quando autoridades de Auren não conseguiam proteger todas as rotas. A associação cresceu por pactos renováveis, não por um governo único de todo o Candeia.
 - **Aliados:** postos do Último Jardim que mantêm acessos públicos e oficinas de Lísria que fornecem ferramentas. [Inês do Cais](characters.md#inês-do-cais) negocia esses vínculos, sem garantir obediência de todas as travessias.
 - **Rivais:** monopólios locais, contrabandistas que comprometem a segurança de uma passagem e companhias que cobram duas vezes pela mesma escolta. A rivalidade pode terminar em acordo quando uma rota alternativa deixa de existir.
@@ -37,7 +37,7 @@ As facções atuam em [Vélar](world.md) e possuem membros com interesses difere
 - **Nome:** Conclave da Lâmpada Baixa.
 - **Objetivo:** recolher, comparar e conservar documentos e vestígios em Lísria, distinguindo observações de relatos. Mantém salas de consulta e depósitos de acesso restrito; não possui um inventário completo do passado.
 - **Filosofia:** nenhuma memória deve ser tomada como testemunho perfeito. Seus estudiosos defendem registros verificáveis, mas divergem sobre quem pode consultar um objeto perigoso e sobre quem decide que um conhecimento oferece perigo.
-- **Aparência:** mantos de lã escura, punhos marcados por tinta e pequenas lâmpadas protegidas contra correntes de ar. Vidros amarelados, estantes remendadas e jardins de pátio dão calor aos arquivos úmidos próximos dos canais.
+- **Aparência:** mantos de lã escura, punhos marcados por tinta e pequenas lâmpadas protegidas contra correntes de ar. Vidros amarelados e estantes remendadas recebem luz quente sobre os arquivos úmidos; grades de cobre protegem as janelas próximas dos canais.
 - **Origem:** copistas e guardiões de acervos reuniram coleções dispersas durante os Séculos das Pontes. A restrição de certas consultas nasceu de incidentes locais e depois se tornou uma ferramenta disputada por estudiosos e patronos.
 - **Aliados:** exploradores independentes negociam mapas e proveniências; membros da Vigília da Cinza ajudam a identificar famílias ligadas a determinados registros. [Oren Vale](characters.md#oren-vale) mantém contatos próprios, que não representam a posição de todas as salas do Conclave.
 - **Rivais:** saqueadores que removem objetos sem registrar sua origem, compradores de acervos privados e autoridades que exigem uma versão conveniente da história. Pesquisadores também disputam entre si acesso e autoria.
@@ -48,7 +48,7 @@ As facções atuam em [Vélar](world.md) e possuem membros com interesses difere
 - **Nome:** Companhia do Pendão Roto.
 - **Objetivo:** obter contratos de escolta e defesa nas [Marcas do Ferro](regions.md#marcas-do-ferro), mantendo seus integrantes pagos e abastecidos. Em certas campanhas protege aldeias e retiradas de civis; em outras guarda bens cujo dono prefere uma estrada fechada.
 - **Filosofia:** promessas precisam de alimento, ferramentas e pagamento. Seus membros desconfiam de nobres que exigem sacrifícios sem assumir os custos; a mesma lógica pode transformar proteção em dependência.
-- **Aparência:** equipamento desigual, ferro escurecido e um pendão antigo cujos rasgos são costurados sem esconder as emendas. Faixas cor de argila e flores secas presas ao tecido lembram lugares atravessados, sem constituir uniforme religioso.
+- **Aparência:** equipamento desigual, ferro escurecido e um pendão antigo cujos rasgos são costurados sem esconder as emendas. Faixas cor de argila e nós de tecido de cores diferentes lembram lugares atravessados, sem constituir uniforme religioso.
 - **Origem:** veteranos de conflitos locais nas Marcas formaram a Companhia no Presente para negociar juntos, em vez de aceitar contratos isolados. [Sava Rul](characters.md#sava-rul) comanda o contingente recorrente deste núcleo de histórias, sem governar toda a fronteira.
 - **Aliados:** comunidades que conseguem contratar uma guarda confiável e representantes da Liga que precisam de escolta em trechos expostos. A Companhia também aceita serviços junto ao Último Jardim quando responsabilidades e provisões estão claras.
 - **Rivais:** contratantes inadimplentes, destacamentos que pilham civis e escoltas concorrentes. Seus conflitos com a Ordem ou a Liga surgem de compromissos específicos; não existe uma guerra geral entre essas facções.

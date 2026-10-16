@@ -2,15 +2,15 @@
 
 Status: Active
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-16
 
-Última atualização: 2026-10-15
+Última atualização: 2026-10-16
 
 Source of truth for: snapshot presente do Deckfall, bloqueadores e próxima ação segura
 
 ## Produto atual
 
-Deckfall é uma plataforma de cartas digitais com editor/administração e área autenticada do jogador. Permite publicar cartas, administrar pacotes determinísticos, receber o StarterPack lacrado, abri-lo pelo backend e consultar a coleção. Ainda não oferece uma partida jogável. Este snapshot foi confrontado com código, Rules, tipos, testes e histórico local; a produção não foi consultada novamente nesta tarefa.
+Deckfall é uma plataforma de cartas digitais com editor/administração e área autenticada do jogador. Permite publicar cartas, administrar pacotes determinísticos, receber o StarterPack lacrado, abri-lo pelo backend e consultar a coleção. Ainda não oferece uma partida jogável. As capacidades técnicas abaixo conservam as evidências registradas no [contexto operacional](contexto-operacional-para-ias.md); a tarefa atual é documental/narrativa, sem nova execução de testes de runtime ou consulta à produção.
 
 ## Stack
 
@@ -28,6 +28,12 @@ Angular 18 standalone, TypeScript, Firebase modular/AngularFire, Authentication,
 - **Deck Rules:** validador puro de 24 cartas e até duas cópias por identidade, com revisão/elegibilidade do catálogo versionado e quantidades pessoais ou referência exata de treino em contexto confiável. Retorna composição canônica independente, sem autenticar, consultar coleção ou criar instâncias. API em [Gameplay Contract](gameplay-contract.md#deck-rules-e-contexto-confiável).
 
 “Implementado” descreve código e cobertura existentes, sem encerrar o QA remoto pendente. Contratos e referências de implementação ficam nos [docs de domínio](README.md#domínios).
+
+## Conteúdo narrativo paralelo
+
+A [Lore Bible v0.1](lore/README.md) contém oito documentos de universo e governança narrativa, com cinco regiões, cinco facções, oito personagens e dez Story Seeds. O Soft Canon inicial foi incorporado editorialmente sob a delegação de criação; os seis pontos de Hard Canon continuam **PROPOSTA / PENDENTE**, sem aprovação explícita de Emanuel. Expansões menores estão autorizadas nos [limites da autonomia narrativa](lore/canon.md#limites-da-autonomia).
+
+Esse eixo não modifica regras, schemas ou cartas persistidas, não adapta Nyra nem as identidades de protótipo e não promove o próximo marco de Core Game. Há ficha narrativa, workflow para futuras cartas e modelo de Art Prompt; nenhuma carta ou imagem foi criada por essa documentação.
 
 ## Sistemas parciais
 
@@ -62,12 +68,14 @@ Fonte principal: [riscos e dívidas](riscos-e-dividas-tecnicas.md). Permanecem Q
 
 ## Marco atual e continuidade
 
-Deck Rules está concluído e permanece como único marco CURRENT no [roadmap](roadmap.md#deck-rules), conforme o pedido de limitar esta tarefa a esse marco. Deck Builder continua planejado, sem promoção ou execução. Evidências locais estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
+Deck Rules está concluído e permanece como único marco CURRENT no [roadmap](roadmap.md#deck-rules). Deck Builder continua planejado, sem promoção ou execução; a Lore Bible é um eixo paralelo. Evidências técnicas anteriores estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
 
 ## Owner decisions required
 
 Nenhuma decisão de produto pendente para Deck Rules v0.1 concluído. Mudanças de regras/números, persistência/autorização, economia e multiplayer futuros conservam seus próprios requisitos e limites de aprovação.
 
+Na lore, a ratificação de HC-01 a HC-06 depende de aprovação explícita de Emanuel; o [registro de cânone](lore/canon.md#hard-canon--proposta--pendente) conserva a pendência. Isso não bloqueia as expansões menores já delegadas, que respeitam a proposta estrutural como limite editorial conservador.
+
 ## Next safe action
 
-Não há incremento pendente nos critérios atuais de Deck Rules. Encerrar o marco nesta tarefa e aguardar nova solicitação para rever a continuidade, sem iniciar Deck Builder, persistência ou batalha. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.
+Core Game: não há incremento pendente nos critérios atuais de Deck Rules; rever sua continuidade somente em nova solicitação, sem iniciar Deck Builder, persistência ou batalha nesta tarefa narrativa. Conteúdo: usar a Lore Bible antes de criar elementos menores e manter decisões centrais pendentes no cânone/Story Seeds, conforme a delegação. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.
