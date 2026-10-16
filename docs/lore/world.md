@@ -56,6 +56,8 @@ Os lírios-de-vau crescem em trechos úmidos de Namar e também em certos campos
 
 Entre as criaturas registradas estão cervos de ramagem, que acumulam musgos nas galhadas e percorrem trilhas da mata, e mariposas de sal, vistas junto a fendas minerais da Escarpa. Sua aparência incomum não as torna emissárias da Queda. Há também animais comuns, predadores, pragas e seres que as comunidades ainda não conseguem classificar. Evitar transformar toda criatura em monstro hostil ou numa revelação cósmica.
 
+Na Escarpa de Sal, alguns guias chamam de **Dorso de Ardósia** um grande quadrúpede herbívoro observado depois do degelo. É um apelido local, sem taxonomia global definida: o animal tem pelagem cinza, cascos largos e placas ósseas escuras que lembram pedra, mas é orgânico, não um golem. Moradores deixam espaço entre sua passagem e os rebanhos; sua origem não foi atribuída à Queda. A apresentação como carta, ainda sem criação no editor, está no [manifesto Starter Wave 01](../content/starter-wave-01.md#07--dorso-de-ardósia); nenhum atributo de gameplay é inferido deste registro.
+
 Os perigos mais frequentes são concretos: fome localizada, enchentes, desabamentos, estradas sem manutenção, cobrança armada de pedágios, disputas por terras e ruínas inseguras. Fenômenos mágicos agravam algumas situações; não explicam todas. Uma cura narrativa ou um ritual descrito aqui não cria efeito de gameplay.
 
 ## Cotidiano, crenças e esperança

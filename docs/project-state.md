@@ -35,6 +35,8 @@ A [Lore Bible v0.1](lore/README.md) contém oito documentos de universo e govern
 
 Esse eixo não modifica regras, schemas ou cartas persistidas, não adapta Nyra nem as identidades de protótipo e não promove o próximo marco de Core Game. Há ficha narrativa, workflow para futuras cartas e modelo de Art Prompt; nenhuma carta ou imagem foi criada por essa documentação.
 
+A [Starter Wave 01](content/starter-wave-01.md) está integralmente preparada em manifesto: 12 nomes finais, oito Unidades/quatro Ações com perfis exatos do deck padrão, lore, descrição visual e 12 Art Prompts. **0/12 criadas no editor nesta execução**: as ferramentas de UI falharam na inicialização, antes de acessar o admin. Todas aguardam criação como `draft`, sem arte e sem Card ID confirmado; não houve escrita direta como alternativa. StarterPack, Nyra, coleção e concessões não foram alterados. Apenas o Dorso de Ardósia foi acrescentado como fauna reutilizável em `lore/world.md`; as outras figuras novas são locais às cartas.
+
 ## Sistemas parciais
 
 - `/game/decks` e `/game/jogar` são placeholders com ações desabilitadas.
@@ -78,4 +80,4 @@ Na lore, a ratificação de HC-01 a HC-06 depende de aprovação explícita de E
 
 ## Next safe action
 
-Core Game: não há incremento pendente nos critérios atuais de Deck Rules; rever sua continuidade somente em nova solicitação, sem iniciar Deck Builder, persistência ou batalha nesta tarefa narrativa. Conteúdo: usar a Lore Bible antes de criar elementos menores e manter decisões centrais pendentes no cânone/Story Seeds, conforme a delegação. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.
+Core Game: não há incremento pendente nos critérios atuais de Deck Rules; rever sua continuidade somente em nova solicitação, sem iniciar Deck Builder, persistência ou batalha nesta tarefa de conteúdo. Starter Wave 01: quando o acesso à UI estiver disponível, conferir homônimos no admin e criar as 12 cartas pelo editor existente como `draft`, sem arte, registrando os IDs reais no manifesto. Publicação e composição do StarterPack dependem das etapas e autorizações próprias; não usar scripts de escrita. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.

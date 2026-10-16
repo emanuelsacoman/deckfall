@@ -18,6 +18,8 @@ O **Game Design v0.1 foi aprovado explicitamente**, e o **Gameplay Contract, Typ
 
 A [Lore Bible v0.1](docs/lore/README.md) inaugura o eixo narrativo de dark fantasy: Vélar reúne reinos, florestas, ruínas e histórias pessoais séculos depois da misteriosa Queda. Há cinco regiões, cinco facções e oito personagens iniciais, com contraste entre beleza e decadência. O Hard Canon está proposto e pendente de aprovação; o Soft Canon inicial é a base editorial expansível. Lore e gameplay permanecem separados.
 
+A [Starter Wave 01](docs/content/starter-wave-01.md) reúne 12 identidades editoriais com os perfis do deck padrão aprovado, lore e prompts de ilustração. A criação das cartas no editor está pendente por indisponibilidade da ferramenta de UI: 0/12 criadas nesta execução, todas preparadas para `draft` e sem arte. A futura composição de 24 cartas não foi aplicada ao StarterPack existente.
+
 O ambiente remoto documentado usa `https://deckfall.web.app`, projeto `cardgame-6fdcb`, com infraestrutura de pacotes publicada e StarterPack configurado com uma Nyra. As [evidências de 13–15/10/2026](docs/contexto-operacional-para-ias.md#evidências-externas-registradas) têm escopo e data; não equivalem a uma nova auditoria de produção. A correção local do MIME das previews e o reparo administrativo estão implementados, mas a publicação posterior e o QA completo com member não têm confirmação. Veja [as pendências reais](docs/riscos-e-dividas-tecnicas.md).
 
 Localhost usa o Firebase configurado no environment, real por padrão. Para desenvolver isolado, configure [os emuladores](docs/pacotes.md#localhost-isolado). Para outras origens ou diagnóstico de imagens, siga [o guia CORS do Storage](docs/configuracao-cors-storage.md).

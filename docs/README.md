@@ -28,6 +28,7 @@ O [README do projeto](../README.md) apresenta o Deckfall. Agentes começam em [A
 | [Usuários](usuarios.md) | Perfis Firestore, vínculo por UID e gestão de papéis |
 | [Cartas](cartas.md) | Contrato atual de dados, arte, assets e CRUD |
 | [Lore Bible](lore/README.md) | Cânone, mundo, eras, regiões, facções, personagens, mistérios e workflow narrativo de cartas; sem mecânicas automáticas |
+| [Starter Wave 01](content/starter-wave-01.md) | Manifesto das 12 identidades iniciais, perfis aprovados, lore, prompts e controle de criação/arte/publicação; composição futura sem alterar o StarterPack atual |
 | [Gameplay Contract](gameplay-contract.md) | API pura: tipos, efeitos/alvos, validação de decks, invariantes e projeção, ainda sem executor/motor/integração |
 | [Editor de cartas](editor-de-cartas.md) | Canvas próprio, Konva, bindings, templates, histórico e exportação |
 | [Coleção do jogador](colecao.md) | Propriedade, gestão administrativa, PNG publicado e reparo de previews |
