@@ -10,6 +10,8 @@ export type {
 } from './effects';
 export { parseGameplayDeckList, validateGameplayDeck, GameplayDeckValidationError } from './decks';
 export { validateGameplayDeckAgainstActiveCatalog } from './deck-compatibility';
+export { PERSONAL_DECK_LIMITS, parsePersonalDeckDraft } from './personal-decks';
+export type { PersonalDeckDraft } from './personal-decks';
 export type {
   GameplayDeckEntry, GameplayDeckList, GameplayDeckCatalog, GameplayOwnedCardQuantity,
   GameplayDeckValidationContext, GameplayValidatedDeckEntry, GameplayValidatedDeck, GameplayDeckValidationReason,

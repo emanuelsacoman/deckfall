@@ -6,7 +6,7 @@ Last reviewed: 2026-10-17
 
 Source of truth for: API, fronteiras e validação do contrato puro de gameplay implementado
 
-O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado. O módulo TypeScript isolado em [shared/gameplay/src](../shared/gameplay/src) contém constantes, tipos, validação estrutural, catálogo fechado de efeitos/parâmetros/alvos, validação de composição e compatibilidade de decks, invariantes de snapshots e projeção por participante. Ele ainda não é importado pelo frontend ou pelas Functions e não oferece partida jogável. A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md); estado e sequência dos marcos permanecem em [Project State](project-state.md) e [roadmap](roadmap.md).
+O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado. O módulo TypeScript isolado em [shared/gameplay/src](../shared/gameplay/src) contém constantes, tipos, validação estrutural, catálogo fechado de efeitos/parâmetros/alvos, contrato de rascunhos pessoais, validação de composição e compatibilidade de decks, invariantes de snapshots e projeção por participante. Ele ainda não é importado pelo frontend ou pelas Functions e não oferece partida jogável. A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md); estado e sequência dos marcos permanecem em [Project State](project-state.md) e [roadmap](roadmap.md).
 
 ## Fonte e responsabilidade
 
@@ -21,6 +21,7 @@ O ponto de entrada é [index.ts](../shared/gameplay/src/index.ts). O módulo usa
 | [effects.ts](../shared/gameplay/src/effects.ts) | Catálogo, parâmetros fechados e validação do destinatário de efeito, sem execução |
 | [decks.ts](../shared/gameplay/src/decks.ts) | Composição e validação contra catálogo/quantidades ou referência de treino confiáveis |
 | [deck-compatibility.ts](../shared/gameplay/src/deck-compatibility.ts) | Adapta somente a versão do envelope pessoal em memória e delega a validação ao Deck Rules existente |
+| [personal-decks.ts](../shared/gameplay/src/personal-decks.ts) | Intenção pessoal parcial com nome, normalização de referências e limites revisáveis de v0.1; sem catálogo ou persistência |
 | [validation.ts](../shared/gameplay/src/validation.ts) | Parsing de perfis e pedidos; delega parâmetros de Ação ao parser de efeitos |
 | [invariants.ts](../shared/gameplay/src/invariants.ts) | Consistência de um snapshot estável, sem executar transições |
 | [projection.ts](../shared/gameplay/src/projection.ts) | Cópia explícita dos campos permitidos ao participante |
@@ -44,6 +45,7 @@ O ponto de entrada é [index.ts](../shared/gameplay/src/index.ts). O módulo usa
 | `validateGameplayEffectTarget(state, actorSeat, effect, target?)` | Existência, lado e Vida positiva do destinatário de dano/cura; compra ao próprio ator | Validar snapshot, autenticar, checar fase/turno/custo/término ou executar |
 | `parseGameplayCommandRequest(unknown)` | Envelope e formato de uma intenção, sem campos de autoridade injetados | Autenticação, participação, turno, alvo legal, custo disponível ou aplicação |
 | `parseGameplayDeckList(unknown)` | Versões e entradas exatas de identidade/revisão/quantidade positiva, copiadas | Tamanho, cópias, elegibilidade, propriedade ou permissão de treino |
+| `parsePersonalDeckDraft(unknown)` | Intenção `{name, rulesVersion, contentVersion, entries}` normalizada, com composição parcial e limites de nome/cópias/total | Existência/revisão canônica das cartas, catálogo ativo, publicação, propriedade, quota por conta, persistência ou admissão |
 | `validateGameplayDeck(unknown, trustedContext)` | Composição v0.1, conteúdo canônico e quantidades pessoais ou referência exata de treino | Autenticação, origem do contexto, consulta à coleção, persistência ou início de partida |
 | `validateGameplayDeckAgainstActiveCatalog(unknown, trustedOwnedContext)` | Mesmas referências pessoais contra o catálogo recebido como ativo, adaptando apenas `contentVersion` em memória e delegando ao validador existente | Origem/ativação real do catálogo, posse real, autenticação, publicação de `Card`, persistência ou admissão de partida |
 | `GameplayDeckValidationError` | Código `invalid-gameplay-deck`, motivo enumerado e mensagem genérica | Detalhes do deck, catálogo ou inventário em erros |
@@ -112,6 +114,20 @@ A entrada, suas entradas, o catálogo e o ownership não são modificados. O res
 
 Essa função pura não comprova a origem do contexto: a futura infraestrutura deverá ler a versão realmente ativa, a publicação atual e a coleção do titular autenticado, derivando a elegibilidade efetiva e o contexto confiável. O helper não consulta Firestore, não verifica status de `Card`, não autentica nem cria uma partida. O fluxo de treino existente permanece separado e inalterado; usar uma referência como bypass pessoal é recusado. Persistência de rascunhos, seus limites de metadados e o hard cap de 20 decks não são implementados por esse helper.
 
+### Intenção parcial de deck pessoal
+
+`parsePersonalDeckDraft(value)` retorna `PersonalDeckDraft`, uma extensão readonly de `GameplayDeckList` somente com `name`. Reutiliza `GameplayDeckEntry`, a versão de regras existente e os parsers estruturais; não cria um segundo formato de referência ou chama o validador de admissão para aceitar rascunhos. O envelope aceita exatamente `name`, `rulesVersion`, `contentVersion` e `entries`; cada referência aceita exatamente `cardId`, `revision` e `quantity`.
+
+O nome recebe trim e precisa ter de 1 a 80 unidades UTF-16 (`String.length`, mesmo critério dos campos atuais); conteúdo interno e Unicode são preservados, sem slug, normalização Unicode ou unicidade. As regras continuam `0.1`. `contentVersion` é apenas um identificador válido de proveniência, sem comparação com conteúdo ativo. IDs são identificadores sintaticamente válidos e revisões são inteiros seguros positivos: isso não comprova que existam ou estejam reconhecidos em qualquer catálogo.
+
+Uma linha declara quantidade 1 ou 2. O parser aceita total agregado de 0 a 24, agrega linhas da mesma identidade/revisão, recusa revisões conflitantes da mesma identidade e recusa mais de duas cópias por identidade sem truncar. Retorna uma linha por identidade em ordem lexical ASCII, sem indicar ordem de compra/partida. Mais de 24 linhas brutas também é recusado antes de copiar a composição, pois quantidades positivas nunca poderiam produzir um total permitido. Toda rejeição desse parser usa o `GameplayContractError` existente, sem incluir payload no erro.
+
+Campos desconhecidos ou de autoridade/persistência, como UID, deckId, timestamps, versão do documento, versão esperada, catálogo, ownership, elegibilidade e flags de validade/treino, são rejeitados em vez de removidos silenciosamente. A entrada não é modificada; resultado, array e referências são independentes. `readonly` continua sendo restrição de tipos, não congelamento do resultado em runtime.
+
+`PERSONAL_DECK_LIMITS` centraliza, em objeto congelado, os limites revisáveis de v0.1: `maxDecks: 20`, `maxNameLength: 80`, `maxCards: 24`, `maxCopies: 2`, `maxDocumentBytes: 16384`. Total e cópias reutilizam os valores aprovados de `GAMEPLAY_RULES`. O parser aplica somente nome e composição da intenção individual; **não comprova quota de 20 decks**. O teto de 16 KiB é preservado para a representação/documento futuro: o JSON compacto UTF-8 da intenção normalizada atual fica conservadoramente abaixo de 8 KiB (nome até 80 unidades escapáveis, no máximo 24 referências, IDs ASCII até 128 e revisões inteiras seguras). Há teste desse extremo com UTF-8 real no harness Node; não se acrescenta cálculo de bytes, Buffer, TextEncoder ou dependência Node/DOM ao domínio. Isso não mede metadados, encoding interno Firestore, payload bruto ou o futuro documento completo, que terão sua própria fronteira.
+
+O parser não exige catálogo, ownership, publicação ou elegibilidade. A futura camada confiável continua responsável por essas conferências ao salvar/editar/admitir; sucesso aqui não é autorização ou recibo de validação. Para conferir um deck completo, extrair explicitamente a projeção `{rulesVersion, contentVersion, entries}`: o rascunho com `name` não é o envelope exato de `validateGameplayDeck` ou do helper de compatibilidade. Ambos permanecem inalterados e continuam recusando composições incompletas. Não há tipo de documento Firestore nem contrato de mutação/concorrência neste incremento.
+
 ## Invariantes do snapshot
 
 `assertGameplayMatchState` confere envelopes e versões, recursos e contadores numéricos do domínio, limites de mão/campo, vagas únicas e unidades vivas com Vida dentro do máximo. Conserva exatamente 24 instâncias por participante entre deck, mão, campo e descarte, com IDs globalmente únicos. Exige perfil/revisão consistentes para cada identidade canônica nos dois lados.
@@ -146,6 +162,8 @@ npm.cmd run test:gameplay
 
 [Testes de compatibilidade](../tests/gameplay/gameplay-deck-compatibility.test.mjs) e [de tipos da API pessoal](../shared/gameplay/type-tests/deck-compatibility.typecheck.ts) cobrem versões aditivas, mudanças irrelevantes, referências removidas/substituídas/inelegíveis, delegação de tamanho/cópias/posse, contexto adversarial, preservação das entradas e regressão do validador direto. Não são testes de admissão autenticada ou do cap transacional.
 
+[Testes de rascunhos pessoais](../tests/gameplay/personal-deck-drafts.test.mjs) e [de tipos da intenção](../shared/gameplay/type-tests/personal-decks.typecheck.ts) cobrem composição de 0–24, agregação/conflitos, nome/Unicode, limites, ordem canônica, entradas estritas/adversariais, imutabilidade, tamanho normalizado e regressões de Deck Rules/compatibilidade. Não testam persistência, quota por conta ou reconhecimento canônico das referências.
+
 ## Fora deste incremento
 
-Permanecem futuros: integração de propriedade/elegibilidade com backend, catálogo/referência reais de gameplay, Deck Builder, executor de efeitos e transições/legalidade de Battle Engine, PRNG concreto, sandbox/bot, persistência de decks/partidas, Callables de batalha, UI e recompensas. Catálogo/parâmetros/alvos e composição válida não são execução. O contrato não autoriza implementar esses marcos em conjunto; consulte o escopo permitido no [roadmap](roadmap.md).
+Permanecem futuros: integração de propriedade/elegibilidade com backend, catálogo/referência reais de gameplay, UI/persistência do Deck Builder, executor de efeitos e transições/legalidade de Battle Engine, PRNG concreto, sandbox/bot, persistência de partidas, Callables de batalha e recompensas. Catálogo/parâmetros/alvos e composição válida não são execução. O contrato não autoriza implementar esses marcos em conjunto; consulte o escopo permitido no [roadmap](roadmap.md).

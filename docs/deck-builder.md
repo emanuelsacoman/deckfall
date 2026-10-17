@@ -1,6 +1,6 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — PRIMEIRO HELPER PURO IMPLEMENTADO; PERSISTÊNCIA NÃO IMPLEMENTADA**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — COMPATIBILIDADE E RASCUNHOS PUROS IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
 
 Last reviewed: 2026-10-17
 
@@ -10,7 +10,7 @@ Source of truth for: arquitetura aprovada de persistência, autorização e cicl
 
 Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na revisão seguinte da mesma data, **aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com a revisão de compatibilidade descrita neste documento**: a troca da versão ativa não invalida automaticamente referências antigas ainda reconhecidas e elegíveis. As recomendações adotadas abaixo são arquitetura aprovada para v0.1; as alternativas comparativas não foram adotadas. As regras do jogo continuam no [Game Design](game-design.md#preparação-decks-e-acesso--aprovado).
 
-Após revisar o escopo, Emanuel autorizou exclusivamente o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto): helper puro, exportação, testes unitários/de tipos e documentação. Esse contrato pequeno está implementado e validado. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
+Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, e depois o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), com exportações, testes e documentação. Esses dois contratos pequenos estão implementados e validados. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
 
 ## Base atual verificada em modo somente leitura
 
@@ -64,7 +64,7 @@ Não persistir `isValid`, `isPlayable`, ownership, elegibilidade, raridade, nome
 
 **APROVADO — 17/10/2026.** A gravação aceita de zero a 24 cartas no total e até duas cópias por identidade. Cada linha tem quantidade 1 ou 2; remover uma carta remove a linha. O backend agrega linhas repetidas da mesma identidade/revisão, recusa revisões conflitantes, confere os limites e salva uma linha por identidade em ordem lexical ASCII. Não existe mínimo de Unidades/Ações, raridade ou facção.
 
-Toda referência precisa ser reconhecida e corresponder à revisão canônica de seu `contentVersion`, mesmo em rascunho. Guardar uma intenção incompleta não permite inventar IDs/perfis. Revisões de conteúdo já utilizadas continuam disponíveis para leitura e reparo; sua retirada de novas partidas não apaga as listas salvas. O backend permite conservar referências reconhecidas que perderam publicação, elegibilidade ou posse; informa indisponibilidade sem promover o deck a jogável.
+Na futura camada de salvamento confiável, toda referência precisa ser reconhecida e corresponder à revisão canônica de seu `contentVersion`, mesmo em rascunho. O parser puro de intenção implementado **não realiza essa conferência**: valida somente formato e normalização, sem alegar reconhecimento. Guardar uma intenção incompleta não permitirá inventar perfis canônicos. Revisões de conteúdo já utilizadas continuam previstas para leitura e reparo; sua retirada de novas partidas não apaga as listas salvas. O futuro backend permitirá conservar referências reconhecidas que perderam publicação, elegibilidade ou posse; informará indisponibilidade sem promover o deck a jogável.
 
 Limite v0.1 aprovado de **16 KiB** para o pedido de mutação e para a representação normalizada do documento. A medida de aplicação é JSON em UTF-8, com timestamps da projeção normalizados para ISO UTC; não é uma medição do armazenamento interno do Firestore. Campos exatos, até 24 entradas, IDs limitados e nome curto mantêm o envelope pequeno. Recusar campos extras, conteúdo binário e tentativas de inflar o pedido antes de consultas caras. O teto da aplicação é deliberadamente menor que o [limite da plataforma](https://firebase.google.com/docs/firestore/quotas#collections_documents_and_fields), sem alterar esse limite nem schemas existentes.
 
@@ -238,7 +238,7 @@ A revisão obrigatória de Emanuel foi explícita:
 
 > Nunca substitua automaticamente uma revisão por outra.
 
-Não há decisão de arquitetura aguardando aprovação nesses cinco blocos. O primeiro incremento puro foi posteriormente autorizado e validado, conforme a seção abaixo; o hard cap transacional continua sem prova de integração. A autorização não libera deploy, operação remota, implementação do marco inteiro ou avanço ao Battle Engine.
+Não há decisão de arquitetura aguardando aprovação nesses cinco blocos. Os incrementos puros de compatibilidade e rascunhos foram posteriormente autorizados e validados, conforme as seções abaixo; o hard cap transacional continua sem prova de integração. A autorização não libera deploy, operação remota, implementação do marco inteiro ou avanço ao Battle Engine.
 
 ## Primeiro incremento técnico proposto
 
@@ -276,4 +276,20 @@ A documentação de API/evidências foi atualizada junto do incremento. `decks.t
 
 Parser do documento Firestore e seus metadados, CRUD, transporte/Callables, adapters de persistência, leitura real de catálogo/coleção, provisionamento/ativação de conteúdo, UI, Rules, índices, quota/counter, teste transacional do cap, migração ou escrita de decks, integração/build de Functions, mudanças em `Card`/coleção/StarterPack, admissão real de partidas, Battle Engine, matchmaking, deploy e qualquer operação remota.
 
-**Próximo incremento recomendado, não implementado:** delimitar o contrato puro de rascunho pessoal, com nome/metadados, composição parcial e limites v0.1, acompanhado de testes, sem persistência real. Aguardar nova autorização; não iniciar backend, UI ou qualquer outro incremento nesta tarefa.
+## Contrato puro de rascunhos pessoais
+
+Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, com autorização exclusiva para intenção pessoal, normalização, limites, exportação e testes. Não inclui metadados de persistência, documento Firestore ou mutações/concorrência.
+
+`parsePersonalDeckDraft(value)` retorna `PersonalDeckDraft` com somente `{name, rulesVersion, contentVersion, entries}`. Reutiliza `GameplayDeckList`/`GameplayDeckEntry`; referências continuam `{cardId, revision, quantity}`. O nome recebe trim, é não vazio e tem até 80 unidades UTF-16, sem slug ou exigência de unicidade. Regras continuam `0.1`; conteúdo é somente proveniência sintaticamente válida, sem consulta ao catálogo ativo.
+
+Aceita total agregado de 0–24 cartas e linhas de quantidade 1 ou 2; agrega a mesma identidade/revisão, recusa revisões conflitantes e terceira cópia sem truncar. Ordena por `cardId` lexical ASCII, sem associar à ordem da partida. Envelope e referências são estritos, rejeitando autoridade, flags de validade, treinamento e metadados de persistência; resultado e referências não compartilham estruturas com a entrada. Rejeições usam `GameplayContractError`, sem novo contrato público de erro.
+
+`PERSONAL_DECK_LIMITS` exporta os limites revisáveis de v0.1 (20/80/24/2/16 KiB). Nome/composição são aplicados por este parser; quota por conta não é. O JSON compacto UTF-8 normalizado atual é conservadoramente menor que 8 KiB pelos limites dos campos, incluindo escapes do nome; por isso o teto futuro de 16 KiB permanece constante documentada, sem adicionar cálculo de bytes ou dependência Node/DOM ao domínio. Metadados futuros/documento completo e tamanho bruto de transporte não são medidos aqui.
+
+Não exige nem valida catálogo, existência real da identidade, revisão canônica, publicação, ownership ou elegibilidade. Uma referência desconhecida pode passar sintaticamente e ainda ser recusada pela futura camada confiável. O rascunho não comprova autenticação, autorização ou aptidão para jogar. `validateGameplayDeck` e `validateGameplayDeckAgainstActiveCatalog` ficaram intactos e continuam exigindo composição completa para conferência/admissão, usando sua projeção sem `name`.
+
+Arquivos implementados: [personal-decks.ts](../shared/gameplay/src/personal-decks.ts), exportações em [index.ts](../shared/gameplay/src/index.ts), [36 testes Node](../tests/gameplay/personal-deck-drafts.test.mjs) e [testes de tipos](../shared/gameplay/type-tests/personal-decks.typecheck.ts). API detalhada em [Gameplay Contract](gameplay-contract.md#intenção-parcial-de-deck-pessoal).
+
+`npm.cmd run test:gameplay` passou com **115/115 testes**, incluindo os 79 anteriores e 36 novos, além do build e testes de tipos. Angular/Firebase/Functions/Rules não foram executados; o incremento permanece isolado e não fornece prova do cap transacional de 20 decks. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
+
+**Próximo menor incremento recomendado, não implementado:** definir o contrato puro de mutação/concorrência, separando intenção, recurso e versão esperada, antes de qualquer CRUD/adapters/Firestore. Aguardar nova autorização; encerrar esta tarefa sem implementação adicional.
