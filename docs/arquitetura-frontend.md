@@ -10,14 +10,14 @@ model/services/fire = infraestrutura Firebase/Auth/Storage/Functions
 model/services/tools = estado, validação e utilitários reutilizáveis
 model/guards = autorização de navegação e proteção de saída
 functions/src = backend confiável, Admin SDK e operações de jogo
-shared/gameplay/src = contrato puro e isolado de batalha, sem integração às aplicações ainda
+shared/gameplay/src = contrato puro de batalha/decks, com reutilização de tipos na porta backend de decks
 ```
 
 Componentes não acessam Firestore diretamente. `AuthService` resolve sessão/perfil; `CardService`, `CardTemplateService`, `UserService`, `PlayerCollectionService` e `PackDefinitionService` persistem seus domínios. `CardStorageService` organiza arquivos editáveis e materializa uploads/cópias; `PublishedCardStorageService` trata a imagem final publicada em namespace separado. Guard não substitui Rules.
 
 ## Contrato puro de gameplay
 
-O [Gameplay Contract](gameplay-contract.md) fica em `shared/gameplay/src`, fora do build Angular e das Functions. Usa TypeScript/ECMAScript sem Angular, Firebase, Konva, Node ou DOM no domínio; scripts próprios na raiz compilam/testam o módulo. Atualmente não há imports dele em `src/` ou `functions/src/`. A decisão está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md).
+O [Gameplay Contract](gameplay-contract.md) fica em `shared/gameplay/src`, fora do build Angular. Usa TypeScript/ECMAScript sem Angular, Firebase, Konva, Node ou DOM no domínio; scripts próprios na raiz compilam/testam o módulo. A porta em `functions/src/decks` reutiliza `PersonalDeckResource` e o tipo do limite por `import type` das declarações geradas em `shared/gameplay/lib`. Não há import de runtime no backend ou frontend. Os scripts Functions preparam as declarações sem ampliar `rootDir: src` ou alterar `lib/index.js`; o build remoto usa o JavaScript pré-compilado pelo predeploy, conforme [contexto operacional](contexto-operacional-para-ias.md#comandos-de-validação). A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md).
 
 Perfis de batalha, cópias físicas, snapshot autoritativo, intenções e visões não dependem de `Card`/canvas ou atributos livres do editor. Parsers validam formato e parâmetros aprovados dos efeitos, invariantes conferem snapshots estáveis e uma whitelist produz a visão do participante. Essa projeção exige snapshot previamente validado e seat derivado de autenticação/autorização pela futura integração; não cria uma fronteira de acesso sozinha.
 
@@ -25,9 +25,11 @@ Perfis de batalha, cópias físicas, snapshot autoritativo, intenções e visõe
 
 `decks.ts` separa `parseGameplayDeckList` da validação pura de composição por `validateGameplayDeck`. O contexto confiável fornece catálogo versionado com perfil/revisão e elegibilidade por identidade, mais quantidades possuídas ou uma referência de treino cuja composição deve ser igual. O resultado independente agrega quantidades e usa definições canônicas em ordem ASCII; não cria instâncias. O módulo não autentica nem consulta inventário real, e o contexto não pode ser escolhido no payload do cliente. Contratos/limites têm fonte principal em [Deck Rules](gameplay-contract.md#deck-rules-e-contexto-confiável).
 
-Não há Deck Builder, legalidade/transições de batalha, RNG concreto, persistência, Callable ou UI de partida; Decks/Jogar continuam placeholders. A integração frontend/Functions permanece futura e a sequência permitida está no [roadmap](roadmap.md).
+Deck Builder tem contratos puros e uma porta backend com erros de domínio, sem operações ou adapter. Não há legalidade/transições de batalha, RNG concreto, persistência de decks/partidas, Callable de decks ou UI de partida; Decks/Jogar continuam placeholders. A integração de runtime frontend/Functions permanece futura e a sequência permitida está no [roadmap](roadmap.md).
 
 ## Autoridade backend
+
+`functions/src/decks` contém somente `PersonalDeckStore`/`PersonalDeckStoreTransaction` e erros puros. A transação recebe UID confiável como argumento e mantém o recurso sem ownership duplicado; lista limitada e create/replace/delete são operações distintas no contrato. Não há imports Firebase nessa porta, adapter, domínio CRUD, autenticação de decks ou nova Callable. Semântica e limites: [Deck Builder](deck-builder.md#porta-backend-do-store-e-erros-de-domínio).
 
 O cliente pode solicitar operações de jogo, mas somente o backend confiável pode conceder propriedade ou valor ao jogador. `PlayerInitializationService` solicita `initializePlayer` sem enviar UID; `PlayerPackService` consulta instâncias próprias e solicita `openPack` somente com `packInstanceId`. Functions usam `request.auth.uid` e validam perfil/configuração/invariantes. O Admin SDK existe apenas em `functions/`, separado do build Angular, e ignora Security Rules: autenticação, autorização e invariantes são verificadas novamente no servidor.
 

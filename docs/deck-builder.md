@@ -1,6 +1,6 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS PUROS IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS PUROS E PORTA BACKEND IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
 
 Last reviewed: 2026-10-17
 
@@ -10,7 +10,7 @@ Source of truth for: arquitetura aprovada de persistência, autorização e cicl
 
 Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na revisão seguinte da mesma data, **aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com a revisão de compatibilidade descrita neste documento**: a troca da versão ativa não invalida automaticamente referências antigas ainda reconhecidas e elegíveis. As recomendações adotadas abaixo são arquitetura aprovada para v0.1; as alternativas comparativas não foram adotadas. As regras do jogo continuam no [Game Design](game-design.md#preparação-decks-e-acesso--aprovado).
 
-Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais) e o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), com exportações, testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
+Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações) e a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), com testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
 
 ## Base atual verificada em modo somente leitura
 
@@ -177,7 +177,7 @@ A referência não precisa de posse ou de um `Card` colecionável artificial. De
 
 ## Operações, concorrência e falhas
 
-**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma futura operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações) estão implementados; serviço, transporte e gravação continuam futuros.
+**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma futura operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações) e a [porta backend](#porta-backend-do-store-e-erros-de-domínio) estão implementados; operações de domínio, adapter, transporte e gravação continuam futuros.
 
 | Operação | Comportamento recomendado |
 | --- | --- |
@@ -316,4 +316,35 @@ Fonte: [personal-decks.ts](../shared/gameplay/src/personal-decks.ts), [exportaç
 
 `npm.cmd run test:gameplay` passou com **145/145 testes**, incluindo os 115 anteriores e 30 novos, além do build TypeScript e testes de tipos. Suítes Angular/Firebase/Functions/Rules não foram executadas neste incremento isolado. Isso não comprova transações ou o hard cap de 20 decks; o teste concorrente obrigatório continua pendente.
 
-**Próximo menor incremento recomendado, não implementado:** contrato do store backend de decks e dos erros de conflito, sem adapter Firestore, endpoints ou CRUD real. Aguardar nova autorização; encerrar esta tarefa sem implementação adicional. Deck Builder permanece CURRENT e incompleto; persistência não implementada.
+## Porta backend do store e erros de domínio
+
+Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autorização exclusiva para interfaces/tipos backend, erros puros, testes e documentação. Fonte: [personal-deck-store.ts](../functions/src/decks/personal-deck-store.ts) e [personal-deck-errors.ts](../functions/src/decks/personal-deck-errors.ts). Nada foi acrescentado ao módulo compartilhado: a porta fica no backend e reutiliza `PersonalDeckResource`, sem segundo schema ou tipos Firebase.
+
+| Interface/tipo | Contrato |
+| --- | --- |
+| `PersonalDeckStore` | `runTransaction<T>(uid, action): Promise<T>`; UID confiável vincula toda a unidade ao mesmo titular. Não há leitura ou write direto fora do callback. |
+| `PersonalDeckStoreTransaction` | `get(deckId)` retorna recurso ou `null`; `list(limit)` retorna recursos readonly; `create(resource)`, `replace(resource)` e `delete(deckId)` enfileiram operações distintas. |
+| `PersonalDeckReadLimit` | Derivado de `typeof PERSONAL_DECK_LIMITS.maxDecks`, atualmente 20; parâmetro obrigatório da lista, sem opção ilimitada ou paginação antecipada. |
+
+O UID é argumento backend, previamente derivado de autenticação/autorização; não integra draft, recurso, request ou documento. A porta não autentica esse argumento. O futuro adapter deverá manter o escopo do titular, traduzir dados persistidos para a projeção existente e recusar documentos malformados, sem ocultá-los de uma lista/contagem de capacidade.
+
+`create` significa create-if-absent: destino existente deve falhar, inclusive no commit, sem overwrite ou geração de outro ID. `replace` exige recurso previamente lido como existente e substitui sua representação completa, sem criar ou fazer merge. `delete` recebe somente ID previamente lido como existente, sem transformar ausência em sucesso. As precondições são obrigações do domínio/adapter futuros; a interface sozinha não as executa.
+
+Todas as leituras `get/list` devem ocorrer antes dos writes no callback. O domínio futuro compara `stored.version` com a versão esperada e decide incremento, timestamps e no-op. Uma criação/duplicação poderá ler destino, origem quando aplicável e `list(PERSONAL_DECK_LIMITS.maxDecks)` na mesma unidade antes de decidir capacidade e enfileirar `create`. A lista deverá devolver no máximo o limite, ou todos os recursos se houver menos, sem filtrar por composição ou elegibilidade. O adapter futuro deverá confirmar todas as escritas atomicamente, abortar todas em falha e poder repetir o callback em contenção; callbacks não poderão produzir efeitos externos. Não há implementação ou simulação dessa atomicidade, de comparação de versões ou do hard cap. **19 decks + duas criações simultâneas, nunca 21**, continua sendo prova de integração obrigatória, com a condição de parada aprovada antes de workaround.
+
+| Erro | Código estável |
+| --- | --- |
+| `PersonalDeckConflictError` | `personal-deck-conflict` |
+| `PersonalDeckNotFoundError` | `personal-deck-not-found` |
+| `PersonalDeckAlreadyExistsError` | `personal-deck-already-exists` |
+| `PersonalDeckCapacityError` | `personal-deck-capacity-exceeded` |
+
+Todos derivam de `PersonalDeckDomainError`, com união `PersonalDeckDomainErrorCode`, construtores sem argumentos e mensagem genérica. Não carregam UID, recurso, versões atuais/esperadas, coleção, paths, causa ou stack interna. São distintos de `GameplayContractError`; não há códigos HTTP/Callable ou tradução de exceção Firebase. Capacidade é uma futura decisão do domínio a partir da leitura limitada, não uma falha técnica do banco; a taxonomia não implementa essa decisão nem replica o limite.
+
+A dependência compartilhada é **somente de tipos**, por declarações geradas em `shared/gameplay/lib`, sem `require` externo no JavaScript da porta. Os scripts em [functions/package.json](../functions/package.json) preparam esse build antes de compilar/testar Functions, preservando `rootDir: src`, `lib/index.js`, dependências e entrypoints. O predeploy local existente continua compilando o pacote; `gcp-build` vazio evita que o build remoto tente acessar arquivos fora de `functions/`, usando o JavaScript pré-compilado. Procedimento e limite dessa validação no [contexto operacional](contexto-operacional-para-ias.md#comandos-de-validação); isso não comprova deploy ou funcionamento remoto.
+
+Validação: `test:gameplay` **145/145**, `test:functions` **74/74** (67 anteriores + sete novos), testes de tipos backend e `build:functions`, todos exit 0. [Testes de erros](../functions/tests/personal-deck-store.test.ts) cobrem taxonomia/payload mínimo; [testes de tipos](../functions/tests/personal-deck-store.typecheck.ts) verificam recurso, UID externo, limite derivado e operações no mesmo callback. Não há store fake ou teste de concorrência simulada. Angular, Rules e emuladores não foram executados.
+
+Estado explícito: **store contract implementado; Firestore adapter NÃO implementado; CRUD de domínio NÃO implementado; Functions/Callables de decks NÃO implementadas; Rules de decks NÃO implementadas; UI NÃO implementada**. Sem queries/transações reais, contador, alteração remota ou deploy.
+
+**Próximo menor incremento recomendado, não implementado:** operação de domínio backend de exclusão com versão esperada e store injetado, com testes de domínio, sem adapter, endpoint ou UI. Aguardar nova autorização; encerrar esta tarefa sem implementar essa operação. Deck Builder permanece CURRENT e incompleto.

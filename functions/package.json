@@ -5,10 +5,11 @@
   "main": "lib/index.js",
   "engines": { "node": "22" },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test lib-test/tests/*.test.js",
-    "test:integration": "tsc -p tsconfig.test.json && node --test lib-test/tests/initialize-player.emulator.js"
+    "build": "npm --prefix .. run build:gameplay && tsc -p tsconfig.json",
+    "gcp-build": "",
+    "typecheck": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json --noEmit",
+    "test": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json && node --test lib-test/tests/*.test.js",
+    "test:integration": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json && node --test lib-test/tests/initialize-player.emulator.js"
   },
   "dependencies": {
     "firebase-admin": "14.5.0",

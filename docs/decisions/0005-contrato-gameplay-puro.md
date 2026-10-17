@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-17
 
 Source of truth for: justificativa do isolamento técnico do Gameplay Contract
 
@@ -20,7 +20,7 @@ O incremento inicial não integrou o módulo ao frontend ou às Functions nem cr
 
 ## Consequences
 
-O contrato pode ser compilado e testado isoladamente sem configurar Angular ou emuladores. Suas dependências não carregam o renderer, credenciais ou SDKs de infraestrutura. Ainda não há reutilização efetiva nas aplicações: os próximos marcos precisarão integrar o contrato explicitamente, preservando essas fronteiras.
+O contrato pode ser compilado e testado isoladamente sem configurar Angular ou emuladores. Suas dependências não carregam o renderer, credenciais ou SDKs de infraestrutura. A evolução de Deck Builder passou a reutilizar exclusivamente declarações de tipos na porta backend de persistência, sem importar runtime compartilhado ou Firebase na porta. O build Functions prepara as declarações e conserva seu layout; não há execução de gameplay no backend. Integrações de runtime futuras ainda precisarão tratar explicitamente o empacotamento, preservando essas fronteiras. Fonte dessa evolução: [porta de decks](../deck-builder.md#porta-backend-do-store-e-erros-de-domínio).
 
 Tipos readonly não substituem verificações em runtime. Invariantes de snapshot não provam que uma sequência foi legal; validação de intenção não autentica nem executa, e projeção não decide acesso. Conservação de instâncias também não valida composição ou propriedade de deck. Esses limites permanecem explícitos para evitar anunciar uma batalha implementada antes do motor.
 

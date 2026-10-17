@@ -78,11 +78,17 @@ Angular/Jasmine/Karma exige Chrome. Rules e integração exigem Java/Firebase CL
 
 `shared/gameplay` tem build isolado com TypeScript já instalado na raiz: `build:gameplay` gera JS/CommonJS e declarações em `shared/gameplay/lib`, ignorado pelo Git; `typecheck:gameplay` verifica casos positivos/negativos de tipos sem emitir arquivos. O Angular não importa o módulo nesta etapa, e Functions conserva seu `rootDir: src`. Para validar o contrato, execute explicitamente `test:gameplay`; o build Angular sozinho não o verifica. API e limites estão em [Gameplay Contract](gameplay-contract.md).
 
+A porta backend de decks consome somente tipos dessas declarações geradas. Os scripts `build`, `typecheck`, `test` e `test:integration` em `functions/package.json` executam antes `npm --prefix .. run build:gameplay`, evitando depender de uma saída antiga ou ausente em checkout limpo. Instalar dependências da raiz e de Functions continua necessário; `rootDir`, `outDir` e `main: lib/index.js` foram preservados. O JS emitido da porta não carrega código externo a `functions/`; integração de runtime compartilhado ainda não foi implementada.
+
+O predeploy local existente em `firebase.json` compila Functions antes de um upload autorizado. `functions/package.json` tem `gcp-build` vazio para usar esse `lib/` pré-compilado e impedir recompilação remota dependente de `../shared`/`../package.json`, ausentes no pacote de origem. Essa opção de controle do build é documentada em [Node.js runtime — NPM build script](https://docs.cloud.google.com/run/docs/runtimes/nodejs#npm_build_script). Não publicar fontes sem executar o build local; isso não autoriza deploy nem comprova o pipeline remoto nesta tarefa.
+
 Selecionar verificações pelo impacto real da tarefa, conforme [AGENTS.md](../AGENTS.md). Em trabalho exclusivamente Markdown, revisar conteúdo, diff, links relativos, coerência dos status e escopo dos arquivos; não apresentar resultados anteriores como testes recém-executados. Mudanças de runtime, contratos, autorização ou Rules exigem os checks correspondentes.
 
 Falhas `EPERM` ao resolver o perfil Windows ocorreram em execuções anteriores no sandbox. Não são falhas de domínio nem justificam alterar testes/segurança. Inspecionar o erro e seguir a aprovação de execução exigida pelo ambiente; não presumir autorização permanente.
 
 ### Validação disponível
+
+No **incremento da porta backend de decks em 17/10/2026**, `npm.cmd run test:gameplay` passou com **145/145**, `npm.cmd run build:functions` passou e `npm.cmd run test:functions` passou com **74/74** (67 anteriores + sete novos), todos exit 0 com Node.js 22.23.3 portátil no sandbox. O último comando também compilou os casos positivos/negativos de tipos do store. Logs locais ignorados: `.local-tools/deck-store-gameplay-tests.log`, `.local-tools/deck-store-build-functions.log` e `.local-tools/deck-store-test-functions.log`. Cobertura nova: erros/códigos distintos e payload mínimo sem stack, tipos compartilhados, UID externo, leitura limitada derivada da constante e operações distintas no callback. Inspeção do código emitido confere ausência de dependência runtime compartilhada na porta; build não é comprovação de deploy. Sem adapter, domínio CRUD, contador, quota ou atomicidade implementados. Angular, Rules e emuladores não foram executados; o teste concorrente 19 + duas criações continua pendente. Não houve operação remota ou deploy.
 
 No **incremento puro de recurso/mutações de Deck Builder em 17/10/2026**, `npm.cmd run test:gameplay` passou com **145/145 testes**, incluindo os 115 anteriores e 30 novos. Build TypeScript e testes de tipos também passaram, exit 0, com Node.js 22.23.3 portátil no sandbox; evidência local ignorada: `.local-tools/personal-deck-resources-gameplay-tests.log`. A cobertura verifica os seis parsers, timestamps ISO UTC/calendário/ordem, versões independentes, nomes, campos extras/autoridade, getters sem execução, frozen/detached e regressão de rascunhos/Deck Rules/compatibilidade. `decks.ts` e o helper de compatibilidade ficaram inalterados; a extração privada de nome preserva o contrato de rascunhos. Não houve Firebase, Functions, Rules, UI, adapters, dependências novas, CRUD, concorrência real ou quota. Angular/Firebase/Functions/emuladores não foram executados, conforme escopo isolado autorizado. O caso obrigatório 19 + duas criações continua pendente para futura persistência. Não houve deploy ou operação remota.
 
@@ -101,11 +107,11 @@ Na etapa de Deck Rules, build/testes de gameplay passaram com Node.js 22 portát
 | Verificação | Resultado registrado | Evidência e escopo |
 | --- | --- | --- |
 | Jasmine/Karma | 620/620, Chrome Headless 155 | Editor QoL, 17/10: `.local-tools/editor-qol-angular-tests-complete.log`, exit 0 |
-| Gameplay Contract + Typed Effects + Deck Rules + contratos pessoais | Build, testes de tipos e 145/145 Node Test Runner | Recurso/mutações puros, 17/10: `.local-tools/personal-deck-resources-gameplay-tests.log`, exit 0; anterior tinha 115/115 |
+| Gameplay Contract + Typed Effects + Deck Rules + contratos pessoais | Build, testes de tipos e 145/145 Node Test Runner | Regressão do store, 17/10: `.local-tools/deck-store-gameplay-tests.log`, exit 0 |
 | Build Angular de produção | Aprovado, sem avisos | Editor QoL, 17/10: `.local-tools/editor-qol-build-final.log`, exit 0 |
 | Firestore/Storage Rules | 56/56 em demo-cardgame | Anterior: revisão documental de 15/10, `npm.cmd run test:rules`, exit 0 |
-| Build Functions | Aprovado | Anterior: `.local-tools/preview-fix-build-functions.log` |
-| Domínio backend | 67/67 | Anterior: `.local-tools/preview-fix-test-functions.log` |
+| Build Functions | Aprovado | Porta backend, 17/10: `.local-tools/deck-store-build-functions.log`, exit 0 |
+| Domínio backend + erros de decks | 74/74 e testes de tipos | Porta backend, 17/10: `.local-tools/deck-store-test-functions.log`, exit 0; anterior tinha 67/67 |
 | Integração Callable | 15/15 em demo-cardgame | Anterior: `.local-tools/preview-fix-test-functions-emulator.log` |
 
 A cobertura atual pode ser conferida em specs junto aos serviços/componentes, [functions/tests](../functions/tests) e [tests/rules/cardgame.rules.test.mjs](../tests/rules/cardgame.rules.test.mjs). Inclui concessão/abertura transacionais e idempotentes, versão histórica, concorrência/limites/falhas sem writes parciais, negação de writes de member, reveal/revisão, MIME com SDK instalado, retry/lifecycle de URLs e reparo administrativo. Testes locais não comprovam sessão real em produção.
