@@ -1,6 +1,6 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, DOMÍNIOS DELETE/RENAME E PORTAS BACKEND/CATÁLOGO IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, DOMÍNIOS DELETE/RENAME, PORTAS BACKEND/CATÁLOGO E VALIDAÇÃO HISTÓRICA IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
 
 Last reviewed: 2026-10-17
 
@@ -10,7 +10,7 @@ Source of truth for: arquitetura aprovada de persistência, autorização e cicl
 
 Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na revisão seguinte da mesma data, **aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com a revisão de compatibilidade descrita neste documento**: a troca da versão ativa não invalida automaticamente referências antigas ainda reconhecidas e elegíveis. As recomendações adotadas abaixo são arquitetura aprovada para v0.1; as alternativas comparativas não foram adotadas. As regras do jogo continuam no [Game Design](game-design.md#preparação-decks-e-acesso--aprovado).
 
-Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), a [exclusão](#operação-de-domínio-de-exclusão), a [renomeação no domínio](#operação-de-domínio-de-renomeação) e a [porta de leitura de catálogo versionado](#porta-backend-de-leitura-de-catálogo-versionado), com testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
+Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), a [exclusão](#operação-de-domínio-de-exclusão), a [renomeação no domínio](#operação-de-domínio-de-renomeação), a [porta de leitura de catálogo versionado](#porta-backend-de-leitura-de-catálogo-versionado) e a [validação pura de referências históricas](#validação-pura-de-referências-históricas), com testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
 
 ## Base atual verificada em modo somente leitura
 
@@ -340,8 +340,9 @@ Todas as leituras `get/list` devem ocorrer antes dos writes no callback. O domí
 | `PersonalDeckCapacityError` | `personal-deck-capacity-exceeded` |
 | `PersonalDeckVersionExhaustedError` | `personal-deck-version-exhausted` |
 | `PersonalDeckClockError` | `personal-deck-invalid-time` |
+| `PersonalDeckContentError` | `personal-deck-content` |
 
-Todos derivam de `PersonalDeckDomainError`, com união `PersonalDeckDomainErrorCode`, construtores sem argumentos e mensagem genérica. Não recebem UID, recurso, versões atuais/esperadas, coleção, paths ou causa como propriedades de contexto. **A stack nativa é preservada para diagnóstico interno**, conforme correção explícita de Emanuel no incremento de delete; ela não será parte do payload público, cujo mapper ainda não foi implementado. São distintos de `GameplayContractError`; não há códigos HTTP/Callable ou tradução de exceção Firebase. Capacidade é uma futura decisão do domínio a partir da leitura limitada, não uma falha técnica do banco; a taxonomia não implementa essa decisão nem replica o limite.
+Todos derivam de `PersonalDeckDomainError`, com união `PersonalDeckDomainErrorCode` e mensagem genérica. Os seis erros originais têm construtores sem argumentos; `PersonalDeckContentError` recebe apenas o motivo estável descrito na [validação histórica](#validação-pura-de-referências-históricas). Não recebem UID, recurso, versões atuais/esperadas, coleção, paths ou causa como propriedades de contexto. **A stack nativa é preservada para diagnóstico interno**, conforme correção explícita de Emanuel no incremento de delete; ela não será parte do payload público, cujo mapper ainda não foi implementado. São distintos de `GameplayContractError`; não há códigos HTTP/Callable ou tradução de exceção Firebase. Capacidade é uma futura decisão do domínio a partir da leitura limitada, não uma falha técnica do banco; a taxonomia não implementa essa decisão nem replica o limite.
 
 A porta permanece dependente **somente de tipos**, encaminhados por [gameplay.d.ts](../functions/src/gameplay.d.ts) às declarações geradas de `shared/gameplay`. O domínio de delete reutiliza o parser em runtime pelo módulo copiado para dentro do artefato Functions, conforme a seção seguinte. Os scripts em [functions/package.json](../functions/package.json) preparam esse build antes de compilar/testar Functions, preservando `rootDir: src`, `lib/index.js`, dependências e entrypoints. O predeploy local existente continua compilando o pacote; `gcp-build` vazio usa o JavaScript pré-compilado. Procedimento e limite dessa validação no [contexto operacional](contexto-operacional-para-ias.md#comandos-de-validação); isso não comprova deploy ou funcionamento remoto.
 
@@ -414,4 +415,40 @@ Não há active config, fallback para catálogo ativo, writes, ativação ou pro
 
 [Testes de tipos](../functions/tests/personal-deck-catalog.typecheck.ts) verificam assinatura exata, retorno compartilhado ou null, versão explícita, ausência de UID/draft/contexto pessoal/write/ativação e readonly aninhado. Não foi criado banco fake, teste de leitura real ou novo teste de execução. `test:gameplay` **145/145**, backend **119/119**, testes de tipos e `build:functions` passaram, exit 0; as contagens de execução ficaram inalteradas. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Sem alteração de runtime, dependências, configuração, dados remotos ou deploy.
 
-**Próximo menor incremento recomendado, não implementado:** validação pura backend das referências de um rascunho contra catálogo histórico confiável, preparando create/update sem CRUD, adapter ou admissão. Aguardar nova autorização; encerrar esta tarefa sem iniciar esse validador. Deck Builder permanece CURRENT e incompleto.
+## Validação pura de referências históricas
+
+Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, com autorização de Emanuel exclusivamente para o helper puro, testes e documentação. Fonte: [validate-personal-deck-references.ts](../functions/src/decks/validate-personal-deck-references.ts).
+
+```ts
+validatePersonalDeckDraftReferences(
+  value: unknown,
+  trustedCatalog: GameplayDeckCatalog,
+): PersonalDeckDraft
+```
+
+O helper recebe o catálogo histórico confiável já resolvido. Primeiro chama `parsePersonalDeckDraft`, reutilizando integralmente nome, identifiers, limites, agregação e ordem canônica; aceita rascunhos de 0–24 cartas. Em seguida usa `parseGameplayDeckCatalog`: o parser profundo já existente em `decks.ts` foi apenas renomeado/exportado no mesmo arquivo e no barrel, sem mover ou duplicar regras. Seu corpo e a validação de Deck Rules permanecem iguais. Ambos os parsers exigem `rulesVersion: '0.1'`; regras incompatíveis, draft inválido e corrupção do catálogo geram `GameplayContractError`. O catálogo inteiro é conferido, inclusive cartas não usadas e identidades duplicadas, antes de diagnosticar referências.
+
+Com os contratos estruturais satisfeitos, exige igualdade exata entre `draft.contentVersion` e a versão histórica recebida, existência de cada `cardId` e igualdade exata de sua revisão canônica. `PersonalDeckContentError`, em [personal-deck-errors.ts](../functions/src/decks/personal-deck-errors.ts), distingue `content-version`, `unknown-card` e `revision`, com código `personal-deck-content`, mensagem genérica e somente o motivo como contexto adicional. Não inclui carta, revisão, catálogo, deck, UID ou causa; conserva a stack interna nativa.
+
+**`eligible: false` não rejeita uma referência reconhecida nesse nível de persistência.** O helper não recebe UID, ownership ou contexto de treino, não verifica publicação/status de `Card`, preview ou assets. Retorna somente o `PersonalDeckDraft` normalizado e detached, sem flags de validade ou autoridade de partida. Não substitui cartas/revisões, altera quantidades ou migra proveniência. A futura admissão continua exigindo composição completa, elegibilidade e propriedade/contexto confiáveis pelos fluxos próprios.
+
+Não há adaptação para catálogo ativo aqui: `v1` salvo exige catálogo histórico `v1`. A compatibilidade de `v1` salvo com ativo `v2` continua pertencendo exclusivamente a `validateGameplayDeckAgainstActiveCatalog`, que permanece inalterado. `validateGameplayDeck` continua exigindo 24 cartas e suas condições originais. O helper não chama esses validadores, não consome `PersonalDeckCatalogReader` e não faz I/O. O adapter futuro continua obrigado a rejeitar conteúdo corrompido; a validação defensiva pura não implementa essa leitura nem prova sua origem.
+
+Cobertura em [31 testes de execução](../functions/tests/validate-personal-deck-references.test.ts) e [testes de tipos](../functions/tests/validate-personal-deck-references.typecheck.ts): drafts vazios/parciais/completos, identidade/revisão/versão, inelegibilidade aceita, normalização delegada, frozen/detached, corrupção do catálogo, privacidade dos erros e regressão dos validadores de partida. `test:gameplay` **145/145**, backend **150/150**, testes de tipos e `build:functions` passaram, exit 0. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível); Angular, Rules e emuladores não foram executados, pois esses caminhos não mudaram.
+
+| Capacidade de Deck Builder | Estado real |
+| --- | --- |
+| Store contract | ✅ |
+| Delete domain | ✅ |
+| Rename domain | ✅ |
+| Canonical catalog read port | ✅ Interface, sem reader concreto |
+| Historical draft reference check | ✅ Helper puro |
+| Update domain | ❌ |
+| Create domain | ❌ |
+| Duplicate domain | ❌ |
+| Firestore adapters | ❌ |
+| Callables de decks | ❌ |
+| Rules de decks | ❌ |
+| UI | ❌ |
+
+**Próximo menor incremento recomendado, não implementado:** operação de domínio update, reutilizando parsers, validação histórica, store, clock e porta de catálogo, com precondição de versão e sem adapter, Callable ou UI. Exige nova autorização de escopo; nenhuma operação update foi iniciada. Deck Builder permanece o único CURRENT e está incompleto. O hard cap de 20 decks e o teste 19 + duas criações continuam pendentes para a futura persistência. Não houve Firebase, consulta real, deploy ou alteração remota neste incremento.

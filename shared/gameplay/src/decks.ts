@@ -97,7 +97,8 @@ export function parseGameplayDeckList(value: unknown): GameplayDeckList {
   };
 }
 
-function parseCatalog(value: unknown): GameplayDeckCatalog {
+/** Validates and detaches trusted canonical content; does not establish its provenance or activation. */
+export function parseGameplayDeckCatalog(value: unknown): GameplayDeckCatalog {
   const catalog = contractRecord(value, ['rulesVersion', 'contentVersion', 'cards']);
   if (catalog['rulesVersion'] !== GAMEPLAY_RULES_VERSION) throw new GameplayContractError();
   const identities = new Set<string>();
@@ -116,7 +117,7 @@ function parseCatalog(value: unknown): GameplayDeckCatalog {
 
 function parseContext(value: GameplayDeckValidationContext): GameplayDeckValidationContext {
   const context = contractRecord(value, ['kind', 'catalog'], ['ownership', 'referenceId', 'referenceDeck']);
-  const catalog = parseCatalog(context['catalog']);
+  const catalog = parseGameplayDeckCatalog(context['catalog']);
   if (context['kind'] === 'owned') {
     const owned = contractRecord(value, ['kind', 'catalog', 'ownership']);
     const identities = new Set<string>();

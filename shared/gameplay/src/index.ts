@@ -8,7 +8,7 @@ export { GAMEPLAY_EFFECT_CATALOG, parseGameplayEffect, validateGameplayEffectTar
 export type {
   GameplayEffect, GameplayDamageEffect, GameplayHealEffect, GameplayDrawEffect, GameplayEffectDestination,
 } from './effects';
-export { parseGameplayDeckList, validateGameplayDeck, GameplayDeckValidationError } from './decks';
+export { parseGameplayDeckList, parseGameplayDeckCatalog, validateGameplayDeck, GameplayDeckValidationError } from './decks';
 export { validateGameplayDeckAgainstActiveCatalog } from './deck-compatibility';
 export {
   PERSONAL_DECK_LIMITS, parsePersonalDeckDraft, parsePersonalDeckResource, parsePersonalDeckCreateRequest,

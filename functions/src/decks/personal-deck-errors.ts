@@ -4,7 +4,8 @@ export type PersonalDeckDomainErrorCode =
   | 'personal-deck-already-exists'
   | 'personal-deck-capacity-exceeded'
   | 'personal-deck-version-exhausted'
-  | 'personal-deck-invalid-time';
+  | 'personal-deck-invalid-time'
+  | 'personal-deck-content';
 
 /** No contextual payload; the native stack remains available for internal diagnostics only. */
 export abstract class PersonalDeckDomainError extends Error {
@@ -54,5 +55,15 @@ export class PersonalDeckClockError extends PersonalDeckDomainError {
   constructor() {
     super('personal-deck-invalid-time');
     this.name = 'PersonalDeckClockError';
+  }
+}
+
+export type PersonalDeckContentReason = 'content-version' | 'unknown-card' | 'revision';
+
+/** Historical reference mismatch only; no card identities, revisions or playability assertion. */
+export class PersonalDeckContentError extends PersonalDeckDomainError {
+  constructor(readonly reason: PersonalDeckContentReason) {
+    super('personal-deck-content');
+    this.name = 'PersonalDeckContentError';
   }
 }
