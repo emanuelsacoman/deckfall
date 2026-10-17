@@ -9,6 +9,7 @@ export type {
   GameplayEffect, GameplayDamageEffect, GameplayHealEffect, GameplayDrawEffect, GameplayEffectDestination,
 } from './effects';
 export { parseGameplayDeckList, validateGameplayDeck, GameplayDeckValidationError } from './decks';
+export { validateGameplayDeckAgainstActiveCatalog } from './deck-compatibility';
 export type {
   GameplayDeckEntry, GameplayDeckList, GameplayDeckCatalog, GameplayOwnedCardQuantity,
   GameplayDeckValidationContext, GameplayValidatedDeckEntry, GameplayValidatedDeck, GameplayDeckValidationReason,

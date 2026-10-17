@@ -84,6 +84,8 @@ Falhas `EPERM` ao resolver o perfil Windows ocorreram em execuções anteriores 
 
 ### Validação disponível
 
+No **primeiro incremento puro de Deck Builder em 17/10/2026**, `npm.cmd run test:gameplay` passou com **79/79 testes**, incluindo os 59 anteriores e 20 novos testes de compatibilidade. O mesmo script concluiu build TypeScript e testes de tipos, exit 0, usando Node.js 22.23.3 portátil no sandbox; evidência local ignorada: `.local-tools/deck-compatibility-gameplay-tests.log`. `validateGameplayDeckAgainstActiveCatalog` somente adapta a versão do envelope em memória e delega ao Deck Rules existente; `decks.ts` e treino permaneceram inalterados. O módulo segue isolado, sem nova dependência ou integração Firebase/UI/Functions. Angular, Rules, Functions e emuladores não foram executados neste incremento, conforme seu escopo autorizado. O hard cap de 20 decks não foi implementado ou testado; o teste obrigatório de 19 + duas criações continua pendente para a futura persistência. Não houve deploy ou operação remota.
+
 Na melhoria de **qualidade de vida do editor, concluída em 17/10/2026**, a suíte Angular completa passou com **620/620 testes**, Chrome Headless 155 e exit 0: `.local-tools/editor-qol-angular-tests-complete.log`. O build Angular de produção passou sem avisos, exit 0: `.local-tools/editor-qol-build-final.log`. A cobertura adicionada verifica cor/paleta sem conversão de strings existentes, rascunhos inválidos e cancelamento, percentuais/precisão e inteiros, setas/Shift com histórico agrupado, foco/restrições dos atalhos, renomeação, ações de imagem, alinhamento, zoom e Dados. O schema persistido, o validador de canvas, Firebase, gameplay e dependências foram preservados.
 
 A primeira execução completa teve timeouts em testes ornamentais existentes e falhas subsequentes de pixels; os nove testes ornamentais passaram isoladamente, e duas execuções completas posteriores passaram, incluindo a final acima. Não houve alteração nesses testes ou no renderer para contornar as falhas. Chrome e build encontraram restrições de acesso no sandbox; as execuções correspondentes fora dele tiveram escalada aprovada. Não houve QA manual responsivo ou autenticado em produção, acesso a dados remotos ou deploy. Rules, backend, integração e gameplay não foram repetidos nesta melhoria exclusivamente local do editor; seus resultados anteriores permanecem identificados abaixo.
@@ -95,7 +97,7 @@ Na etapa de Deck Rules, build/testes de gameplay passaram com Node.js 22 portát
 | Verificação | Resultado registrado | Evidência e escopo |
 | --- | --- | --- |
 | Jasmine/Karma | 620/620, Chrome Headless 155 | Editor QoL, 17/10: `.local-tools/editor-qol-angular-tests-complete.log`, exit 0 |
-| Gameplay Contract + Typed Effects + Deck Rules | Build, testes de tipos e 59/59 Node Test Runner | Deck Rules, 15/10: `npm.cmd run test:gameplay`, exit 0; suíte anterior tinha 45/45 |
+| Gameplay Contract + Typed Effects + Deck Rules + compatibilidade pessoal | Build, testes de tipos e 79/79 Node Test Runner | Deck Builder puro, 17/10: `.local-tools/deck-compatibility-gameplay-tests.log`, exit 0; anterior tinha 59/59 |
 | Build Angular de produção | Aprovado, sem avisos | Editor QoL, 17/10: `.local-tools/editor-qol-build-final.log`, exit 0 |
 | Firestore/Storage Rules | 56/56 em demo-cardgame | Anterior: revisão documental de 15/10, `npm.cmd run test:rules`, exit 0 |
 | Build Functions | Aprovado | Anterior: `.local-tools/preview-fix-build-functions.log` |

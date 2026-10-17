@@ -1,6 +1,6 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — NÃO IMPLEMENTADA**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — PRIMEIRO HELPER PURO IMPLEMENTADO; PERSISTÊNCIA NÃO IMPLEMENTADA**
 
 Last reviewed: 2026-10-17
 
@@ -10,7 +10,7 @@ Source of truth for: arquitetura aprovada de persistência, autorização e cicl
 
 Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na revisão seguinte da mesma data, **aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com a revisão de compatibilidade descrita neste documento**: a troca da versão ativa não invalida automaticamente referências antigas ainda reconhecidas e elegíveis. As recomendações adotadas abaixo são arquitetura aprovada para v0.1; as alternativas comparativas não foram adotadas. As regras do jogo continuam no [Game Design](game-design.md#preparação-decks-e-acesso--aprovado).
 
-**A aprovação da arquitetura não autoriza escrever o primeiro incremento técnico nesta tarefa.** Emanuel pediu seu objetivo, arquivos, testes e limites antes de autorizar código. O [incremento proposto](#primeiro-incremento-técnico-proposto) aguarda essa autorização. Não foram criados tipos, serviços, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos.
+Após revisar o escopo, Emanuel autorizou exclusivamente o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto): helper puro, exportação, testes unitários/de tipos e documentação. Esse contrato pequeno está implementado e validado. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
 
 ## Base atual verificada em modo somente leitura
 
@@ -214,7 +214,7 @@ Depois desse commit, o motor usa o snapshot fixado, IDs de instância e regras d
 
 Esta lista é planejamento **PENDENTE**, não autorização para executar nesta tarefa:
 
-- Obter autorização para o primeiro incremento delimitado abaixo; os cinco blocos de arquitetura já foram aprovados com a revisão de compatibilidade, sem autorizar implementação de toda a lista.
+- Delimitar e obter autorização para cada próximo incremento; o primeiro helper puro abaixo foi autorizado e concluído, sem liberar implementação de toda a lista.
 - Especificar e revisar o contrato de transporte dos pedidos/respostas e dos conflitos; manter UID, perfis, propriedade, elegibilidade e datas fora da autoridade do cliente.
 - Preparar conteúdo canônico real e vínculos explícitos antes de habilitar decks pessoais jogáveis; não converter fixtures, Nyra ou StarterPack automaticamente.
 - Testar rascunhos parciais versus validação completa, normalização/limites, campos indevidos, IDs/revisões forjados, coleção ausente/malformada e referências de treino exatas.
@@ -238,32 +238,30 @@ A revisão obrigatória de Emanuel foi explícita:
 
 > Nunca substitua automaticamente uma revisão por outra.
 
-Permanecem pendentes a autorização do primeiro incremento técnico e sua futura prova de funcionamento; não há decisão de arquitetura ainda aguardando aprovação nesses cinco blocos. A aprovação não autoriza deploy, operação remota, implementação do marco inteiro ou avanço ao Battle Engine.
+Não há decisão de arquitetura aguardando aprovação nesses cinco blocos. O primeiro incremento puro foi posteriormente autorizado e validado, conforme a seção abaixo; o hard cap transacional continua sem prova de integração. A autorização não libera deploy, operação remota, implementação do marco inteiro ou avanço ao Battle Engine.
 
 ## Primeiro incremento técnico proposto
 
-Status deste incremento: **PROPOSTO / AGUARDANDO AUTORIZAÇÃO DE EMANUEL**. Nenhum arquivo de código ou teste foi criado nesta tarefa.
+Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autorização explícita de Emanuel para somente esse escopo. O título original da seção é conservado para os links existentes. O marco Deck Builder não está concluído.
 
 ### Objetivo
 
-Implementar apenas um helper puro de compatibilidade entre uma **projeção de composição salva** (`GameplayDeckList`, sem metadados Firestore) e o catálogo ativo fornecido por um chamador confiável. Validar a projeção original antes de construir uma cópia transitória; copiar as mesmas entradas e `rulesVersion`, usar apenas a `contentVersion` do catálogo do contexto e delegar a `validateGameplayDeck` **sem modificá-lo**. Aceitar somente contexto `owned`, também em runtime; a exceção de treino permanece no fluxo separado existente.
+Foi implementado `validateGameplayDeckAgainstActiveCatalog(value, trustedContext)`, exportado por `shared/gameplay`. Recebe uma **projeção de composição salva** (`GameplayDeckList`, sem metadados Firestore) e contexto pessoal confiável, restrito nos tipos a `Extract<GameplayDeckValidationContext, {kind: 'owned'}>`. Valida a projeção original antes de construir uma cópia transitória; conserva suas entradas e `rulesVersion`, usa apenas a `contentVersion` do catálogo do contexto e retorna o `GameplayValidatedDeck` produzido por `validateGameplayDeck`, **sem modificá-lo**. Exige `owned` também em runtime; a exceção de treino permanece no fluxo separado existente.
 
-Esse é o menor passo porque torna verificável a revisão aprovada sem integrar Firebase, criar persistência ou resolver o build compartilhado de Functions. O helper permanece no módulo puro já compilado/testado isoladamente; não é autenticação, consulta de propriedade real, conferência de que o catálogo recebido é realmente o ativo ou recibo de admissão. Essas responsabilidades continuam na infraestrutura backend futura.
+Esse passo torna verificável a revisão aprovada sem integrar Firebase, criar persistência ou resolver o build compartilhado de Functions. O helper permanece no módulo puro compilado/testado isoladamente; não é autenticação, consulta de propriedade real, conferência de que o catálogo recebido é realmente o ativo ou recibo de admissão. Essas responsabilidades continuam na infraestrutura backend futura. A [API e seus limites](gameplay-contract.md#compatibilidade-pessoal-com-catálogo-ativo) são documentados no Gameplay Contract.
 
-### Arquivos previstos
+### Arquivos implementados
 
-Os nomes novos abaixo são planejamento, não arquivos já criados:
-
-| Arquivo | Mudança prevista |
+| Arquivo | Mudança realizada |
 | --- | --- |
-| `shared/gameplay/src/deck-compatibility.ts` | Helper puro de adaptação/compatibilidade pessoal, com validação do envelope original, contexto `owned` e cópia independente. |
-| `shared/gameplay/src/index.ts` | Exportar a API mínima do helper. |
-| `tests/gameplay/gameplay-deck-compatibility.test.mjs` | Casos de execução específicos da compatibilidade e das regressões descritas abaixo, usando fixtures locais. |
-| `shared/gameplay/type-tests/deck-compatibility.typecheck.ts` | Casos positivos/negativos da API: contexto pessoal obrigatório, referências completas e retorno sem autoridade de autenticação ou mutação de inventário. |
+| [deck-compatibility.ts](../shared/gameplay/src/deck-compatibility.ts) | Helper fino de adaptação/compatibilidade pessoal, com validação do envelope original, contexto `owned` e cópia independente; sem regras de composição paralelas. |
+| [index.ts](../shared/gameplay/src/index.ts) | Exportação da API do helper, sem novo contrato público de resultado. |
+| [gameplay-deck-compatibility.test.mjs](../tests/gameplay/gameplay-deck-compatibility.test.mjs) | 20 testes de execução específicos, usando fixtures locais. |
+| [deck-compatibility.typecheck.ts](../shared/gameplay/type-tests/deck-compatibility.typecheck.ts) | Casos positivos/negativos da API pessoal, referências completas e retorno sem autoridade de autenticação ou mutação de inventário. |
 
-A documentação de API/evidências seria atualizada no mesmo incremento autorizado, principalmente [Gameplay Contract](gameplay-contract.md), este documento e o estado/roadmap conforme o resultado real. Não se prevê alterar `decks.ts`, manifests, dependências, tsconfigs ou scripts: os padrões existentes de build/teste já incluem esses diretórios. Se surgir necessidade material fora disso, reavaliar o escopo antes de ampliar.
+A documentação de API/evidências foi atualizada junto do incremento. `decks.ts`, manifests, dependências, tsconfigs e scripts permaneceram intactos: os padrões existentes de build/teste já incluem esses diretórios.
 
-### Testes previstos
+### Cobertura validada
 
 - `v1 → v2` aditivo: mesmas identidades/revisões/quantidades continuam válidas, retorno canônico usa o catálogo ativo, e a entrada preserva a proveniência original.
 - Remoção de identidade, revisão diferente ou inelegibilidade no ativo: recusar sem substituir referência ou atualizar o documento original.
@@ -272,10 +270,10 @@ A documentação de API/evidências seria atualizada no mesmo incremento autoriz
 - Entrada, catálogo, propriedade e referências permanecem independentes e sem mutação; não produzir instâncias, concessões ou recibos de autorização.
 - Chamada direta de `validateGameplayDeck` com versões divergentes continua falhando por `content-version`; não enfraquecer seu contrato para acomodar a adaptação.
 
-Executar `npm.cmd run test:gameplay` para build, testes de tipos e testes Node de todo o módulo, além de revisão de diff/links. Isso é validação **prevista**, não executada nesta tarefa. O teste concorrente de 20 decks pertence ao incremento futuro de persistência e continuará obrigatório; este helper não fornece evidência para o hard cap.
+`npm.cmd run test:gameplay` passou com **79/79 testes**, incluindo os 20 novos, build TypeScript e testes de tipos. A suíte original de 59 testes permaneceu aprovada; `validateGameplayDeck` e `training-reference` não foram alterados. Evidência datada no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Angular, emuladores, Rules e Functions não foram executados porque o incremento permanece isolado. O teste concorrente de 20 decks pertence ao incremento futuro de persistência e continua obrigatório; este helper não fornece evidência para o hard cap.
 
 ### Fora do escopo desse primeiro incremento
 
 Parser do documento Firestore e seus metadados, CRUD, transporte/Callables, adapters de persistência, leitura real de catálogo/coleção, provisionamento/ativação de conteúdo, UI, Rules, índices, quota/counter, teste transacional do cap, migração ou escrita de decks, integração/build de Functions, mudanças em `Card`/coleção/StarterPack, admissão real de partidas, Battle Engine, matchmaking, deploy e qualquer operação remota.
 
-**Próxima ação: aguardar autorização explícita de Emanuel para esse incremento delimitado. Nenhum código será escrito nesta entrega.**
+**Próximo incremento recomendado, não implementado:** delimitar o contrato puro de rascunho pessoal, com nome/metadados, composição parcial e limites v0.1, acompanhado de testes, sem persistência real. Aguardar nova autorização; não iniciar backend, UI ou qualquer outro incremento nesta tarefa.

@@ -2,11 +2,11 @@
 
 Status: Active
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-17
 
 Source of truth for: API, fronteiras e validação do contrato puro de gameplay implementado
 
-O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado. O módulo TypeScript isolado em [shared/gameplay/src](../shared/gameplay/src) contém constantes, tipos, validação estrutural, catálogo fechado de efeitos/parâmetros/alvos, validação de composição de decks, invariantes de snapshots e projeção por participante. Ele ainda não é importado pelo frontend ou pelas Functions e não oferece partida jogável. A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md); estado e sequência dos marcos permanecem em [Project State](project-state.md) e [roadmap](roadmap.md).
+O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado. O módulo TypeScript isolado em [shared/gameplay/src](../shared/gameplay/src) contém constantes, tipos, validação estrutural, catálogo fechado de efeitos/parâmetros/alvos, validação de composição e compatibilidade de decks, invariantes de snapshots e projeção por participante. Ele ainda não é importado pelo frontend ou pelas Functions e não oferece partida jogável. A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md); estado e sequência dos marcos permanecem em [Project State](project-state.md) e [roadmap](roadmap.md).
 
 ## Fonte e responsabilidade
 
@@ -20,6 +20,7 @@ O ponto de entrada é [index.ts](../shared/gameplay/src/index.ts). O módulo usa
 | [targets.ts](../shared/gameplay/src/targets.ts) | Formato dos alvos; existência/lado são conferidos separadamente |
 | [effects.ts](../shared/gameplay/src/effects.ts) | Catálogo, parâmetros fechados e validação do destinatário de efeito, sem execução |
 | [decks.ts](../shared/gameplay/src/decks.ts) | Composição e validação contra catálogo/quantidades ou referência de treino confiáveis |
+| [deck-compatibility.ts](../shared/gameplay/src/deck-compatibility.ts) | Adapta somente a versão do envelope pessoal em memória e delega a validação ao Deck Rules existente |
 | [validation.ts](../shared/gameplay/src/validation.ts) | Parsing de perfis e pedidos; delega parâmetros de Ação ao parser de efeitos |
 | [invariants.ts](../shared/gameplay/src/invariants.ts) | Consistência de um snapshot estável, sem executar transições |
 | [projection.ts](../shared/gameplay/src/projection.ts) | Cópia explícita dos campos permitidos ao participante |
@@ -44,6 +45,7 @@ O ponto de entrada é [index.ts](../shared/gameplay/src/index.ts). O módulo usa
 | `parseGameplayCommandRequest(unknown)` | Envelope e formato de uma intenção, sem campos de autoridade injetados | Autenticação, participação, turno, alvo legal, custo disponível ou aplicação |
 | `parseGameplayDeckList(unknown)` | Versões e entradas exatas de identidade/revisão/quantidade positiva, copiadas | Tamanho, cópias, elegibilidade, propriedade ou permissão de treino |
 | `validateGameplayDeck(unknown, trustedContext)` | Composição v0.1, conteúdo canônico e quantidades pessoais ou referência exata de treino | Autenticação, origem do contexto, consulta à coleção, persistência ou início de partida |
+| `validateGameplayDeckAgainstActiveCatalog(unknown, trustedOwnedContext)` | Mesmas referências pessoais contra o catálogo recebido como ativo, adaptando apenas `contentVersion` em memória e delegando ao validador existente | Origem/ativação real do catálogo, posse real, autenticação, publicação de `Card`, persistência ou admissão de partida |
 | `GameplayDeckValidationError` | Código `invalid-gameplay-deck`, motivo enumerado e mensagem genérica | Detalhes do deck, catálogo ou inventário em erros |
 | `assertGameplayMatchState(unknown)` | Snapshot estruturalmente consistente com as invariantes abaixo | Se ele foi produzido por uma sequência legal de comandos |
 | `projectGameplayParticipant(state, viewerSeat)` | Visão montada por whitelist, sem compartilhar estruturas aninhadas da entrada | Autenticar o solicitante ou conferir o snapshot automaticamente |
@@ -98,6 +100,18 @@ O retorno `GameplayValidatedDeck` distingue `kind: 'owned'` e `kind: 'training-r
 
 Forma/contexto malformados lançam `GameplayContractError`. Violações das regras lançam `GameplayDeckValidationError` com `reason` entre `size`, `copies`, `revision`, `unknown-card`, `ineligible-card`, `ownership`, `content-version` e `reference-mismatch`. O erro não inclui IDs, quantidades, perfis ou inventário. A verificação termina na primeira falha; não é uma lista completa de problemas de edição. Transporte, persistência/autorização de decks e validação integrada antes de criar partida permanecem futuros.
 
+### Compatibilidade pessoal com catálogo ativo
+
+`validateGameplayDeckAgainstActiveCatalog(value, trustedContext)` é o primeiro incremento puro de [Deck Builder](deck-builder.md). Recebe uma projeção `GameplayDeckList`, sem nome, datas ou outros metadados Firestore. O contexto é restrito nos tipos a `Extract<GameplayDeckValidationContext, {kind: 'owned'}>`; em runtime, exige o envelope pessoal exato e rejeita `training-reference`, contextos mistos e campos extras.
+
+O helper primeiro chama `parseGameplayDeckList` sobre a projeção original, sem limpar campos indevidos ou mascarar proveniência/regras inválidas. Inspeciona o contexto e o catálogo com os helpers estruturais existentes para ler `contentVersion` de propriedades de dados, sem executar getters. Constrói apenas em memória um novo envelope com `rulesVersion` e entradas copiados da composição original e `contentVersion` do catálogo recebido. Em seguida chama `validateGameplayDeck`, sem reimplementar tamanho, cópias, identidade/revisão, elegibilidade ou ownership. Retorna diretamente seu `GameplayValidatedDeck`, com `kind: 'owned'` no resultado, sem criar outro contrato de validade.
+
+Uma versão nova aditiva ou mudanças válidas em cartas não usadas pelo deck não invalidam suas referências. Remover uma identidade usada, trocar sua revisão canônica ou torná-la inelegível produz a rejeição normal do Deck Rules. O helper nunca troca revisões, quantidades ou identidades, nem adiciona/remove cartas para fazer o deck passar. Deck incompleto continua inválido para essa conferência. `validateGameplayDeck` chamado diretamente continua exigindo igualdade de versão entre a lista e o catálogo; seu contrato permanece intacto.
+
+A entrada, suas entradas, o catálogo e o ownership não são modificados. O resultado contém perfis canônicos independentes produzidos pelo validador existente; não atualiza a proveniência histórica ou o documento pessoal. Regras incompatíveis são recusadas, sem conversão automática. Igualdade de versão por si só também não assegura validade da composição.
+
+Essa função pura não comprova a origem do contexto: a futura infraestrutura deverá ler a versão realmente ativa, a publicação atual e a coleção do titular autenticado, derivando a elegibilidade efetiva e o contexto confiável. O helper não consulta Firestore, não verifica status de `Card`, não autentica nem cria uma partida. O fluxo de treino existente permanece separado e inalterado; usar uma referência como bypass pessoal é recusado. Persistência de rascunhos, seus limites de metadados e o hard cap de 20 decks não são implementados por esse helper.
+
 ## Invariantes do snapshot
 
 `assertGameplayMatchState` confere envelopes e versões, recursos e contadores numéricos do domínio, limites de mão/campo, vagas únicas e unidades vivas com Vida dentro do máximo. Conserva exatamente 24 instâncias por participante entre deck, mão, campo e descarte, com IDs globalmente únicos. Exige perfil/revisão consistentes para cada identidade canônica nos dois lados.
@@ -129,6 +143,8 @@ npm.cmd run test:gameplay
 [Testes de comando](../tests/gameplay/gameplay-command.test.mjs) cobrem formatos, campos indevidos, envelopes, cópias independentes e perfis. [Testes de efeitos](../tests/gameplay/gameplay-effects.test.mjs) cobrem catálogo/parâmetros, alvos, entradas inválidas, ausência de mutação, limites do helper e integração perfil → snapshot → projeção. [Testes de estado](../tests/gameplay/gameplay-state.test.mjs) cobrem invariantes, fronteiras numéricas e confirmação de mulligan/término. [Testes de projeção](../tests/gameplay/gameplay-projection.test.mjs) cobrem informação oculta, whitelist e independência da saída. [Testes de tipos do contrato](../shared/gameplay/type-tests/contracts.typecheck.ts) e [dos efeitos](../shared/gameplay/type-tests/effects.typecheck.ts) incluem usos inválidos que devem continuar falhando na compilação.
 
 [Testes de decks](../tests/gameplay/gameplay-deck.test.mjs) e [de tipos de decks](../shared/gameplay/type-tests/decks.typecheck.ts) cobrem composição, contexto canônico, quantidades pessoais, referência exata de treino, entradas adversariais e independência dos dados. Resultados executados pertencem ao [contexto operacional](contexto-operacional-para-ias.md). Esta suíte não comprova motor jogável, balanceamento, autenticação de partidas ou integração frontend/backend.
+
+[Testes de compatibilidade](../tests/gameplay/gameplay-deck-compatibility.test.mjs) e [de tipos da API pessoal](../shared/gameplay/type-tests/deck-compatibility.typecheck.ts) cobrem versões aditivas, mudanças irrelevantes, referências removidas/substituídas/inelegíveis, delegação de tamanho/cópias/posse, contexto adversarial, preservação das entradas e regressão do validador direto. Não são testes de admissão autenticada ou do cap transacional.
 
 ## Fora deste incremento
 
