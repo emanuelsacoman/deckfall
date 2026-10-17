@@ -1,0 +1,16 @@
+<div class="range-field">
+  <label [for]="fieldId + '-number'">{{ label }} <output [attr.for]="fieldId + '-slider ' + fieldId + '-number'">{{ displayValue }}{{ unit }}</output></label>
+  <div class="range-entry">
+    <input type="range" [id]="fieldId + '-slider'" [min]="effectiveSliderMin" [max]="effectiveSliderMax" [step]="step" [value]="sliderValue"
+      [disabled]="disabled || !configurationValid" [attr.aria-label]="label + ': ajuste'" [attr.aria-valuetext]="displayValue + unit" (input)="slide($event)" />
+    <div class="number-entry">
+      <input #numberInput type="number" [id]="fieldId + '-number'" [min]="displayMin" [max]="displayMax" [step]="displayStep" [value]="draft"
+        [disabled]="disabled || !configurationValid" [attr.aria-label]="label + (unit ? ' (' + unit + ')' : '')"
+        [attr.aria-invalid]="error ? 'true' : null" [attr.aria-describedby]="error ? fieldId + '-error' : null"
+        (input)="edit($event)" (change)="commit()" (blur)="commit()" (keydown)="keydown($event)" />
+      @if (unit) { <span aria-hidden="true">{{ unit }}</span> }
+    </div>
+  </div>
+  @if (error) { <small class="field-error" role="alert" [id]="fieldId + '-error'">{{ error }}</small> }
+  @if (!configurationValid) { <small class="field-error" role="alert">Intervalo indisponível.</small> }
+</div>

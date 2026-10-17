@@ -1,10 +1,16 @@
 # Editor visual de cartas
 
+Status: Active
+
+Last reviewed: 2026-10-17
+
+Source of truth for: interface, interação e limites do editor visual
+
 ## Modelo próprio e responsabilidades
 
 O editor usa Konva 10.7.1 diretamente em Angular 18 standalone, mantendo CSS e a organização existente. Konva renderiza; `CardEditorDocument` contém os dados da aplicação. Nunca substituir esse modelo por `stage.toJSON()` nem persistir nós, listeners, histórico, Files ou Blob URLs no Firestore.
 
-`CardEditorDocument` separa `data: CardDataInput` de `canvas: CardCanvasData`. Os dados estruturados incluem nome, descrição, raridade, status e atributos; ainda não constituem um contrato de batalha aprovado no [Game Design](game-design.md). Canvas contém dimensões, fundo, elementos e metadados dos assets. A geometria ou cor de um texto não altera o valor de um atributo de jogo.
+`CardEditorDocument` separa `data: CardDataInput` de `canvas: CardCanvasData`. Os dados estruturados incluem nome, descrição, raridade, status e atributos; o perfil de batalha tem [contrato separado](gameplay-contract.md), sem conversão automática dos dados do editor. Canvas contém dimensões, fundo, elementos e metadados dos assets. A geometria ou cor de um texto não altera o valor de um atributo de jogo.
 
 Contratos ficam em `model/interfaces/Cards`. Estado, fábricas, validação, assets, rascunhos e auxiliares de renderização ficam em `model/services/tools`. `CardEditorComponent` orquestra os serviços CRUD/Storage e o componente canvas. Os painéis apresentam e editam estado local, sem acesso Firebase próprio.
 
@@ -22,11 +28,22 @@ Texto possui conteúdo, vínculo, fonte, tamanho, estilo, alinhamento, espaçame
 
 Ao selecionar imagem ou arte principal, Propriedades oferece espelhamento horizontal/vertical e sliders de brilho, contraste, saturação e matiz. Os estilos rápidos **Original**, **Vivo**, **Vintage** e **Preto e branco** combinam esses controles com os filtros existentes. Aplicar um estilo conserva espelhamento, recorte, máscara, posição, preenchimento e arquivo; **Restaurar efeitos e espelhamento** redefine apenas filtro, ajustes de cor e espelhamento. Os binários originais não são convertidos nem sobrescritos.
 
-Novas propriedades são opcionais na versão 1: `flipX`/`flipY` booleanos; `brightness` de −1 a 1; `contrast` de −100 a 100; `saturation` de −1 a 1; `hue` de −180 a 180 graus. Valores ausentes significam sem espelhamento e ajustes neutros (zero). Saturação usa o multiplicador `2 ** saturation`, de 0,5× a 2×; o filtro de cinza é a opção para remover completamente a cor. A ordem de filtros é cinza/sépia, brilho, contraste e HSL. Os ajustes de cor conservam alpha. Espelhamento atua nos pixels dentro da moldura, sem mover máscara ou borda. Aparência acompanha salvamento, JSON, templates, Undo/Redo e exportação.
+O enquadramento oferece quatro ações independentes:
+
+| Ação | Alteração |
+| --- | --- |
+| Centralizar imagem | Zera somente os deslocamentos X/Y da imagem dentro da camada. |
+| 100% zoom | Restaura somente o zoom da imagem para 1. |
+| Resetar crop | Usa a imagem inteira: crop `{ x: 0, y: 0, width: 1, height: 1 }`, mantendo zoom e deslocamentos. |
+| Resetar enquadramento | Restaura zoom 1, deslocamentos zero e crop da imagem inteira. |
+
+Essas ações conservam arquivo, fit, máscara, espelhamento, filtros, ajustes de cor, preenchimento e geometria da camada. Exigem Design, camada desbloqueada e editor disponível; cada ação efetiva tem seu próprio passo de histórico. O recorte normalizado continua disponível em **Recorte avançado**.
+
+Propriedades opcionais existentes na versão 1: `flipX`/`flipY` booleanos; `brightness` de −1 a 1; `contrast` de −100 a 100; `saturation` de −1 a 1; `hue` de −180 a 180 graus. Valores ausentes significam sem espelhamento e ajustes neutros (zero). Saturação usa o multiplicador `2 ** saturation`, de 0,5× a 2×; o filtro de cinza é a opção para remover completamente a cor. A ordem de filtros é cinza/sépia, brilho, contraste e HSL. Os ajustes de cor conservam alpha. Espelhamento atua nos pixels dentro da moldura, sem mover máscara ou borda. Aparência acompanha salvamento, JSON, templates, Undo/Redo e exportação.
 
 Todos os tipos aceitam `borderStyle` opcional: `solid`, `dashed` ou `dotted`; ausência mantém borda contínua. Texto/ícone/atributo aceitam `textDecoration` opcional (`none`, `underline`, `line-through`, `underline line-through`) e `verticalAlign` (`top`, `middle`, `bottom`). Sem esses campos, texto continua no topo e atributo no centro vertical, preservando documentos anteriores.
 
-**Alinhar à carta** move a camada selecionada para esquerda, direita, topo, base ou centro horizontal/vertical. Usa os limites geométricos após rotação, sem incluir sombra ou espessura da borda, e mantém tamanho/rotação. O comando exige Design, camada visível/desbloqueada e editor disponível; posições fora de ±8192 são recusadas com mensagem. Alinhamentos, presets, espelhamento e restauração têm passos separados de histórico; sliders próximos usam o agrupamento de propriedades existente.
+**Alinhar à carta** move a camada selecionada para esquerda, direita, topo, base ou centro horizontal/vertical; **Centralizar na carta** centraliza nos dois eixos. Usa os limites geométricos após rotação, sem incluir sombra ou espessura da borda, e mantém tamanho/rotação. O comando exige Design, camada visível/desbloqueada e editor disponível; posições fora de ±8192 são recusadas com mensagem. Alinhamentos, presets, espelhamento e restauração têm passos separados de histórico; sliders próximos usam o agrupamento de propriedades existente.
 
 Referências de renderização: [brilho Konva](https://konvajs.org/docs/filters/Brighten.html), [matiz e saturação](https://konvajs.org/docs/filters/HSL.html), [espelhamento](https://konvajs.org/docs/sandbox/Mirror_Canvas_Shape.html), [texto](https://konvajs.org/api/Konva.Text.html) e [bordas](https://konvajs.org/api/Konva.Shape.html). Versões de Angular/Konva foram mantidas. Brilho usa a operação aditiva `Brighten` disponível na versão instalada, com zero neutro; consulte [a dívida de API](riscos-e-dividas-tecnicas.md) antes de atualizar Konva.
 
@@ -58,11 +75,23 @@ Em Propriedades → Imagem, **Usar fundo transparente** remove o preenchimento d
 
 O editor desktop combina biblioteca/camadas à esquerda, canvas central e propriedades/dados à direita. Painéis têm scroll; o layout se adapta a notebooks e telas menores sem alterar o modelo da carta.
 
-- **Design:** adicionar, selecionar, mover, redimensionar, rotacionar, duplicar, excluir, esconder e bloquear elementos. Propriedades variam por tipo; camadas oferecem drag and drop e botões de ordenação.
-- **Dados:** Reactive Forms para conteúdo e atributos, incluindo ID estável, chave, rótulo, valor, min/max, ícone e cor. Campos inválidos ficam no formulário; o estado recebe apenas dados válidos. Trocar de modo preserva esse formulário montado.
+- **Design:** adicionar, selecionar, mover, redimensionar, rotacionar, duplicar, excluir, esconder e bloquear elementos. Propriedades variam por tipo e mostram nome, tipo e estados da seleção; camadas oferecem drag and drop, botões de ordenação e indicação de ocultação/bloqueio.
+- **Dados:** Reactive Forms para conteúdo e atributos, incluindo ID estável, chave, rótulo, valor, min/max, ícone e cor. Nome e descrição mostram contadores de 120 e 5000 caracteres. Símbolos rápidos de atributo e **Sem símbolo** preenchem o campo de ícone, que continua sendo texto livre dentro do limite existente. Campos inválidos ficam no formulário; o estado recebe apenas dados válidos. Trocar de modo preserva esse formulário montado.
 - **Preview:** canvas limpo, sem Transformer, grid, guides, handles ou placeholders de imagem. A toolbar conserva a troca de modo e exportação.
 
 Seleção atual é individual. `selectedIds` prepara evolução, mas não implementa multisseleção ou Transformer de vários elementos.
+
+Na lista de camadas, F2, duplo clique no nome ou **Nome** abre a renomeação com foco no texto. Enter/**Confirmar** aceita um nome não vazio de até 120 caracteres; Esc/**Cancelar** descarta o rascunho. A alteração conserva o ID e os vínculos da camada e participa de Undo/Redo. Renomear exige Design, camada desbloqueada e editor disponível; mudar a seleção, sair de Design ou bloquear a camada cancela a edição.
+
+### Controles de cor e precisão
+
+Propriedades e Dados reutilizam `EditorColorFieldComponent`, em `card-editor/shared/`, com amostra, seletor nativo, texto, **Limpar** e **Transparente**. O texto mantém um rascunho local: Enter ou saída do campo confirma uma cor válida; Esc recupera o valor confirmado. Valor inválido mostra erro e não altera o documento. As strings aceitas pelo validador, incluindo vazio e transparência, continuam preservadas; o seletor nativo aplica uma cor RGB opaca somente quando escolhida, sem converter automaticamente cores com alpha.
+
+O controle cobre `fill`, `stroke`, `shadowColor`, `gradientColor` de formas, `trackColor` de barras, `accentColor`/`gemColor` de molduras e emblemas, `background.color`/`color2` e `attribute.color`. Vazio e `transparent` continuam sendo valores distintos, com ações explícitas.
+
+`editorDocumentColors` extrai dinamicamente até 12 cores distintas do fundo, das propriedades das camadas e dos atributos. O helper e os controles são auxiliares de interface: não criam campos persistidos nem modificam o schema ou os defaults visuais. Nos Dados, a confirmação da cor continua passando pelos validadores do formulário.
+
+`EditorRangeFieldComponent`, no mesmo diretório, reúne slider, entrada numérica precisa, valor/unidade visíveis e erro local, com confirmação por Enter, mudança ou saída do campo e cancelamento por Esc. Percentuais são apenas apresentação: opacidade/relevo 100% continuam 1 no modelo; zoom e deslocamentos da imagem também conservam suas escalas internas. Saturação mantém seu valor e a indicação do fator multiplicador. A rotação oferece presets −90°, 0°, 90° e 180°; o slider cobre −180° a 180°, enquanto a entrada aceita o limite existente de −360° a 360°. No zoom da imagem, o slider vai de 10% a 300%, e a entrada mantém a faixa de 10% a 1000%. Não há redução automática de valores válidos que estejam fora da faixa do slider. Edição de propriedades exige Design e camada desbloqueada; fundo/dimensões exigem Design; os controles ficam indisponíveis durante processamento.
 
 ## Bindings seguros
 
@@ -78,7 +107,7 @@ Uma imagem com `binding:'art'` acompanha o asset do primeiro elemento artwork co
 
 Drag/transform alteram nós durante o gesto e gravam geometria no estado ao terminar, sem writes Firebase por movimento. Transformer respeita tamanho mínimo e bloqueio. Grid usa passo 20; snap usa bordas/centros da carta, outros elementos e grid, com guides visuais. São auxiliares de alinhamento, não um sistema completo de constraints.
 
-Zoom muda somente a viewport, com opções 25–150%, ajuste à área disponível e Ctrl+scroll. O estado limita a viewport a 10–200%. Alterar zoom não muda as dimensões reais.
+Zoom muda somente a viewport. A toolbar oferece **−/+** para os próximos níveis predefinidos entre 10% e 200%, seletor de 25–150% com o valor personalizado atual, **100%** e **Ajustar** à área disponível; Ctrl+scroll continua disponível. Os botões respeitam os limites mesmo após um ajuste personalizado. Alterar zoom não modifica o documento, as dimensões reais ou o histórico; os controles da toolbar ficam indisponíveis durante processamento.
 
 Listeners, Stage, observer e imagens decodificadas são destruídos ao encerrar. URLs Blob pertencem ao serviço de assets e são revogadas no seu ciclo de vida.
 
@@ -86,7 +115,11 @@ Listeners, Stage, observer e imagens decodificadas são destruídos ao encerrar.
 
 `CardEditorStateService` mantém snapshots próprios, undo/redo, seleção e dirty state. Há limite de 80 passos. Edição de dados/propriedades pode agrupar mudanças próximas; gestos finalizados geram passos de geometria. Novas mudanças descartam o redo. Salvar atualiza a referência persistida sem substituir o histórico por JSON Konva.
 
-Em Design, fora de inputs/textareas/selects e modais: Delete remove, Ctrl/Cmd+D duplica, Ctrl/Cmd+Z desfaz, Ctrl/Cmd+Shift+Z ou Ctrl/Cmd+Y refaz, Esc desseleciona. Ctrl/Cmd+C/V copia e cola dentro da instância do editor; não usa o clipboard do sistema operacional.
+Os atalhos exigem Design, editor disponível e foco dentro do editor. Não interceptam inputs, textareas, selects, conteúdo editável ou diálogos; carregamento, erro de carregamento e modal também os suspendem. Delete remove, Ctrl/Cmd+D duplica, Ctrl/Cmd+Z desfaz, Ctrl/Cmd+Shift+Z ou Ctrl/Cmd+Y refaz e Esc desseleciona. Esses comandos continuam disponíveis após focar botões comuns da toolbar. Ctrl/Cmd+C/V copia e cola dentro da instância do editor; não usa o clipboard do sistema operacional. F2 inicia a renomeação descrita acima; F2 e movimento por setas não atuam sobre botões da toolbar.
+
+Setas movem a camada selecionada em 1 px; Shift+setas move em 10 px, sem Ctrl/Cmd ou Alt. A camada precisa estar visível e desbloqueada, respeitando posições de ±8192. A repetição contínua da mesma seta e passo constitui um único gesto de Undo; soltar a tecla, mudar o gesto, perder foco, trocar seleção/modo ou executar outro comando encerra o agrupamento.
+
+**Atalhos**, na toolbar, abre uma ajuda local com foco próprio. Esc ou **Fechar** encerra a ajuda e devolve o foco ao botão, sem executar Esc sobre a seleção da carta.
 
 Arquivos de imagens são mantidos em cache durante a sessão para permitir undo após mudanças ou salvamentos. Uma versão antiga recuperada por undo pode precisar reenviar o binário ao salvar, caso sua referência anterior tenha sido limpa.
 

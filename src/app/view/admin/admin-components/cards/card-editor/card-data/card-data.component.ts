@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, effect, inject, untracked } from '@angular/core';
+import { Component, EventEmitter, Output, computed, effect, inject, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl, FormArray, FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators
@@ -9,6 +9,8 @@ import {
 } from '../../../../../../model/interfaces/Cards/card';
 import { CardEditorStateService } from '../../../../../../model/services/tools/card-editor-state.service';
 import { isCanvasColor } from '../../../../../../model/services/tools/card-canvas-validation';
+import { editorDocumentColors } from '../../../../../../model/services/tools/card-editor-colors';
+import { EditorColorFieldComponent } from '../shared/editor-color-field/editor-color-field.component';
 
 type AttributeForm = FormGroup<{
   id: FormControl<string>; key: FormControl<string>; label: FormControl<string>;
@@ -27,7 +29,7 @@ const uniqueKeys: ValidatorFn = control => {
 };
 
 @Component({
-  selector: 'app-card-data', standalone: true, imports: [ReactiveFormsModule],
+  selector: 'app-card-data', standalone: true, imports: [ReactiveFormsModule, EditorColorFieldComponent],
   templateUrl: './card-data.component.html', styleUrl: './card-data.component.css'
 })
 export class CardDataComponent {
@@ -38,6 +40,11 @@ export class CardDataComponent {
   readonly statuses = CARD_STATUSES;
   readonly rarityLabels = CARD_RARITY_LABELS;
   readonly statusLabels = CARD_STATUS_LABELS;
+  readonly documentColors = computed(() => editorDocumentColors(this.state.document(), 12));
+  readonly attributeSymbols = [
+    { value: '★', label: 'estrela' }, { value: '✦', label: 'brilho' },
+    { value: '◆', label: 'losango' }, { value: '○', label: 'círculo' }
+  ] as const;
   @Output() readonly validityChanged = new EventEmitter<boolean>();
   readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [notBlank, Validators.maxLength(CARD_LIMITS.name)] }),
@@ -85,6 +92,20 @@ export class CardDataComponent {
     this.attributes.removeAt(index, { emitEvent: false });
     this.attributes.insert(next, control, { emitEvent: false });
     this.attributes.updateValueAndValidity(); this.form.markAsDirty();
+  }
+
+  commitAttributeColor(index: number, color: string): void {
+    if (this.state.busy() || index < 0 || index >= this.attributes.length) return;
+    const control = this.attributes.at(index).controls.color;
+    if (control.value === color) return;
+    control.markAsDirty(); control.markAsTouched(); control.setValue(color);
+  }
+
+  chooseAttributeSymbol(index: number, symbol: string): void {
+    if (this.state.busy() || index < 0 || index >= this.attributes.length) return;
+    const control = this.attributes.at(index).controls.icon;
+    if (control.value === symbol) return;
+    control.markAsDirty(); control.setValue(symbol);
   }
 
   private publish(): void {

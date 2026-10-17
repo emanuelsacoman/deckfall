@@ -2,15 +2,15 @@
 
 Status: Active
 
-Last reviewed: 2026-10-16
+Last reviewed: 2026-10-17
 
-Última atualização: 2026-10-16
+Última atualização: 2026-10-17
 
 Source of truth for: snapshot presente do Deckfall, bloqueadores e próxima ação segura
 
 ## Produto atual
 
-Deckfall é uma plataforma de cartas digitais com editor/administração e área autenticada do jogador. Permite publicar cartas, administrar pacotes determinísticos, receber o StarterPack lacrado, abri-lo pelo backend e consultar a coleção. Ainda não oferece uma partida jogável. As capacidades técnicas abaixo conservam as evidências registradas no [contexto operacional](contexto-operacional-para-ias.md); a tarefa atual é documental/narrativa, sem nova execução de testes de runtime ou consulta à produção.
+Deckfall é uma plataforma de cartas digitais com editor/administração e área autenticada do jogador. Permite publicar cartas, administrar pacotes determinísticos, receber o StarterPack lacrado, abri-lo pelo backend e consultar a coleção. Ainda não oferece uma partida jogável. As evidências de validação local e os registros datados de produção ficam no [contexto operacional](contexto-operacional-para-ias.md); melhorias locais não comprovam publicação ou funcionamento remoto.
 
 ## Stack
 
@@ -19,7 +19,7 @@ Angular 18 standalone, TypeScript, Firebase modular/AngularFire, Authentication,
 ## Sistemas implementados
 
 - **Auth e admin:** e-mail/senha e Google, vínculo de métodos, recuperação, perfis/papéis e guards; painel de cartas, usuários e pacotes.
-- **Cartas e editor:** dados estruturados separados de canvas, Konva, assets privados, templates, histórico, rascunho local e exportação; catálogo em lista/galeria.
+- **Cartas e editor:** dados estruturados separados de canvas, Konva, assets privados, templates, histórico, rascunho local e exportação; catálogo em lista/galeria. O editor oferece seletor nativo de cores com paleta do documento, sliders com entrada precisa e percentuais, movimento por setas, renomeação de camadas, ações de enquadramento de imagem e zoom rápido. Esses controles preservam o contrato visual persistido; detalhes em [editor](editor-de-cartas.md).
 - **Publicação e previews:** PNG achatado autenticado para coleção/reveal/resumo; sincronização após save e reparo administrativo global/individual com avisos por carta.
 - **Área do jogador e coleção:** navegação/perfil, leitura da própria propriedade, busca/filtro e gestão manual de quantidades pelo admin.
 - **Player Bootstrap e packs:** starter único lacrado, definições determinísticas e versões imutáveis, abertura atômica/idempotente, reveal e recuperação do resultado após refresh.
@@ -80,4 +80,4 @@ Na lore, a ratificação de HC-01 a HC-06 depende de aprovação explícita de E
 
 ## Next safe action
 
-Core Game: não há incremento pendente nos critérios atuais de Deck Rules; rever sua continuidade somente em nova solicitação, sem iniciar Deck Builder, persistência ou batalha nesta tarefa de conteúdo. Starter Wave 01: quando o acesso à UI estiver disponível, conferir homônimos no admin e criar as 12 cartas pelo editor existente como `draft`, sem arte, registrando os IDs reais no manifesto. Publicação e composição do StarterPack dependem das etapas e autorizações próprias; não usar scripts de escrita. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.
+Core Game: não há incremento pendente nos critérios atuais de Deck Rules; rever sua continuidade somente em nova solicitação. A melhoria paralela do editor não inicia Deck Builder, persistência ou batalha. Starter Wave 01: em tarefa própria, quando o acesso à UI estiver disponível, conferir homônimos no admin e criar as 12 cartas pelo editor existente como `draft`, sem arte, registrando os IDs reais no manifesto. Publicação e composição do StarterPack dependem das etapas e autorizações próprias; não usar scripts de escrita. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.

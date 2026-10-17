@@ -86,7 +86,8 @@ describe('Estado do editor de cartas', () => {
       { alignment: 'right', x: 480, y: 51 },
       { alignment: 'top', x: 37, y: 0 },
       { alignment: 'center-y', x: 37, y: 360 },
-      { alignment: 'bottom', x: 37, y: 720 }
+      { alignment: 'bottom', x: 37, y: 720 },
+      { alignment: 'center', x: 240, y: 360 }
     ];
     for (const { alignment, x, y } of edges) {
       it(`alinha ${alignment} sem alterar o tamanho ou o outro eixo`, () => {
@@ -173,5 +174,68 @@ describe('Estado do editor de cartas', () => {
         expect(state.document()).toEqual(original); expect(state.dirty()).toBeFalse(); expect(state.canUndo()).toBeFalse();
       });
     }
+  });
+});
+
+describe('Estado do editor — movimento por teclado', () => {
+  let state: CardEditorStateService;
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [CardEditorStateService] });
+    state = TestBed.inject(CardEditorStateService);
+    const element = { ...createCanvasElement('rect', state.data()), x: 20, y: 30, rotation: 15 };
+    state.load({ ...state.document(), canvas: { ...state.canvas(), elements: [element] } });
+    state.select(element.id);
+  });
+
+  it('agrupa uma tecla mantida por mais de 700 ms num passo, com Undo/Redo do gesto inteiro', () => {
+    const clock = spyOn(Date, 'now').and.returnValue(1000);
+    const before = structuredClone(state.document());
+    state.nudgeSelected(1, 0, 'right:1');
+    clock.and.returnValue(2400); state.nudgeSelected(1, 0, 'right:1');
+    clock.and.returnValue(5000); state.nudgeSelected(1, 0, 'right:1');
+    state.endNudge();
+    const moved = structuredClone(state.document());
+    expect(state.selectedElement()!.x).toBe(23);
+    expect(state.selectedElement()!.y).toBe(30);
+    expect(state.selectedElement()!.rotation).toBe(15);
+    expect(validateCardCanvas(state.canvas())).toEqual(state.canvas());
+    state.undo(); expect(state.document()).toEqual(before); expect(state.canUndo()).toBeFalse();
+    state.redo(); expect(state.document()).toEqual(moved);
+  });
+
+  it('separa gestos ao soltar a tecla ou mudar de direção e preserva passos anteriores', () => {
+    state.nudgeSelected(1, 0, 'right:1'); state.endNudge();
+    state.nudgeSelected(10, 0, 'right:10');
+    const horizontal = structuredClone(state.document());
+    state.nudgeSelected(0, -1, 'up:1');
+    state.undo(); expect(state.document()).toEqual(horizontal);
+    state.undo(); expect(state.canvas().elements[0].x).toBe(21);
+    state.undo(); expect(state.canvas().elements[0].x).toBe(20);
+    expect(state.canUndo()).toBeFalse();
+  });
+
+  it('recusa bloqueio, ocupação, outros modos, invisibilidade e limites sem alterar o documento', () => {
+    const initial = structuredClone(state.document()), id = state.selectedIds()[0];
+    const prepare = [
+      () => state.busy.set(true), () => state.setMode('preview'), () => state.setMode('data'),
+      () => state.patchElement(id, { locked: true }), () => state.patchElement(id, { visible: false }),
+      () => state.patchElement(id, { x: 8192 })
+    ];
+    for (const block of prepare) {
+      state.busy.set(false); state.setMode('design'); state.load(initial); state.select(id); block();
+      const before = structuredClone(state.document());
+      expect(state.nudgeSelected(1, 0, 'right:1')).toBeFalse();
+      expect(state.document()).toEqual(before);
+    }
+  });
+
+  it('centraliza os dois eixos com rotação num único passo sem mudar propriedades', () => {
+    const before = structuredClone(state.document());
+    expect(state.alignSelected('center')).toBeTrue();
+    const centered = structuredClone(state.document());
+    expect(centered.canvas.elements[0].properties).toEqual(before.canvas.elements[0].properties);
+    expect(centered.canvas.elements[0].rotation).toBe(15);
+    state.undo(); expect(state.document()).toEqual(before); expect(state.canUndo()).toBeFalse();
+    state.redo(); expect(state.document()).toEqual(centered);
   });
 });

@@ -2,9 +2,14 @@
 header h2 span { font-size: .7rem; font-weight: 400; color: var(--text-muted); }
 .empty { font-size: .72rem; color: var(--text-muted); margin: var(--deck-space-1) 0 var(--deck-space-3); }
 .layer-list { display: grid; gap: var(--deck-space-2); } .layer { border: 1px solid var(--border); border-radius: var(--deck-radius-sm); background: var(--surface); }
-.layer.selected { border-color: var(--primary); background: var(--background); }.layer.drop-target { border-top: 3px solid var(--primary); }
+.layer.selected { border-color: var(--primary); background: var(--background); box-shadow: inset 3px 0 var(--primary); }.layer.drop-target { border-top: 3px solid var(--primary); }
+.layer.is-hidden .layer-name { color: var(--text-muted); }.layer.is-locked { border-style: dashed; }
+.layer-states { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0 .5rem .4rem; font-size: .65rem; color: var(--text-muted); }
+.layer-states span { border: 1px solid var(--border); border-radius: 3px; padding: .1rem .3rem; }
 .layer-select { display: flex; justify-content: flex-start; width: 100%; color: var(--text); background: transparent; padding: .55rem .5rem; text-align: left; }
-.drag-handle { color: var(--text-muted); cursor: grab; }.layer-name { min-width: 0; overflow-wrap: anywhere; font-size: .75rem; }.layer-name small { display: block; font-size: .65rem; font-weight: 400; color: var(--text-muted); }
+.drag-handle { color: var(--text-muted); cursor: grab; margin-right: .35rem; flex-shrink: 0; }.layer-name { min-width: 0; overflow-wrap: anywhere; font-size: .75rem; }.layer-name small { display: block; font-size: .65rem; font-weight: 400; color: var(--text-muted); }
 .layer-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; border-top: 1px solid var(--border); padding: var(--deck-space-1); gap: var(--deck-space-1); }
 .layer-controls button { color: var(--text-muted); background: transparent; border: 0; padding: .2rem .38rem; font-size: .82rem; min-width: 24px; min-height: 2rem; }.layer-controls .remove { color: var(--danger); }
+.rename-editor { padding: .2rem .5rem .5rem; }.rename-editor input { width: 100%; min-width: 0; font-size: .75rem; padding: .4rem; }.rename-actions { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .3rem; }.rename-actions button { font-size: .7rem; padding: .3rem .4rem; background: var(--background); color: var(--text); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }.layer-controls button { font-size: .7rem; }.field-error { font-size: .7rem; }
 @media (pointer: coarse) { .layer-controls button { min-width: 2.75rem; min-height: 2.75rem; } }

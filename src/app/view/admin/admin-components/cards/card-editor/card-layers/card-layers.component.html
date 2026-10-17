@@ -1,16 +1,26 @@
 <section aria-labelledby="layers-title">
-  <header><h2 id="layers-title">Camadas <span>{{ layers().length }}</span></h2><p>Frente acima · arraste para reorganizar</p></header>
+  <header><h2 id="layers-title">Camadas <span>{{ layers().length }}</span></h2><p>Frente acima · arraste para reorganizar · F2 ou duplo clique para renomear</p></header>
   <fieldset class="layer-list" [disabled]="state.busy()"><legend class="visually-hidden">Camadas da carta</legend>
     @for (layer of layers(); track layer.id; let first = $first; let last = $last) {
-      <div class="layer" [class.selected]="state.selectedIds().includes(layer.id)" [class.drop-target]="dragTarget() === layer.id"
-        [draggable]="!state.busy()" (dragstart)="dragStart(layer.id, $event)" (dragover)="dragOver(layer.id, $event)"
+      <div class="layer" [attr.data-layer-id]="layer.id" [class.selected]="state.selectedIds().includes(layer.id)" [class.is-hidden]="!layer.visible" [class.is-locked]="layer.locked" [class.drop-target]="dragTarget() === layer.id"
+        [draggable]="!state.busy() && !editingId()" (dragstart)="dragStart(layer.id, $event)" (dragover)="dragOver(layer.id, $event)"
         (drop)="drop(layer.id, $event)" (dragend)="endDrag()">
-        <button class="layer-select" type="button" (click)="state.select(layer.id)" [attr.aria-pressed]="state.selectedIds().includes(layer.id)">
-          <span class="drag-handle" aria-hidden="true">⠿</span><span class="layer-name">{{ layer.name || layer.type }}<small>{{ layer.type }}</small></span>
+        <button class="layer-select" type="button" (click)="state.select(layer.id)" (dblclick)="beginRename(layer.id)" [attr.aria-pressed]="state.selectedIds().includes(layer.id)" [title]="layer.name + ' · ' + typeLabels[layer.type]">
+          <span class="drag-handle" aria-hidden="true">⋮⋮</span><span class="layer-name">{{ layer.name || typeLabels[layer.type] }}<small>{{ typeLabels[layer.type] }}</small></span>
         </button>
+        @if (!layer.visible || layer.locked) { <div class="layer-states">@if (!layer.visible) { <span>Oculta</span> } @if (layer.locked) { <span>Bloqueada</span> }</div> }
+        @if (editingId() === layer.id) {
+          <div class="rename-editor" (keydown)="renameKeydown($event)">
+            <label class="visually-hidden" [for]="'rename-' + layer.id">Nome da camada</label>
+            <input #renameInput [id]="'rename-' + layer.id" [value]="renameDraft" maxlength="120" (input)="changeRename($event)" [attr.aria-invalid]="!!renameError()" [attr.aria-describedby]="renameError() ? 'rename-error-' + layer.id : null" [disabled]="state.busy() || layer.locked" />
+            <div class="rename-actions"><button type="button" (click)="confirmRename()" [disabled]="state.busy() || layer.locked">Confirmar</button><button type="button" (click)="cancelRename(true)">Cancelar</button></div>
+            @if (renameError()) { <p class="field-error" [id]="'rename-error-' + layer.id" role="alert">{{ renameError() }}</p> }
+          </div>
+        }
         <div class="layer-controls">
-          <button type="button" (click)="state.toggleVisible(layer.id)" [attr.aria-label]="(layer.visible ? 'Esconder ' : 'Mostrar ') + layer.name" [title]="layer.visible ? 'Esconder' : 'Mostrar'">{{ layer.visible ? '◉' : '○' }}</button>
-          <button type="button" (click)="state.toggleLocked(layer.id)" [attr.aria-label]="(layer.locked ? 'Desbloquear ' : 'Bloquear ') + layer.name" [title]="layer.locked ? 'Desbloquear' : 'Bloquear'">{{ layer.locked ? '🔒' : '◇' }}</button>
+          <button type="button" (click)="state.toggleVisible(layer.id)" [attr.aria-label]="(layer.visible ? 'Esconder ' : 'Mostrar ') + layer.name" [title]="layer.visible ? 'Esconder' : 'Mostrar'">{{ layer.visible ? 'Ocultar' : 'Mostrar' }}</button>
+          <button type="button" (click)="state.toggleLocked(layer.id)" [attr.aria-label]="(layer.locked ? 'Desbloquear ' : 'Bloquear ') + layer.name" [title]="layer.locked ? 'Desbloquear' : 'Bloquear'">{{ layer.locked ? 'Soltar' : 'Bloquear' }}</button>
+          <button type="button" (click)="beginRename(layer.id)" [disabled]="layer.locked || state.mode() !== 'design'" [attr.aria-label]="'Renomear ' + layer.name" title="Renomear · F2">Nome</button>
           <button type="button" (click)="state.moveLayer(layer.id, 'up')" [disabled]="first" [attr.aria-label]="'Trazer ' + layer.name + ' para frente'" title="Trazer para frente">↑</button>
           <button type="button" (click)="state.moveLayer(layer.id, 'down')" [disabled]="last" [attr.aria-label]="'Enviar ' + layer.name + ' para trás'" title="Enviar para trás">↓</button>
           <button type="button" (click)="state.duplicate(layer.id)" [attr.aria-label]="'Duplicar ' + layer.name" title="Duplicar">⧉</button>

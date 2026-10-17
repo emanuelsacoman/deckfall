@@ -7,7 +7,7 @@ import { createCanvasElement, defaultCardData, newEditorId, normalizeEditorAttri
 import { CardOrnamentThemeId, ornateFantasyCanvas, ornamentTheme, themeOrnament } from './card-ornament-presets';
 
 type ElementPatch = Partial<Pick<CardCanvasElement, 'name' | 'x' | 'y' | 'width' | 'height' | 'rotation' | 'opacity' | 'visible' | 'locked'>>;
-export type CardElementAlignment = 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom';
+export type CardElementAlignment = 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom' | 'center';
 const initialData = (): CardEditorDocument => {
   const data = defaultCardData();
   return { data, canvas: ornateFantasyCanvas(data) };
@@ -45,10 +45,28 @@ export class CardEditorStateService {
   acceptPersisted(document: CardEditorDocument): void {
     this.value.set(structuredClone(document)); this.markSaved();
   }
-  setMode(mode: EditorMode): void { this.mode.set(mode); }
+  setMode(mode: EditorMode): void { this.endNudge(); this.mode.set(mode); }
   setZoom(zoom: number): void { this.zoom.set(Math.min(2, Math.max(0.1, zoom))); }
   requestFit(): void { this.fitRevision.update(value => value + 1); }
-  select(id: string | null): void { this.selectedIds.set(id ? [id] : []); }
+  select(id: string | null): void {
+    if (id !== this.selectedIds()[0]) this.endNudge();
+    this.selectedIds.set(id ? [id] : []);
+  }
+
+  /** Keyboard gesture only; coalescing ends explicitly on keyup, blur or another command. */
+  nudgeSelected(dx: number, dy: number, gesture: string): boolean {
+    const element = this.selectedElement();
+    if (this.busy() || this.mode() !== 'design' || !element || element.locked || !element.visible ||
+        !Number.isFinite(dx) || !Number.isFinite(dy)) return false;
+    const x = element.x + dx, y = element.y + dy;
+    if (x < -8192 || x > 8192 || y < -8192 || y > 8192) return false;
+    const updated = { ...element, x, y };
+    this.commit({ ...this.document(), canvas: { ...this.canvas(),
+      elements: this.canvas().elements.map(item => item.id === element.id ? updated : item) } }, `nudge:${element.id}:${gesture}`, true);
+    return true;
+  }
+
+  endNudge(): void { if (this.group.startsWith('nudge:')) this.group = ''; }
 
   updateData(data: CardDataInput): void {
     const previous = this.data();
@@ -121,6 +139,10 @@ export class CardEditorStateService {
       case 'top': dy = -minY; break;
       case 'center-y': dy = this.canvas().height / 2 - (minY + maxY) / 2; break;
       case 'bottom': dy = this.canvas().height - maxY; break;
+      case 'center':
+        dx = this.canvas().width / 2 - (minX + maxX) / 2;
+        dy = this.canvas().height / 2 - (minY + maxY) / 2;
+        break;
       default: return false;
     }
     const x = element.x + dx; const y = element.y + dy;
@@ -183,10 +205,10 @@ export class CardEditorStateService {
     this.past.update(items => [...items, structuredClone(this.document())]);
     this.future.update(items => items.slice(0, -1)); this.value.set(next); this.select(null); this.group = '';
   }
-  private commit(document: CardEditorDocument, group = ''): void {
+  private commit(document: CardEditorDocument, group = '', continuous = false): void {
     if (JSON.stringify(document) === JSON.stringify(this.document())) return;
     const now = Date.now();
-    if (!group || this.group !== group || now - this.lastChange > 700) {
+    if (!group || this.group !== group || (!continuous && now - this.lastChange > 700)) {
       this.past.update(items => [...items, structuredClone(this.document())].slice(-CARD_CANVAS_CONFIG.historyLimit));
     }
     this.group = group; this.lastChange = now; this.future.set([]); this.value.set(structuredClone(document));

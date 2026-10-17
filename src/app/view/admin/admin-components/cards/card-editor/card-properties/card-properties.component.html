@@ -1,5 +1,13 @@
 <section aria-labelledby="properties-title">
-  <header><h2 id="properties-title">{{ state.selectedElement() ? 'Propriedades' : 'Carta e fundo' }}</h2><p>{{ state.selectedElement()?.name || 'Selecione um elemento para editá-lo.' }}</p></header>
+  <header>
+    <h2 id="properties-title">{{ state.selectedElement() ? 'Propriedades' : 'Carta e fundo' }}</h2>
+    @if (state.selectedElement(); as selected) {
+      <div class="selection-heading"><span class="element-type">{{ elementLabel(selected) }}</span><strong>{{ selected.name || 'Camada sem nome' }}</strong></div>
+      @if (selected.locked || !selected.visible) {
+        <p class="selection-states">@if (selected.locked) { <span>Bloqueada</span> } @if (!selected.visible) { <span>Oculta</span> }</p>
+      }
+    } @else { <p>Selecione uma camada para editar suas propriedades.</p> }
+  </header>
   @if (inputError()) { <p class="field-error" role="alert">{{ inputError() }}</p> }
   @if (state.selectedElement(); as element) {
     <div class="element-actions">
@@ -10,23 +18,29 @@
       <button type="button" (click)="state.moveLayer(element.id, 'bottom')" [disabled]="state.busy()">Enviar ao fundo</button>
       <button type="button" class="danger-action" (click)="state.remove(element.id)" [disabled]="element.locked || state.busy()">Excluir</button>
     </div>
-    <fieldset [disabled]="element.locked || state.busy()">
+    <fieldset [disabled]="editingDisabled()">
       <legend>Posição e tamanho</legend>
       <label class="field">Nome da camada<input [value]="element.name" maxlength="120" (input)="baseName($event)" /></label>
       <div class="fields-grid">
-        <label class="field">X<input type="number" [value]="element.x" min="-8192" max="8192" (input)="baseNumber('x', $event, -8192, 8192)" /></label>
-        <label class="field">Y<input type="number" [value]="element.y" min="-8192" max="8192" (input)="baseNumber('y', $event, -8192, 8192)" /></label>
-        <label class="field">Largura<input type="number" [value]="element.width" min="8" max="8192" (input)="baseNumber('width', $event, 8, 8192)" /></label>
-        <label class="field">Altura<input type="number" [value]="element.height" min="8" max="8192" (input)="baseNumber('height', $event, 8, 8192)" /></label>
-        <label class="field">Rotação (°)<input type="number" [value]="element.rotation" min="-360" max="360" (input)="baseNumber('rotation', $event, -360, 360)" /></label>
-        <label class="field">Opacidade<input type="number" [value]="element.opacity" min="0" max="1" step="0.05" (input)="baseNumber('opacity', $event, 0, 1)" /></label>
+        <label class="field">X (px)<input type="number" [value]="element.x" min="-8192" max="8192" step="any" (input)="baseNumber('x', $event, -8192, 8192)" /></label>
+        <label class="field">Y (px)<input type="number" [value]="element.y" min="-8192" max="8192" step="any" (input)="baseNumber('y', $event, -8192, 8192)" /></label>
+        <label class="field">Largura (px)<input type="number" [value]="element.width" min="8" max="8192" step="any" (input)="baseNumber('width', $event, 8, 8192)" /></label>
+        <label class="field">Altura (px)<input type="number" [value]="element.height" min="8" max="8192" step="any" (input)="baseNumber('height', $event, 8, 8192)" /></label>
       </div>
-      <h3>Alinhar à carta</h3>
-      <div class="alignment-actions" aria-label="Alinhamento da camada">
-        @for (alignment of alignments; track alignment.id) {
-          <button type="button" (click)="alignElement(alignment.id)" [disabled]="!element.visible">{{ alignment.label }}</button>
+      <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Opacidade" [value]="element.opacity" [min]="0" [max]="1" [step]="0.01" [scale]="100" unit="%" [disabled]="editingDisabled()" (valueChange)="baseNumber('opacity', $event, 0, 1)" />
+      <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Rotação" [value]="element.rotation" [min]="-360" [max]="360" [sliderMin]="-180" [sliderMax]="180" unit="°" [disabled]="editingDisabled()" (valueChange)="baseNumber('rotation', $event, -360, 360)" />
+      <div class="rotation-presets" role="group" aria-label="Rotações rápidas">
+        @for (rotation of rotationPresets; track rotation) {
+          <button type="button" [attr.aria-label]="'Definir rotação em ' + rotation + ' graus'" (click)="setRotation(rotation)">{{ rotation }}°</button>
         }
       </div>
+      <h3>Alinhar à carta</h3>
+      <div class="alignment-actions" role="group" aria-label="Alinhamento da camada">
+        @for (alignment of alignments; track alignment.id) {
+          <button type="button" (click)="alignElement(alignment.id)" [disabled]="!element.visible" [title]="alignment.label" [attr.aria-label]="alignment.label"><span aria-hidden="true">{{ alignment.symbol }}</span></button>
+        }
+      </div>
+      <button type="button" class="center-action" (click)="alignElement('center')" [disabled]="!element.visible" title="Centralizar a camada nos dois eixos">Centralizar na carta</button>
       @if (textElement(); as text) {
         <h3>Texto</h3>
         <label class="field">Vínculo com os dados<select [value]="text.properties.binding || ''" (change)="setBinding($event)"><option value="">Texto livre</option>@for (binding of bindings(); track binding.key) { <option [value]="binding.key">{{ binding.label }}</option> }</select></label>
@@ -48,8 +62,8 @@
         <h3>Forma</h3>
         <label class="field">Preenchimento<select [value]="shape.properties.fillMode" (change)="setFillMode($event)"><option value="solid">Cor sólida</option><option value="gradient">Gradiente</option></select></label>
         @if (shape.properties.fillMode === 'gradient') {
-          <label class="field">Segunda cor<input [value]="shape.properties.gradientColor" (input)="extraColor('gradientColor', $event)" /></label>
-          <label class="field">Ângulo do gradiente<input type="number" [value]="shape.properties.gradientAngle" min="-360" max="360" (input)="shapeNumber('gradientAngle', $event, -360, 360)" /></label>
+          <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Segunda cor" [value]="shape.properties.gradientColor" [palette]="palette()" [disabled]="editingDisabled()" (valueChange)="extraColor('gradientColor', $event)" />
+          <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Ângulo do gradiente" [value]="shape.properties.gradientAngle" [min]="-360" [max]="360" [sliderMin]="-180" [sliderMax]="180" unit="°" [disabled]="editingDisabled()" (valueChange)="shapeNumber('gradientAngle', $event, -360, 360)" />
         }
         <label class="field">Raio dos cantos<input type="number" [value]="shape.properties.cornerRadius" min="0" max="4096" (input)="shapeNumber('cornerRadius', $event, 0, 4096)" /></label>
       }
@@ -63,11 +77,9 @@
             <label class="field">Largura da moldura<input type="number" [value]="frame.properties.borderWidth" min="2" max="128" (input)="frameNumber('borderWidth', $event)" /></label>
             <label class="field">Raio dos cantos<input type="number" [value]="frame.properties.cornerRadius" min="0" max="4096" (input)="frameNumber('cornerRadius', $event)" /></label>
           </div>
-          <label class="field">Detalhamento <output>{{ frame.properties.detail }}</output><input type="range" [value]="frame.properties.detail" min="0" max="12" step="1" (input)="frameNumber('detail', $event)" aria-label="Detalhamento da moldura" /></label>
-          <div class="fields-grid">
-            <label class="field">Cor dos detalhes<span class="ornament-color"><span [style.background]="frame.properties.accentColor" aria-hidden="true"></span><input [value]="frame.properties.accentColor" (input)="ornamentColor('accentColor', $event)" /></span></label>
-            <label class="field">Cor das gemas<span class="ornament-color"><span [style.background]="frame.properties.gemColor" aria-hidden="true"></span><input [value]="frame.properties.gemColor" (input)="ornamentColor('gemColor', $event)" /></span></label>
-          </div>
+          <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Detalhamento da moldura" [value]="frame.properties.detail" [min]="0" [max]="12" [integerOnly]="true" [disabled]="editingDisabled()" (valueChange)="frameNumber('detail', $event)" />
+          <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Cor dos detalhes" [value]="frame.properties.accentColor" [palette]="palette()" [disabled]="editingDisabled()" (valueChange)="ornamentColor('accentColor', $event)" />
+          <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Cor das gemas" [value]="frame.properties.gemColor" [palette]="palette()" [disabled]="editingDisabled()" (valueChange)="ornamentColor('gemColor', $event)" />
           <label class="field">Semente da variação<input type="number" [value]="frame.properties.seed" min="0" max="999999" step="1" (input)="frameNumber('seed', $event)" aria-describedby="frame-seed-help" /></label>
           <button type="button" class="variation-action" (click)="varyFrame()">Gerar outra variação</button>
           <p id="frame-seed-help" class="hint">A mesma semente reproduz os mesmos detalhes. Alterar a semente mantém cores, tamanho e dados da carta.</p>
@@ -79,11 +91,9 @@
           <p class="hint">Use como símbolo de elemento, custo ou atributo. Os valores de jogo continuam nas suas próprias camadas.</p>
           <label class="field">Símbolo<select [value]="emblem.properties.motif" (change)="setOrnamentMotif($event)">@for (motif of ornamentMotifs; track motif.id) { <option [value]="motif.id">{{ motif.label }}</option> }</select></label>
           <label class="field">Suporte<select [value]="emblem.properties.container" (change)="setEmblemContainer($event)"><option value="medallion">Medalhão</option><option value="shield">Escudo</option><option value="plain">Somente símbolo</option></select></label>
-          <div class="fields-grid">
-            <label class="field">Cor do símbolo<span class="ornament-color"><span [style.background]="emblem.properties.accentColor" aria-hidden="true"></span><input [value]="emblem.properties.accentColor" (input)="ornamentColor('accentColor', $event)" /></span></label>
-            <label class="field">Cor da gema<span class="ornament-color"><span [style.background]="emblem.properties.gemColor" aria-hidden="true"></span><input [value]="emblem.properties.gemColor" (input)="ornamentColor('gemColor', $event)" /></span></label>
-          </div>
-          <label class="field">Relevo <output>{{ (emblem.properties.relief * 100).toFixed(0) }}%</output><input type="range" [value]="emblem.properties.relief" min="0" max="1" step="0.05" (input)="emblemRelief($event)" aria-label="Relevo do emblema" /></label>
+          <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Cor do símbolo" [value]="emblem.properties.accentColor" [palette]="palette()" [disabled]="editingDisabled()" (valueChange)="ornamentColor('accentColor', $event)" />
+          <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Cor da gema" [value]="emblem.properties.gemColor" [palette]="palette()" [disabled]="editingDisabled()" (valueChange)="ornamentColor('gemColor', $event)" />
+          <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Relevo do emblema" [value]="emblem.properties.relief" [min]="0" [max]="1" [step]="0.01" [scale]="100" unit="%" [disabled]="editingDisabled()" (valueChange)="emblemRelief($event)" />
         </div>
       }
       @if (imageElement(); as image) {
@@ -101,23 +111,35 @@
         <div class="fields-grid">
           <label class="field">Ajuste<select [value]="image.properties.fit" (change)="setFit($event)"><option value="cover">Cobrir</option><option value="contain">Conter</option><option value="fill">Esticar</option></select></label>
           <label class="field">Máscara<select [value]="image.properties.mask" (change)="setMask($event)"><option value="none">Nenhuma</option><option value="rounded">Cantos arredondados</option><option value="ellipse">Elipse</option></select></label>
-          <label class="field">Zoom da imagem<input type="number" [value]="image.properties.zoom" min="0.1" max="10" step="0.1" (input)="imageNumber('zoom', $event, 0.1, 10)" /></label>
           <label class="field">Raio dos cantos<input type="number" [value]="image.properties.cornerRadius" min="0" max="4096" (input)="imageNumber('cornerRadius', $event, 0, 4096)" /></label>
-          <label class="field">Deslocamento X<input type="number" [value]="image.properties.offsetX" min="-1" max="1" step="0.05" (input)="imageNumber('offsetX', $event, -1, 1)" /></label>
-          <label class="field">Deslocamento Y<input type="number" [value]="image.properties.offsetY" min="-1" max="1" step="0.05" (input)="imageNumber('offsetY', $event, -1, 1)" /></label>
         </div>
+        <h3>Enquadramento</h3>
+        <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Zoom da imagem" [value]="image.properties.zoom" [min]="0.1" [max]="10" [sliderMax]="3" [step]="0.01" [scale]="100" unit="%" [disabled]="editingDisabled()" (valueChange)="imageNumber('zoom', $event, 0.1, 10)" />
+        <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Deslocamento X da imagem" [value]="image.properties.offsetX" [min]="-1" [max]="1" [step]="0.01" [scale]="100" unit="%" [disabled]="editingDisabled()" (valueChange)="imageNumber('offsetX', $event, -1, 1)" />
+        <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Deslocamento Y da imagem" [value]="image.properties.offsetY" [min]="-1" [max]="1" [step]="0.01" [scale]="100" unit="%" [disabled]="editingDisabled()" (valueChange)="imageNumber('offsetY', $event, -1, 1)" />
+        <div class="image-actions framing-actions" role="group" aria-label="Ajustes rápidos do enquadramento">
+          <button type="button" (click)="centerImage()" title="Zerar somente os deslocamentos X e Y">Centralizar imagem</button>
+          <button type="button" (click)="resetImageZoom()" title="Restaurar somente o zoom da imagem para 100%">100% zoom</button>
+          <button type="button" (click)="resetImageCrop()" title="Usar toda a área da imagem, mantendo zoom e deslocamentos">Resetar crop</button>
+          <button type="button" (click)="resetImageFraming()" title="Restaurar zoom, deslocamentos e crop; conservar efeitos e espelhamento">Resetar enquadramento</button>
+        </div>
+        <p class="hint">Centralizar zera os deslocamentos. Resetar enquadramento também restaura zoom e crop, preservando ajuste, máscara e efeitos.</p>
         <label class="field">Filtro<select [value]="image.properties.filter" (change)="setFilter($event)"><option value="none">Nenhum</option><option value="grayscale">Escala de cinza</option><option value="sepia">Sépia</option></select></label>
         <details class="image-effects" open><summary>Efeitos da imagem</summary>
           <div class="image-actions" aria-label="Estilos rápidos">
             @for (look of imageLooks; track look.id) { <button type="button" (click)="applyImageLook(look.id)">{{ look.label }}</button> }
           </div>
-          <label class="field">Brilho <output>{{ ((image.properties.brightness ?? 0) * 100).toFixed(0) }}%</output><input type="range" min="-1" max="1" step="0.01" [value]="image.properties.brightness ?? 0" (input)="imageNumber('brightness', $event, -1, 1)" aria-label="Brilho da imagem" /></label>
-          <label class="field">Contraste <output>{{ image.properties.contrast ?? 0 }}</output><input type="range" min="-100" max="100" step="1" [value]="image.properties.contrast ?? 0" (input)="imageNumber('contrast', $event, -100, 100)" aria-label="Contraste da imagem" /></label>
-          <label class="field">Saturação <output>{{ saturationFactor(image.properties.saturation ?? 0) }}×</output><input type="range" min="-1" max="1" step="0.01" [value]="image.properties.saturation ?? 0" (input)="imageNumber('saturation', $event, -1, 1)" aria-label="Saturação da imagem" /></label>
-          <label class="field">Matiz <output>{{ image.properties.hue ?? 0 }}°</output><input type="range" min="-180" max="180" step="1" [value]="image.properties.hue ?? 0" (input)="imageNumber('hue', $event, -180, 180)" aria-label="Matiz da imagem" /></label>
+          <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Brilho da imagem" [value]="image.properties.brightness ?? 0" [min]="-1" [max]="1" [step]="0.01" [scale]="100" unit="%" [disabled]="editingDisabled()" (valueChange)="imageNumber('brightness', $event, -1, 1)" />
+          <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Contraste da imagem" [value]="image.properties.contrast ?? 0" [min]="-100" [max]="100" [disabled]="editingDisabled()" (valueChange)="imageNumber('contrast', $event, -100, 100)" />
+          <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Saturação da imagem" [value]="image.properties.saturation ?? 0" [min]="-1" [max]="1" [step]="0.01" [disabled]="editingDisabled()" (valueChange)="imageNumber('saturation', $event, -1, 1)" />
+          <p class="hint">Fator de saturação: {{ saturationFactor(image.properties.saturation ?? 0) }}×. Zero mantém as cores originais.</p>
+          <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Matiz da imagem" [value]="image.properties.hue ?? 0" [min]="-180" [max]="180" unit="°" [disabled]="editingDisabled()" (valueChange)="imageNumber('hue', $event, -180, 180)" />
           <button type="button" (click)="resetImageEffects()">Restaurar efeitos e espelhamento</button>
         </details>
-        <details><summary>Recorte da imagem (0–1)</summary><div class="fields-grid">
+        <details class="advanced-crop"><summary>Recorte avançado</summary>
+          <p class="hint">Valores normalizados de 0 a 1: X e Y definem o início; largura e altura precisam permanecer dentro da imagem. Resetar crop usa a imagem inteira, sem alterar zoom ou deslocamentos.</p>
+          <button type="button" (click)="resetImageCrop()">Resetar crop</button>
+          <div class="fields-grid">
           <label class="field">X<input type="number" [value]="image.properties.crop.x" min="0" max="1" step="0.05" (input)="setCrop('x', $event)" /></label>
           <label class="field">Y<input type="number" [value]="image.properties.crop.y" min="0" max="1" step="0.05" (input)="setCrop('y', $event)" /></label>
           <label class="field">Largura<input type="number" [value]="image.properties.crop.width" min="0.001" max="1" step="0.05" (input)="setCrop('width', $event)" /></label>
@@ -142,39 +164,37 @@
       @if (barElement(); as bar) {
         <h3>Barra de atributo</h3>
         <label class="field">Atributo<select [value]="bar.properties.attributeKey" (change)="patchBar({attributeKey: value($event)})">@for (item of state.data().attributes; track item.id || item.key) { <option [value]="item.key">{{ item.label }}</option> }</select></label>
-        <label class="field">Cor da trilha<input [value]="bar.properties.trackColor" (input)="extraColor('trackColor', $event)" /></label>
+        <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Cor da trilha" [value]="bar.properties.trackColor" [palette]="palette()" [disabled]="editingDisabled()" (valueChange)="extraColor('trackColor', $event)" />
         <label class="check-field"><input type="checkbox" [checked]="bar.properties.showValue" (change)="patchBar({showValue: checked($event)})" /> Exibir valor</label>
         <label class="field">Fonte<select [value]="bar.properties.fontFamily" (change)="patchBar({fontFamily: value($event)})">@for (font of fonts; track font) { <option [value]="font">{{ font }}</option> }</select></label>
         <div class="fields-grid"><label class="field">Tamanho<input type="number" [value]="bar.properties.fontSize" min="6" max="256" (input)="barNumber('fontSize', $event, 6, 256)" /></label>
           <label class="field">Raio dos cantos<input type="number" [value]="bar.properties.cornerRadius" min="0" max="4096" (input)="barNumber('cornerRadius', $event, 0, 4096)" /></label></div>
       }
       <h3>Cores e borda</h3>
-      <div class="fields-grid">
-        <label class="field">{{ imageElement() ? 'Fundo da imagem (opcional)' : 'Cor / preenchimento' }}<input [value]="element.properties.fill" placeholder="#ffffff" (input)="styleColor('fill', $event)" /></label>
-        <label class="field">{{ frameElement() || emblemElement() ? 'Cor do metal / borda' : 'Cor da borda' }}<input [value]="element.properties.stroke" placeholder="#000000" (input)="styleColor('stroke', $event)" /></label>
-      </div>
-      <label class="field">Espessura da borda<input type="number" [value]="element.properties.strokeWidth" min="0" max="64" (input)="styleNumber('strokeWidth', $event, 0, 64)" /></label>
+      <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" [label]="imageElement() ? 'Fundo da imagem (opcional)' : 'Cor / preenchimento'" [value]="element.properties.fill" [palette]="palette()" [disabled]="editingDisabled()" (valueChange)="styleColor('fill', $event)" />
+      <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" [label]="frameElement() || emblemElement() ? 'Cor do metal / borda' : 'Cor da borda'" [value]="element.properties.stroke" [palette]="palette()" [disabled]="editingDisabled()" (valueChange)="styleColor('stroke', $event)" />
+      <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Espessura da borda" [value]="element.properties.strokeWidth" [min]="0" [max]="64" [step]="0.5" unit="px" [disabled]="editingDisabled()" (valueChange)="styleNumber('strokeWidth', $event, 0, 64)" />
       <label class="field">Estilo da borda<select [value]="element.properties.borderStyle || 'solid'" (change)="setBorderStyle($event)"><option value="solid">Contínua</option><option value="dashed">Tracejada</option><option value="dotted">Pontilhada</option></select></label>
       <details><summary>Sombra</summary>
-        <label class="field">Cor<input [value]="element.properties.shadowColor" (input)="styleColor('shadowColor', $event)" /></label>
+        <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Cor da sombra" [value]="element.properties.shadowColor" [palette]="palette()" [disabled]="editingDisabled()" (valueChange)="styleColor('shadowColor', $event)" />
+        <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Desfoque da sombra" [value]="element.properties.shadowBlur" [min]="0" [max]="100" unit="px" [disabled]="editingDisabled()" (valueChange)="styleNumber('shadowBlur', $event, 0, 100)" />
         <div class="fields-grid">
-          <label class="field">Desfoque<input type="number" [value]="element.properties.shadowBlur" min="0" max="100" (input)="styleNumber('shadowBlur', $event, 0, 100)" /></label>
           <label class="field">Deslocamento X<input type="number" [value]="element.properties.shadowOffsetX" min="-100" max="100" (input)="styleNumber('shadowOffsetX', $event, -100, 100)" /></label>
           <label class="field">Deslocamento Y<input type="number" [value]="element.properties.shadowOffsetY" min="-100" max="100" (input)="styleNumber('shadowOffsetY', $event, -100, 100)" /></label>
         </div>
       </details>
     </fieldset>
   } @else {
-    <fieldset [disabled]="state.busy()"><legend>Dimensões reais (px)</legend><div class="fields-grid">
+    <fieldset [disabled]="backgroundDisabled()"><legend>Dimensões reais (px)</legend><div class="fields-grid">
       <label class="field">Largura<input type="number" [value]="state.canvas().width" [min]="config.minDimension" [max]="config.maxDimension" (input)="dimension('width', $event)" /></label>
       <label class="field">Altura<input type="number" [value]="state.canvas().height" [min]="config.minDimension" [max]="config.maxDimension" (input)="dimension('height', $event)" /></label>
     </div><p class="hint">O zoom altera a visualização, mantendo esta resolução.</p></fieldset>
-    <fieldset [disabled]="state.busy()"><legend>Fundo</legend>
+    <fieldset [disabled]="backgroundDisabled()"><legend>Fundo</legend>
       <label class="field">Tipo<select [value]="state.canvas().background.kind" (change)="backgroundKind($event)"><option value="solid">Cor sólida</option><option value="gradient">Gradiente</option><option value="image">Imagem</option><option value="texture">Textura</option></select></label>
-      <label class="field">Cor<input [value]="state.canvas().background.color" (input)="backgroundColor('color', $event)" /></label>
+      <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Cor do fundo" [value]="state.canvas().background.color" [palette]="palette()" [disabled]="backgroundDisabled()" (valueChange)="backgroundColor('color', $event)" />
       @if (state.canvas().background.kind === 'gradient') {
-        <label class="field">Segunda cor<input [value]="state.canvas().background.color2" (input)="backgroundColor('color2', $event)" /></label>
-        <label class="field">Ângulo<input type="number" [value]="state.canvas().background.angle" min="-360" max="360" (input)="backgroundAngle($event)" /></label>
+        <app-editor-color-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Segunda cor do fundo" [value]="state.canvas().background.color2" [palette]="palette()" [disabled]="backgroundDisabled()" (valueChange)="backgroundColor('color2', $event)" />
+        <app-editor-range-field [contextKey]="state.selectedElement()?.id ?? 'background'" label="Ângulo do fundo" [value]="state.canvas().background.angle" [min]="-360" [max]="360" [sliderMin]="-180" [sliderMax]="180" unit="°" [disabled]="backgroundDisabled()" (valueChange)="backgroundAngle($event)" />
       }
       @if (state.canvas().background.kind === 'image' || state.canvas().background.kind === 'texture') {
         <p class="asset-name">{{ assetName(state.canvas().background.assetId) }}</p>

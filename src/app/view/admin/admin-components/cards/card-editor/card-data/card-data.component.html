@@ -1,9 +1,10 @@
 <section aria-labelledby="data-title">
   <header><h2 id="data-title">Dados da carta</h2><p>Gameplay e conteúdo, independentes do layout.</p></header>
   <form [formGroup]="form" novalidate><fieldset [disabled]="state.busy()"><legend class="visually-hidden">Informações da carta</legend>
-    <label class="field">Nome<input formControlName="name" [maxlength]="limits.name" [attr.aria-invalid]="invalid(form.controls.name)" /></label>
+    <label class="field"><span class="field-heading"><span>Nome</span><span id="card-data-name-count" class="character-count" [class.over-limit]="form.controls.name.value.length > limits.name">{{ form.controls.name.value.length }}/{{ limits.name }}</span></span><input formControlName="name" [maxlength]="limits.name" aria-describedby="card-data-name-count" [attr.aria-invalid]="invalid(form.controls.name)" /></label>
     @if (invalid(form.controls.name)) { <p class="field-error">Informe um nome de até {{ limits.name }} caracteres.</p> }
-    <label class="field">Descrição<textarea formControlName="description" rows="4" [maxlength]="limits.description"></textarea></label>
+    <label class="field"><span class="field-heading"><span>Descrição</span><span id="card-data-description-count" class="character-count" [class.over-limit]="form.controls.description.value.length > limits.description">{{ form.controls.description.value.length }}/{{ limits.description }}</span></span><textarea formControlName="description" rows="4" [maxlength]="limits.description" aria-describedby="card-data-description-count" [attr.aria-invalid]="invalid(form.controls.description)"></textarea></label>
+    @if (invalid(form.controls.description)) { <p class="field-error">Use até {{ limits.description }} caracteres na descrição.</p> }
     <div class="fields-grid">
       <label class="field">Raridade<select formControlName="rarity">@for (rarity of rarities; track rarity) { <option [value]="rarity">{{ rarityLabels[rarity] }}</option> }</select></label>
       <label class="field">Status<select formControlName="status">@for (status of statuses; track status) { <option [value]="status">{{ statusLabels[status] }}</option> }</select></label>
@@ -32,10 +33,17 @@
             <label class="field">Máximo<input type="number" step="any" formControlName="max" min="-1000000" max="1000000" /></label>
           </div>
           @if ((attribute.hasError('range') || attribute.controls.value.invalid || attribute.controls.min.invalid || attribute.controls.max.invalid) && (attribute.dirty || attribute.touched)) { <p class="field-error">O mínimo deve ser menor que o máximo; o valor precisa estar dentro do intervalo. Use números entre −1.000.000 e 1.000.000.</p> }
-          <details><summary>Ícone e cor</summary><div class="fields-grid">
+          <details><summary>Ícone e cor</summary>
             <label class="field">Ícone / símbolo<input formControlName="icon" maxlength="32" /></label>
-            <label class="field">Cor (opcional)<input formControlName="color" placeholder="#ffcc00" [attr.aria-invalid]="invalid(attribute.controls.color)" /></label>
-          </div>@if (invalid(attribute.controls.color)) { <p class="field-error">Use uma cor hexadecimal, RGB ou deixe vazio.</p> }</details>
+            <div class="symbol-presets" role="group" aria-label="Símbolos rápidos do atributo">
+              @for (symbol of attributeSymbols; track symbol.value) {
+                <button type="button" [attr.data-symbol]="symbol.value" [attr.aria-label]="'Usar ' + symbol.label + ' no atributo ' + (attribute.controls.label.value || (index + 1))" [attr.aria-pressed]="attribute.controls.icon.value === symbol.value" [title]="symbol.label" [disabled]="state.busy()" (click)="chooseAttributeSymbol(index, symbol.value)"><span aria-hidden="true">{{ symbol.value }}</span></button>
+              }
+              <button type="button" class="clear-symbol" [disabled]="state.busy()" (click)="chooseAttributeSymbol(index, '')">Sem símbolo</button>
+            </div>
+            <app-editor-color-field [contextKey]="attribute.controls.id.value || attribute.controls.key.value" [label]="'Cor do atributo ' + (attribute.controls.label.value || (index + 1)) + ' (opcional)'" [value]="attribute.controls.color.value" [disabled]="state.busy()" [allowEmpty]="true" [allowTransparent]="true" [palette]="documentColors()" (valueChange)="commitAttributeColor(index, $event)" />
+            @if (invalid(attribute.controls.color)) { <p class="field-error">Use uma cor hexadecimal, RGB, transparente ou deixe vazio.</p> }
+          </details>
         </section>
       }
     </div>

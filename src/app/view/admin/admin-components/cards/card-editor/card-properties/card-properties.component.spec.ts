@@ -1,6 +1,11 @@
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { CardEditorStateService } from '../../../../../../model/services/tools/card-editor-state.service';
 import { renderText } from '../../../../../../model/services/tools/card-canvas-factory';
+import { ImageProperties } from '../../../../../../model/interfaces/Cards/card-canvas';
+import { validateCardCanvas } from '../../../../../../model/services/tools/card-canvas-validation';
+import { EditorColorFieldComponent } from '../shared/editor-color-field/editor-color-field.component';
+import { EditorRangeFieldComponent } from '../shared/editor-range-field/editor-range-field.component';
 import { CardPropertiesComponent } from './card-properties.component';
 
 describe('CardPropertiesComponent', () => {
@@ -96,7 +101,7 @@ describe('CardPropertiesComponent', () => {
       filter: 'sepia', brightness: 0.03, contrast: -12, saturation: -0.3, hue: 0, flipX: true, flipY: true,
       fill: 'transparent', mask: 'ellipse', fit: 'contain', crop: original.properties.crop
     }));
-    expect((fixture.nativeElement as HTMLElement).querySelectorAll('input[type="range"]').length).toBe(4);
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.image-effects input[type="range"]').length).toBe(4);
     component.applyImageLook('original');
     expect(component.imageElement()!.properties.flipX).toBeTrue();
     component.resetImageEffects();
@@ -211,6 +216,146 @@ describe('CardPropertiesComponent', () => {
     state.setMode('design'); state.addElement('ornate-frame'); const originalFrame = structuredClone(component.frameElement()!);
     state.toggleLocked(originalFrame.id); component.varyFrame(); component.patchFrame({ detail: 2 });
     expect(component.frameElement()!.properties).toEqual(originalFrame.properties);
+  });
+
+  it('resets rotation with one undo step and keeps the layer geometry, style and canvas contract', () => {
+    const fixture = TestBed.createComponent(CardPropertiesComponent);
+    const state = TestBed.inject(CardEditorStateService);
+    state.addElement('rect');
+    state.patchElement(state.selectedElement()!.id, { x: 37.5, y: 48.25, rotation: 125, opacity: 0.65 });
+    const original = structuredClone(state.document());
+    const id = state.selectedElement()!.id;
+    fixture.detectChanges();
+    const reset = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[aria-label="Definir rotação em 0 graus"]')!;
+    reset.click();
+    expect(state.selectedElement()).toEqual({ ...original.canvas.elements.find(element => element.id === id)!, rotation: 0 });
+    expect(validateCardCanvas(state.canvas())).toEqual(state.canvas());
+    state.undo(); expect(state.document()).toEqual(original);
+    state.redo(); expect(state.canvas().elements.find(element => element.id === id)!.rotation).toBe(0);
+  });
+
+  it('centers both axes as one reversible action without changing dimensions or style', () => {
+    const fixture = TestBed.createComponent(CardPropertiesComponent);
+    const state = TestBed.inject(CardEditorStateService);
+    state.addElement('rect');
+    const id = state.selectedElement()!.id;
+    state.patchElement(id, { x: 17, y: 29, width: 120, height: 180 });
+    const original = structuredClone(state.document());
+    const element = state.selectedElement()!;
+    fixture.detectChanges();
+    const center = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find(button => button.textContent?.trim() === 'Centralizar na carta')!;
+    center.click();
+    expect(state.selectedElement()).toEqual({ ...element, x: (state.canvas().width - 120) / 2, y: (state.canvas().height - 180) / 2 });
+    state.undo(); expect(state.document()).toEqual(original);
+  });
+
+  it('keeps opacity and framing percentages in their original normalized fields', () => {
+    const fixture = TestBed.createComponent(CardPropertiesComponent);
+    const state = TestBed.inject(CardEditorStateService);
+    state.addElement('image'); fixture.detectChanges();
+    const ranges = fixture.debugElement.queryAll(By.directive(EditorRangeFieldComponent));
+    const range = (label: string) => ranges.find(item => item.componentInstance.label === label)!.componentInstance as EditorRangeFieldComponent;
+    expect(range('Opacidade').scale).toBe(100);
+    range('Opacidade').valueChange.emit(0.65);
+    range('Deslocamento X da imagem').valueChange.emit(-0.35);
+    range('Deslocamento Y da imagem').valueChange.emit(0.4);
+    range('Zoom da imagem').valueChange.emit(2.5);
+    expect(state.selectedElement()!.opacity).toBe(0.65);
+    expect(fixture.componentInstance.imageElement()!.properties).toEqual(jasmine.objectContaining({ offsetX: -0.35, offsetY: 0.4, zoom: 2.5 }));
+    expect(validateCardCanvas(state.canvas())).toEqual(state.canvas());
+    expect(JSON.stringify(state.document())).not.toContain('opacityPercent');
+    expect(JSON.stringify(state.document())).not.toContain('palette');
+  });
+
+  it('restores only the image framing fields named by each quick action and keeps a separate undo step', () => {
+    const fixture = TestBed.createComponent(CardPropertiesComponent);
+    const state = TestBed.inject(CardEditorStateService);
+    state.addElement('image');
+    const component = fixture.componentInstance;
+    component.patchImage({
+      assetId: 'fixture-image', binding: 'art', fit: 'contain', mask: 'ellipse',
+      zoom: 2.5, offsetX: 0.35, offsetY: -0.4, crop: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
+      filter: 'sepia', brightness: 0.2, contrast: -15, saturation: 0.4, hue: 35,
+      flipX: true, flipY: true, fill: 'rgba(10, 20, 30, 0.5)', strokeWidth: 3, shadowBlur: 7
+    });
+    const id = state.selectedElement()!.id;
+    const original = structuredClone(state.document());
+    original.canvas.assets.push({ id: 'fixture-image', storagePath: null, fileName: 'fixture.png', contentType: 'image/png', size: 4 });
+    const fullCrop = { x: 0, y: 0, width: 1, height: 1 };
+    const actions: { run: () => void; patch: Partial<ImageProperties> }[] = [
+      { run: () => component.centerImage(), patch: { offsetX: 0, offsetY: 0 } },
+      { run: () => component.resetImageZoom(), patch: { zoom: 1 } },
+      { run: () => component.resetImageCrop(), patch: { crop: fullCrop } },
+      { run: () => component.resetImageFraming(), patch: { zoom: 1, offsetX: 0, offsetY: 0, crop: fullCrop } }
+    ];
+    for (const action of actions) {
+      state.load(original); state.select(id);
+      const image = structuredClone(component.imageElement()!);
+      action.run();
+      expect(component.imageElement()).toEqual({ ...image, properties: { ...image.properties, ...action.patch } });
+      expect(state.data()).toEqual(original.data);
+      expect(state.canvas().assets).toEqual(original.canvas.assets);
+      expect(validateCardCanvas(state.canvas())).toEqual(state.canvas());
+      state.undo(); expect(state.document()).toEqual(original);
+    }
+  });
+
+  it('protects all framing and rotation shortcuts when locked, busy or outside Design', () => {
+    const fixture = TestBed.createComponent(CardPropertiesComponent);
+    const state = TestBed.inject(CardEditorStateService);
+    state.addElement('image'); const component = fixture.componentInstance;
+    component.patchImage({ zoom: 2, offsetX: 0.3, offsetY: -0.2, crop: { x: 0.1, y: 0, width: 0.9, height: 1 } });
+    state.patchElement(state.selectedElement()!.id, { rotation: 45 });
+    const id = state.selectedElement()!.id;
+    const act = () => { component.centerImage(); component.resetImageZoom(); component.resetImageCrop(); component.resetImageFraming(); component.setRotation(0); component.alignElement('center'); };
+    state.toggleLocked(id);
+    const locked = structuredClone(state.document()); act(); expect(state.document()).toEqual(locked);
+    state.toggleLocked(id); state.busy.set(true);
+    const original = structuredClone(state.document()); act(); expect(state.document()).toEqual(original);
+    state.busy.set(false); state.setMode('preview'); act(); expect(state.document()).toEqual(original);
+  });
+
+  it('integrates committed color controls with safe colors and leaves canvas fields unchanged', () => {
+    const fixture = TestBed.createComponent(CardPropertiesComponent);
+    const state = TestBed.inject(CardEditorStateService);
+    state.addElement('rect');
+    fixture.componentInstance.patchShape({ fillMode: 'gradient', fill: 'rgb(10, 20, 30)' });
+    const beforeMount = structuredClone(state.document());
+    fixture.detectChanges();
+    expect(state.document()).toEqual(beforeMount);
+    const color = (label: string) => fixture.debugElement.queryAll(By.directive(EditorColorFieldComponent))
+      .find(item => item.componentInstance.label === label)!.componentInstance as EditorColorFieldComponent;
+    color('Cor / preenchimento').valueChange.emit('#aabbcc');
+    color('Segunda cor').valueChange.emit('rgba(20, 30, 40, 0.5)');
+    color('Cor da borda').valueChange.emit('transparent');
+    color('Cor da sombra').valueChange.emit('');
+    const valid = structuredClone(state.document());
+    fixture.componentInstance.styleColor('fill', 'url(secret)');
+    expect(state.document()).toEqual(valid);
+    expect(fixture.componentInstance.shapeElement()!.properties).toEqual(jasmine.objectContaining({
+      fill: '#aabbcc', gradientColor: 'rgba(20, 30, 40, 0.5)', stroke: 'transparent', shadowColor: ''
+    }));
+    expect(validateCardCanvas(state.canvas())).toEqual(state.canvas());
+    expect(Object.keys(state.canvas()).sort()).toEqual(['assets', 'background', 'elements', 'height', 'version', 'width']);
+    expect(JSON.stringify(state.document())).not.toContain('recentColors');
+    expect(JSON.stringify(state.document())).not.toContain('palette');
+    state.select(null); state.updateCanvasSettings({ background: { kind: 'gradient' } }); fixture.detectChanges();
+    color('Cor do fundo').valueChange.emit('#123456');
+    color('Segunda cor do fundo').valueChange.emit('transparent');
+    expect(state.canvas().background.color).toBe('#123456');
+    expect(state.canvas().background.color2).toBe('transparent');
+  });
+
+  it('describes the selected layer type and its hidden and locked states', () => {
+    const fixture = TestBed.createComponent(CardPropertiesComponent);
+    const state = TestBed.inject(CardEditorStateService);
+    state.addElement('image'); const id = state.selectedElement()!.id;
+    state.patchElement(id, { name: 'Retrato da viajante' }); state.toggleVisible(id); state.toggleLocked(id);
+    fixture.detectChanges();
+    const header = (fixture.nativeElement as HTMLElement).querySelector('header')!;
+    expect(header.textContent).toContain('Imagem'); expect(header.textContent).toContain('Retrato da viajante');
+    expect(header.textContent).toContain('Bloqueada'); expect(header.textContent).toContain('Oculta');
   });
 
   function input(value: string): Event {

@@ -1,4 +1,4 @@
-import { Component, HostListener, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, effect, inject, signal, untracked } from '@angular/core';
+import { Component, ElementRef, HostListener, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Card, CardDataInput, CardInput, CardOperationError } from '../../../../../model/interfaces/Cards/card';
@@ -35,6 +35,9 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() cardId: string | null = null;
   @ViewChild(CardCanvasComponent) private canvasView?: CardCanvasComponent;
+  @ViewChild(CardLayersComponent) private layersView?: CardLayersComponent;
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
+  private nudgeGesture = '';
   readonly state = inject(CardEditorStateService);
   readonly assets = inject(CardEditorAssetsService);
   private readonly cards = inject(CardService);
@@ -321,9 +324,31 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
   }
   @HostListener('document:keydown', ['$event']) keydown(event: KeyboardEvent): void {
     const target = event.target;
-    if (this.state.busy() || this.modal() || this.state.mode() !== 'design' ||
-        (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)))) return;
+    if (event.defaultPrevented || event.isComposing || this.loading() || this.loadError() || this.state.busy() || this.modal() || this.state.mode() !== 'design' ||
+        !(target instanceof HTMLElement) || !this.host.nativeElement.contains(target) || target.isContentEditable ||
+        target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"], [data-editor-shortcuts]')) return;
     const command = event.ctrlKey || event.metaKey;
+    const toolbarControl = !!target.closest('.editor-toolbar');
+    const movement: Record<string, readonly [number, number]> = {
+      ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]
+    };
+    const direction = movement[event.key];
+    if (direction && !command && !event.altKey) {
+      if (toolbarControl) return;
+      const element = this.state.selectedElement();
+      if (!element || element.locked || !element.visible) return;
+      const step = event.shiftKey ? 10 : 1;
+      const gesture = `${event.key}:${step}`;
+      if (!event.repeat || this.nudgeGesture !== gesture) this.state.endNudge();
+      this.nudgeGesture = gesture;
+      event.preventDefault();
+      this.state.nudgeSelected(direction[0] * step, direction[1] * step, gesture);
+      return;
+    }
+    this.endKeyboardNudge();
+    if (event.key === 'F2' && !toolbarControl && !command && !event.altKey && this.layersView?.beginRename()) {
+      event.preventDefault(); return;
+    }
     if (command && event.key.toLowerCase() === 'z') { event.preventDefault(); event.shiftKey ? this.state.redo() : this.state.undo(); }
     else if (command && event.key.toLowerCase() === 'y') { event.preventDefault(); this.state.redo(); }
     else if (command && event.key.toLowerCase() === 'd') { event.preventDefault(); this.state.duplicate(); }
@@ -344,7 +369,11 @@ export class CardEditorComponent implements OnChanges, OnDestroy {
     } else if (event.key === 'Delete') { event.preventDefault(); this.state.remove(); }
     else if (event.key === 'Escape') this.state.select(null);
   }
-  ngOnDestroy(): void { this.destroyed = true; ++this.version; }
+  @HostListener('document:keyup', ['$event']) keyup(event: KeyboardEvent): void {
+    if (event.key.startsWith('Arrow') || event.key === 'Shift') this.endKeyboardNudge();
+  }
+  @HostListener('window:blur') endKeyboardNudge(): void { this.nudgeGesture = ''; this.state.endNudge(); }
+  ngOnDestroy(): void { this.endKeyboardNudge(); this.destroyed = true; ++this.version; }
   reloadAfterError(): void {
     if (!this.state.busy() && window.confirm('Recarregar a carta salva e substituir as alterações locais?')) void this.loadCard();
   }

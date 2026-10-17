@@ -4,7 +4,7 @@ Uma plataforma de cartas digitais de Emanuel Sacoman, com área do jogador, edit
 
 Status: em desenvolvimento
 
-Last reviewed: 2026-10-16
+Last reviewed: 2026-10-17
 
 Source of truth for: apresentação pública do projeto
 
@@ -36,6 +36,7 @@ Localhost usa o Firebase configurado no environment, real por padrão. Para dese
 - **PNG transparente:** imagens já sem fundo preservam a transparência no editor, no salvamento e na exportação PNG, mostrando as camadas da carta por baixo.
 - **Personalização visual:** espelhar imagens, ajustar brilho/contraste/saturação/matiz e aplicar estilos Original, Vivo, Vintage ou Preto e branco; bordas contínuas/tracejadas/pontilhadas, decoração de texto e alinhamento à carta.
 - **Design, Dados e Preview:** propriedades por tipo, bindings seguros, atributos com limites personalizados, grid, snap, zoom e visualização limpa.
+- **Edição mais direta:** cores com paleta do documento, sliders com entrada precisa, movimento por setas, renomeação de camadas, enquadramento de imagens e zoom rápido; [controles e atalhos](docs/editor-de-cartas.md#controles-de-cor-e-precisão) preservam o modelo da carta.
 - **Histórico e exportação:** desfazer/refazer, atalhos e PNG/JPEG em 1×, 2× ou 4×, respeitando dimensões reais e orçamento de pixels.
 - **Cartas e templates:** salvar/reabrir o modelo próprio no Firestore, uploads organizados no Storage, composição ornamental inicial e Fantasy Basic editáveis, salvar/carregar templates e preparar cópias de cartas.
 - **Catálogo em dois modos:** lista administrativa ou galeria de cartas inteiras, com a composição salva, proporção original e acesso à edição ao clicar.

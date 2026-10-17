@@ -7,7 +7,10 @@ import {
 } from '../../../../../../model/interfaces/Cards/card-canvas';
 import { CardEditorStateService, CardElementAlignment } from '../../../../../../model/services/tools/card-editor-state.service';
 import { isCanvasColor } from '../../../../../../model/services/tools/card-canvas-validation';
+import { editorDocumentColors } from '../../../../../../model/services/tools/card-editor-colors';
 import { editorImageError } from '../element-library/element-library.component';
+import { EditorColorFieldComponent } from '../shared/editor-color-field/editor-color-field.component';
+import { EditorRangeFieldComponent } from '../shared/editor-range-field/editor-range-field.component';
 
 type TextElement = Extract<CardCanvasElement, { type: 'text' | 'icon' }>;
 type ShapeElement = Extract<CardCanvasElement, { type: 'rect' | 'circle' | 'line' }>;
@@ -26,9 +29,14 @@ const MOTIF_LABELS: Record<CardOrnamentMotif, string> = {
 const FRAME_LIMITS = {
   borderWidth: [2, 128], cornerRadius: [0, 4096], detail: [0, 12], seed: [0, 999999]
 } as const;
+const ELEMENT_LABELS: Record<CardCanvasElement['type'], string> = {
+  text: 'Texto', icon: 'Ícone', rect: 'Retângulo', circle: 'Círculo', line: 'Linha',
+  image: 'Imagem', artwork: 'Arte principal', attribute: 'Atributo', bar: 'Barra', frame: 'Moldura', emblem: 'Emblema'
+};
 
 @Component({
   selector: 'app-card-properties', standalone: true,
+  imports: [EditorColorFieldComponent, EditorRangeFieldComponent],
   templateUrl: './card-properties.component.html', styleUrl: './card-properties.component.css'
 })
 export class CardPropertiesComponent {
@@ -37,14 +45,19 @@ export class CardPropertiesComponent {
   readonly config = CARD_CANVAS_CONFIG;
   readonly imageTypes = CARD_IMAGE_TYPES.join(',');
   readonly inputError = signal('');
+  readonly palette = computed(() => editorDocumentColors(this.state.document()));
+  readonly editingDisabled = computed(() => this.state.busy() || this.state.mode() !== 'design' || !!this.state.selectedElement()?.locked);
+  readonly backgroundDisabled = computed(() => this.state.busy() || this.state.mode() !== 'design');
+  readonly rotationPresets = [-90, 0, 90, 180] as const;
   readonly ornamentMotifs = CARD_ORNAMENT_MOTIFS.map(id => ({ id, label: MOTIF_LABELS[id] }));
   readonly imageLooks: readonly { id: ImageLook; label: string }[] = [
     { id: 'original', label: 'Original' }, { id: 'vivid', label: 'Vivo' },
     { id: 'vintage', label: 'Vintage' }, { id: 'monochrome', label: 'Preto e branco' }
   ];
-  readonly alignments: readonly { id: CardElementAlignment; label: string }[] = [
-    { id: 'left', label: 'Esquerda' }, { id: 'center-x', label: 'Centro horizontal' }, { id: 'right', label: 'Direita' },
-    { id: 'top', label: 'Topo' }, { id: 'center-y', label: 'Centro vertical' }, { id: 'bottom', label: 'Base' }
+  readonly alignments: readonly { id: CardElementAlignment; label: string; symbol: string }[] = [
+    { id: 'left', label: 'Alinhar à esquerda', symbol: '⇤' }, { id: 'center-x', label: 'Centralizar horizontalmente', symbol: '↔' },
+    { id: 'right', label: 'Alinhar à direita', symbol: '⇥' }, { id: 'top', label: 'Alinhar ao topo', symbol: '↥' },
+    { id: 'center-y', label: 'Centralizar verticalmente', symbol: '↕' }, { id: 'bottom', label: 'Alinhar à base', symbol: '↧' }
   ];
   readonly bindings = computed(() => [
     { key: 'name', label: 'Nome da carta' }, { key: 'description', label: 'Descrição' },
@@ -54,6 +67,7 @@ export class CardPropertiesComponent {
   @Output() readonly assetSelected = new EventEmitter<EditorAssetSelection>();
 
   value(event: Event): string { return (event.target as HTMLInputElement | HTMLSelectElement).value; }
+  elementLabel(element: CardCanvasElement): string { return ELEMENT_LABELS[element.type]; }
   checked(event: Event): boolean { return (event.target as HTMLInputElement).checked; }
   textElement(): TextElement | null {
     const element = this.state.selectedElement();
@@ -105,11 +119,11 @@ export class CardPropertiesComponent {
     const container = this.value(event);
     if (container === 'medallion' || container === 'shield' || container === 'plain') this.patchEmblem({ container });
   }
-  ornamentColor(key: 'accentColor' | 'gemColor', event: Event): void {
+  ornamentColor(key: 'accentColor' | 'gemColor', event: Event | string): void {
     const color = this.color(event);
     if (color !== null) { this.patchFrame({ [key]: color }); this.patchEmblem({ [key]: color }); }
   }
-  frameNumber(key: keyof typeof FRAME_LIMITS, event: Event): void {
+  frameNumber(key: keyof typeof FRAME_LIMITS, event: Event | number): void {
     const [min, max] = FRAME_LIMITS[key]; const value = this.number(event, min, max);
     if (value === null) return;
     if ((key === 'detail' || key === 'seed') && !Number.isInteger(value)) {
@@ -117,7 +131,7 @@ export class CardPropertiesComponent {
     }
     this.patchFrame({ [key]: value });
   }
-  emblemRelief(event: Event): void {
+  emblemRelief(event: Event | number): void {
     const relief = this.number(event, 0, 1); if (relief !== null) this.patchEmblem({ relief });
   }
   varyFrame(): void {
@@ -128,30 +142,42 @@ export class CardPropertiesComponent {
     this.state.updateElement({ ...element, properties: { ...element.properties, seed } }, false);
   }
   patchText(patch: Partial<TextProperties>): void {
-    const element = this.textElement(); if (element && !element.locked && !this.state.busy()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
+    const element = this.textElement(); if (element && !this.editingDisabled()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
   }
   patchShape(patch: Partial<ShapeProperties>): void {
-    const element = this.shapeElement(); if (element && !element.locked && !this.state.busy()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
+    const element = this.shapeElement(); if (element && !this.editingDisabled()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
   }
   patchImage(patch: Partial<ImageProperties>): void {
-    const element = this.imageElement(); if (element && !element.locked && !this.state.busy()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
+    const element = this.imageElement(); if (element && !this.editingDisabled()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
+  }
+  centerImage(): void { this.imageAction({ offsetX: 0, offsetY: 0 }); }
+  resetImageCrop(): void { this.imageAction({ crop: { x: 0, y: 0, width: 1, height: 1 } }); }
+  resetImageFraming(): void {
+    this.imageAction({ zoom: 1, offsetX: 0, offsetY: 0, crop: { x: 0, y: 0, width: 1, height: 1 } });
+  }
+  resetImageZoom(): void { this.imageAction({ zoom: 1 }); }
+  private imageAction(patch: Partial<ImageProperties>): void {
+    const element = this.imageElement();
+    if (!element || this.editingDisabled()) return;
+    this.inputError.set('');
+    this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } }, false);
   }
   flipImage(axis: 'flipX' | 'flipY'): void {
     const element = this.imageElement();
-    if (element && !element.locked && !this.state.busy()) {
+    if (element && !this.editingDisabled()) {
       this.state.updateElement({ ...element, properties: { ...element.properties, [axis]: !element.properties[axis] } }, false);
     }
   }
   applyImageLook(look: ImageLook): void {
     const element = this.imageElement();
-    if (element && !element.locked && !this.state.busy()) {
+    if (element && !this.editingDisabled()) {
       this.inputError.set('');
       this.state.updateElement({ ...element, properties: { ...element.properties, ...IMAGE_LOOKS[look] } }, false);
     }
   }
   resetImageEffects(): void {
     const element = this.imageElement();
-    if (element && !element.locked && !this.state.busy()) {
+    if (element && !this.editingDisabled()) {
       this.inputError.set('');
       this.state.updateElement({ ...element, properties: { ...element.properties, ...IMAGE_LOOKS.original, flipX: false, flipY: false } }, false);
     }
@@ -159,42 +185,50 @@ export class CardPropertiesComponent {
   saturationFactor(value: number): string { return (2 ** value).toLocaleString('pt-BR', { maximumFractionDigits: 2 }); }
   useTransparentImageBackground(): void {
     const element = this.imageElement();
-    if (element && !element.locked && !this.state.busy()) {
+    if (element && !this.editingDisabled()) {
       this.state.updateElement({ ...element, properties: { ...element.properties, fill: 'transparent' } }, false);
     }
   }
   patchAttribute(patch: Partial<AttributeProperties>): void {
-    const element = this.attributeElement(); if (element && !element.locked && !this.state.busy()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
+    const element = this.attributeElement(); if (element && !this.editingDisabled()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
   }
   patchBar(patch: Partial<BarProperties>): void {
-    const element = this.barElement(); if (element && !element.locked && !this.state.busy()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
+    const element = this.barElement(); if (element && !this.editingDisabled()) this.state.updateElement({ ...element, properties: { ...element.properties, ...patch } });
   }
   baseName(event: Event): void {
     const element = this.state.selectedElement();
-    if (element && !element.locked && !this.state.busy()) this.state.patchElement(element.id, { name: this.value(event).slice(0, 120) });
+    if (element && !this.editingDisabled()) this.state.patchElement(element.id, { name: this.value(event).slice(0, 120) });
   }
-  baseNumber(key: 'x' | 'y' | 'width' | 'height' | 'rotation' | 'opacity', event: Event, min: number, max: number): void {
+  baseNumber(key: 'x' | 'y' | 'width' | 'height' | 'rotation' | 'opacity', event: Event | number, min: number, max: number): void {
     const element = this.state.selectedElement(); const value = this.number(event, min, max);
-    if (element && !element.locked && !this.state.busy() && value !== null) this.state.patchElement(element.id, { [key]: value });
+    if (element && !this.editingDisabled() && value !== null) {
+      this.state.updateElement({ ...element, [key]: value });
+    }
+  }
+  setRotation(rotation: number): void {
+    const element = this.state.selectedElement();
+    if (!element || this.editingDisabled() || !Number.isFinite(rotation) || rotation < -360 || rotation > 360) return;
+    this.inputError.set('');
+    this.state.updateElement({ ...element, rotation }, false);
   }
   alignElement(alignment: CardElementAlignment): void {
     const element = this.state.selectedElement();
     if (!element || element.locked || !element.visible || this.state.busy() || this.state.mode() !== 'design') return;
     this.inputError.set(this.state.alignSelected(alignment) ? '' : 'O alinhamento excede os limites de posição. Reduza o tamanho da camada ou ajuste sua rotação.');
   }
-  styleColor(key: 'fill' | 'stroke' | 'shadowColor', event: Event): void {
+  styleColor(key: 'fill' | 'stroke' | 'shadowColor', event: Event | string): void {
     const color = this.color(event); if (color !== null) this.patchStyle({ [key]: color });
   }
-  styleNumber(key: 'strokeWidth' | 'shadowBlur' | 'shadowOffsetX' | 'shadowOffsetY', event: Event, min: number, max: number): void {
+  styleNumber(key: 'strokeWidth' | 'shadowBlur' | 'shadowOffsetX' | 'shadowOffsetY', event: Event | number, min: number, max: number): void {
     const value = this.number(event, min, max); if (value !== null) this.patchStyle({ [key]: value });
   }
   textNumber(key: 'fontSize' | 'letterSpacing' | 'lineHeight', event: Event, min: number, max: number): void {
     const value = this.number(event, min, max); if (value !== null) this.patchText({ [key]: value });
   }
-  shapeNumber(key: 'cornerRadius' | 'gradientAngle', event: Event, min: number, max: number): void {
+  shapeNumber(key: 'cornerRadius' | 'gradientAngle', event: Event | number, min: number, max: number): void {
     const value = this.number(event, min, max); if (value !== null) this.patchShape({ [key]: value });
   }
-  imageNumber(key: 'zoom' | 'offsetX' | 'offsetY' | 'cornerRadius' | 'brightness' | 'contrast' | 'saturation' | 'hue', event: Event, min: number, max: number): void {
+  imageNumber(key: 'zoom' | 'offsetX' | 'offsetY' | 'cornerRadius' | 'brightness' | 'contrast' | 'saturation' | 'hue', event: Event | number, min: number, max: number): void {
     const value = this.number(event, min, max); if (value !== null) this.patchImage({ [key]: value });
   }
   attributeNumber(event: Event): void { const value = this.number(event, 6, 256); if (value !== null) this.patchAttribute({ fontSize: value }); }
@@ -246,27 +280,31 @@ export class CardPropertiesComponent {
   setImageBinding(event: Event): void { this.patchImage({ binding: this.checked(event) ? 'art' : null }); }
   setFillMode(event: Event): void { const fillMode = this.value(event); if (fillMode === 'solid' || fillMode === 'gradient') this.patchShape({ fillMode }); }
   setLabelMode(event: Event): void { const labelMode = this.value(event); if (labelMode === 'label-value' || labelMode === 'value' || labelMode === 'label') this.patchAttribute({ labelMode }); }
-  extraColor(target: 'gradientColor' | 'trackColor', event: Event): void {
+  extraColor(target: 'gradientColor' | 'trackColor', event: Event | string): void {
     const color = this.color(event); if (color === null) return;
     if (target === 'gradientColor') this.patchShape({ gradientColor: color }); else this.patchBar({ trackColor: color });
   }
   backgroundKind(event: Event): void {
+    if (this.backgroundDisabled()) return;
     const kind = this.value(event);
     if (kind === 'solid' || kind === 'gradient' || kind === 'image' || kind === 'texture') this.state.updateCanvasSettings({ background: { kind } });
   }
-  backgroundColor(key: 'color' | 'color2', event: Event): void {
+  backgroundColor(key: 'color' | 'color2', event: Event | string): void {
+    if (this.backgroundDisabled()) return;
     const color = this.color(event); if (color !== null) this.state.updateCanvasSettings({ background: { [key]: color } });
   }
-  backgroundAngle(event: Event): void {
+  backgroundAngle(event: Event | number): void {
+    if (this.backgroundDisabled()) return;
     const angle = this.number(event, -360, 360); if (angle !== null) this.state.updateCanvasSettings({ background: { angle } });
   }
   dimension(key: 'width' | 'height', event: Event): void {
+    if (this.backgroundDisabled()) return;
     const value = this.number(event, this.config.minDimension, this.config.maxDimension);
     if (value !== null && Number.isInteger(value)) this.state.updateCanvasSettings({ [key]: value });
     else this.inputError.set('As dimensões da carta precisam ser números inteiros.');
   }
   upload(event: Event): void {
-    if (this.state.busy() || this.state.selectedElement()?.locked) return;
+    if (this.editingDisabled()) return;
     const input = event.target as HTMLInputElement; const file = input.files?.[0]; input.value = '';
     if (!file) return;
     this.inputError.set(editorImageError(file) ?? '');
@@ -278,15 +316,15 @@ export class CardPropertiesComponent {
     this.patchText(patch); this.patchShape(patch); this.patchImage(patch); this.patchAttribute(patch); this.patchBar(patch);
     this.patchFrame(patch); this.patchEmblem(patch);
   }
-  private number(event: Event, min: number, max: number): number | null {
-    const raw = this.value(event); const value = Number(raw);
+  private number(event: Event | number, min: number, max: number): number | null {
+    const raw = typeof event === 'number' ? String(event) : this.value(event); const value = Number(raw);
     if (!raw.trim() || !Number.isFinite(value) || value < min || value > max) {
       this.inputError.set(`Informe um número entre ${min} e ${max}.`); return null;
     }
     this.inputError.set(''); return value;
   }
-  private color(event: Event): string | null {
-    const color = this.value(event).trim();
+  private color(event: Event | string): string | null {
+    const color = (typeof event === 'string' ? event : this.value(event)).trim();
     if (!isCanvasColor(color)) { this.inputError.set('Use uma cor hexadecimal, RGB, transparent ou deixe vazio.'); return null; }
     this.inputError.set(''); return color;
   }

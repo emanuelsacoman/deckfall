@@ -1,0 +1,29 @@
+<div class="color-field">
+  <label [for]="fieldId + '-text'">{{ label }}</label>
+  <div class="color-entry">
+    <label class="swatch" [class.disabled]="disabled" [title]="label + ': ' + currentDescription">
+      <span class="checker" aria-hidden="true"><span class="paint" [style.background-color]="swatchColor"></span><span class="mark">{{ swatchMark }}</span></span>
+      <input type="color" [value]="pickerHex" [disabled]="disabled" [attr.aria-label]="label + ': escolher cor'"
+        (input)="picker($event)" (change)="picker($event)" />
+    </label>
+    <input #textInput type="text" [id]="fieldId + '-text'" [value]="draft" [disabled]="disabled" autocomplete="off" spellcheck="false"
+      [attr.aria-invalid]="error ? 'true' : null" [attr.aria-describedby]="error ? fieldId + '-error' : pickerHint ? fieldId + '-hint' : null"
+      (input)="edit($event)" (blur)="commit()" (keydown)="keydown($event)" />
+  </div>
+  <div class="color-options">
+    @if (allowEmpty) { <button type="button" [disabled]="disabled" (click)="choose('')" [attr.aria-label]="label + ': limpar cor'">Limpar</button> }
+    @if (allowTransparent) { <button type="button" [disabled]="disabled" (click)="choose('transparent')" [attr.aria-label]="label + ': usar transparente'">Transparente</button> }
+  </div>
+  @if (paletteColors.length) {
+    <div class="palette" role="group" [attr.aria-label]="label + ': paleta'">
+      @for (color of paletteColors; track color) {
+        <button class="palette-color checker" type="button" [disabled]="disabled" (click)="choose(color)"
+          [title]="color || 'Sem cor'" [attr.aria-label]="label + ': aplicar ' + (color || 'sem cor')">
+          <span class="paint" [style.background-color]="color || 'transparent'" aria-hidden="true"></span>
+        </button>
+      }
+    </div>
+  }
+  @if (pickerHint) { <small class="hint" [id]="fieldId + '-hint'">O seletor aplica uma cor sólida. O valor atual é preservado até escolher.</small> }
+  @if (error) { <small class="field-error" role="alert" [id]="fieldId + '-error'">{{ error }}</small> }
+</div>

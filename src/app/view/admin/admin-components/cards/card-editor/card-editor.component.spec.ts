@@ -233,4 +233,90 @@ describe('Editor — criação, reabertura e uploads', () => {
     expect(editor.retryingImages()).toBeFalse();
     fixture.destroy();
   });
+
+  it('move por setas em pixels e Shift em dez pixels, agrupando repetição até keyup', async () => {
+    const fixture = TestBed.createComponent(CardEditorComponent);
+    fixture.componentRef.setInput('mode', 'create'); fixture.detectChanges(); await fixture.whenStable();
+    const editor = fixture.componentInstance;
+    editor.state.addElement('rect'); const element = editor.state.selectedElement()!;
+    editor.state.load({ ...editor.state.document(), canvas: { ...editor.state.canvas(), elements: [element] } });
+    editor.state.select(element.id); fixture.detectChanges();
+    const viewport = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.canvas-viewport')!;
+    viewport.focus();
+    const before = structuredClone(editor.state.document());
+    const press = (key: string, options: KeyboardEventInit = {}) => viewport.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...options }));
+    press('ArrowRight'); press('ArrowRight', { repeat: true }); press('ArrowRight', { repeat: true });
+    viewport.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', bubbles: true }));
+    expect(editor.state.selectedElement()!.x).toBe(element.x + 3);
+    press('z', { ctrlKey: true }); expect(editor.state.document()).toEqual(before);
+    expect(editor.state.canUndo()).toBeFalse();
+    editor.state.select(element.id);
+    press('ArrowUp', { shiftKey: true });
+    expect(editor.state.selectedElement()!.y).toBe(element.y - 10);
+    viewport.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowUp', bubbles: true }));
+    press('ArrowDown'); expect(editor.state.selectedElement()!.y).toBe(element.y - 9);
+    press('ArrowLeft', { shiftKey: true }); expect(editor.state.selectedElement()!.x).toBe(element.x - 10);
+    fixture.destroy();
+  });
+
+  it('não intercepta setas em controles, conteúdo editável, dialog ou fora do editor', async () => {
+    const fixture = TestBed.createComponent(CardEditorComponent);
+    fixture.componentRef.setInput('mode', 'create'); fixture.detectChanges(); await fixture.whenStable();
+    const editor = fixture.componentInstance, host = fixture.nativeElement as HTMLElement;
+    editor.state.addElement('rect'); const before = structuredClone(editor.state.document());
+    for (const tag of ['input', 'textarea', 'select', 'div', 'button']) {
+      const control = document.createElement(tag);
+      if (tag === 'div') control.contentEditable = 'true';
+      if (tag === 'button') control.setAttribute('role', 'dialog');
+      host.appendChild(control); control.focus();
+      const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+      control.dispatchEvent(event);
+      expect(editor.state.document()).withContext(tag).toEqual(before);
+      expect(event.defaultPrevented).withContext(tag).toBeFalse(); control.remove();
+    }
+    const outside = document.createElement('button'); document.body.appendChild(outside); outside.focus();
+    outside.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    outside.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+    expect(editor.state.document()).toEqual(before); outside.remove(); fixture.destroy();
+  });
+
+  it('mantém Undo por teclado após focar a toolbar sem mover a camada pelas setas', async () => {
+    const fixture = TestBed.createComponent(CardEditorComponent);
+    fixture.componentRef.setInput('mode', 'create'); fixture.detectChanges(); await fixture.whenStable();
+    const editor = fixture.componentInstance, host = fixture.nativeElement as HTMLElement;
+    const initial = structuredClone(editor.state.document());
+    editor.state.addElement('rect'); fixture.detectChanges();
+    const before = structuredClone(editor.state.document());
+    const button = host.querySelector<HTMLButtonElement>('.editor-toolbar .modes button')!;
+    button.focus();
+    button.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(editor.state.document()).toEqual(before);
+    button.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(editor.state.document()).toEqual(initial);
+    fixture.destroy();
+  });
+
+  it('respeita locked, busy, Preview, Dados e modal; F2 abre a renomeação da seleção', async () => {
+    const fixture = TestBed.createComponent(CardEditorComponent);
+    fixture.componentRef.setInput('mode', 'create'); fixture.detectChanges(); await fixture.whenStable();
+    const editor = fixture.componentInstance, host = fixture.nativeElement as HTMLElement;
+    editor.state.addElement('rect'); const id = editor.state.selectedElement()!.id;
+    const press = (key: string) => host.querySelector('.canvas-viewport')!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    for (const mode of ['preview', 'data'] as const) {
+      editor.state.setMode(mode); fixture.detectChanges(); const before = structuredClone(editor.state.document());
+      press('ArrowRight'); expect(editor.state.document()).toEqual(before);
+    }
+    editor.state.setMode('design'); fixture.detectChanges();
+    editor.state.patchElement(id, { locked: true }); let before = structuredClone(editor.state.document());
+    press('ArrowRight'); expect(editor.state.document()).toEqual(before);
+    editor.state.patchElement(id, { locked: false }); editor.state.busy.set(true); before = structuredClone(editor.state.document());
+    press('ArrowRight'); expect(editor.state.document()).toEqual(before);
+    editor.state.busy.set(false); editor.modal.set('save-template'); before = structuredClone(editor.state.document());
+    press('ArrowRight'); expect(editor.state.document()).toEqual(before);
+    editor.modal.set(null); press('F2'); fixture.detectChanges();
+    const input = host.querySelector<HTMLInputElement>('.rename-editor input')!;
+    expect(input).not.toBeNull(); expect(document.activeElement).toBe(input);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); fixture.detectChanges();
+    expect(host.querySelector('.rename-editor')).toBeNull(); fixture.destroy();
+  });
 });
