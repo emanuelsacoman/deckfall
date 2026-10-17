@@ -6,7 +6,7 @@ Last reviewed: 2026-10-17
 
 Source of truth for: API, fronteiras e validação do contrato puro de gameplay implementado
 
-O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado. O módulo TypeScript isolado em [shared/gameplay/src](../shared/gameplay/src) contém constantes, tipos, validação estrutural, catálogo fechado de efeitos/parâmetros/alvos, contrato de rascunhos pessoais, validação de composição e compatibilidade de decks, invariantes de snapshots e projeção por participante. Ele ainda não é importado pelo frontend ou pelas Functions e não oferece partida jogável. A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md); estado e sequência dos marcos permanecem em [Project State](project-state.md) e [roadmap](roadmap.md).
+O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado. O módulo TypeScript isolado em [shared/gameplay/src](../shared/gameplay/src) contém constantes, tipos, validação estrutural, catálogo fechado de efeitos/parâmetros/alvos, contratos pessoais de rascunho/recurso/mutação, validação de composição e compatibilidade de decks, invariantes de snapshots e projeção por participante. Ele ainda não é importado pelo frontend ou pelas Functions e não oferece partida jogável. A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md); estado e sequência dos marcos permanecem em [Project State](project-state.md) e [roadmap](roadmap.md).
 
 ## Fonte e responsabilidade
 
@@ -21,7 +21,7 @@ O ponto de entrada é [index.ts](../shared/gameplay/src/index.ts). O módulo usa
 | [effects.ts](../shared/gameplay/src/effects.ts) | Catálogo, parâmetros fechados e validação do destinatário de efeito, sem execução |
 | [decks.ts](../shared/gameplay/src/decks.ts) | Composição e validação contra catálogo/quantidades ou referência de treino confiáveis |
 | [deck-compatibility.ts](../shared/gameplay/src/deck-compatibility.ts) | Adapta somente a versão do envelope pessoal em memória e delega a validação ao Deck Rules existente |
-| [personal-decks.ts](../shared/gameplay/src/personal-decks.ts) | Intenção pessoal parcial com nome, normalização de referências e limites revisáveis de v0.1; sem catálogo ou persistência |
+| [personal-decks.ts](../shared/gameplay/src/personal-decks.ts) | Intenção pessoal parcial, projeção serializável de recurso e pedidos estritos de mutação; sem catálogo, IO ou persistência real |
 | [validation.ts](../shared/gameplay/src/validation.ts) | Parsing de perfis e pedidos; delega parâmetros de Ação ao parser de efeitos |
 | [invariants.ts](../shared/gameplay/src/invariants.ts) | Consistência de um snapshot estável, sem executar transições |
 | [projection.ts](../shared/gameplay/src/projection.ts) | Cópia explícita dos campos permitidos ao participante |
@@ -46,6 +46,12 @@ O ponto de entrada é [index.ts](../shared/gameplay/src/index.ts). O módulo usa
 | `parseGameplayCommandRequest(unknown)` | Envelope e formato de uma intenção, sem campos de autoridade injetados | Autenticação, participação, turno, alvo legal, custo disponível ou aplicação |
 | `parseGameplayDeckList(unknown)` | Versões e entradas exatas de identidade/revisão/quantidade positiva, copiadas | Tamanho, cópias, elegibilidade, propriedade ou permissão de treino |
 | `parsePersonalDeckDraft(unknown)` | Intenção `{name, rulesVersion, contentVersion, entries}` normalizada, com composição parcial e limites de nome/cópias/total | Existência/revisão canônica das cartas, catálogo ativo, publicação, propriedade, quota por conta, persistência ou admissão |
+| `parsePersonalDeckResource(unknown)` | Projeção `{id, version, draft, createdAt, updatedAt}`, com draft normalizado e datas UTC canônicas ordenadas | Origem confiável dos metadados, existência do recurso, autenticação, autorização ou versão atualmente persistida |
+| `parsePersonalDeckCreateRequest(unknown)` | Apenas `{deckId, draft}` | Ausência do destino, capacidade, versão inicial, datas ou gravação |
+| `parsePersonalDeckUpdateRequest(unknown)` | Apenas `{deckId, expectedVersion, draft}` | Comparação com versão armazenada, no-op, incremento, conflito ou atomicidade |
+| `parsePersonalDeckRenameRequest(unknown)` | Apenas `{deckId, expectedVersion, name}`, com a mesma normalização de nome do draft | Composição, catálogo, versão armazenada ou renomeação efetiva |
+| `parsePersonalDeckDeleteRequest(unknown)` | Apenas `{deckId, expectedVersion}` | Existência, versão armazenada ou exclusão efetiva |
+| `parsePersonalDeckDuplicateRequest(unknown)` | Apenas `{sourceDeckId, expectedSourceVersion, newDeckId}`, com IDs distintos | Leitura da origem, ausência do destino, quota, metadados novos ou cópia efetiva |
 | `validateGameplayDeck(unknown, trustedContext)` | Composição v0.1, conteúdo canônico e quantidades pessoais ou referência exata de treino | Autenticação, origem do contexto, consulta à coleção, persistência ou início de partida |
 | `validateGameplayDeckAgainstActiveCatalog(unknown, trustedOwnedContext)` | Mesmas referências pessoais contra o catálogo recebido como ativo, adaptando apenas `contentVersion` em memória e delegando ao validador existente | Origem/ativação real do catálogo, posse real, autenticação, publicação de `Card`, persistência ou admissão de partida |
 | `GameplayDeckValidationError` | Código `invalid-gameplay-deck`, motivo enumerado e mensagem genérica | Detalhes do deck, catálogo ou inventário em erros |
@@ -126,7 +132,27 @@ Campos desconhecidos ou de autoridade/persistência, como UID, deckId, timestamp
 
 `PERSONAL_DECK_LIMITS` centraliza, em objeto congelado, os limites revisáveis de v0.1: `maxDecks: 20`, `maxNameLength: 80`, `maxCards: 24`, `maxCopies: 2`, `maxDocumentBytes: 16384`. Total e cópias reutilizam os valores aprovados de `GAMEPLAY_RULES`. O parser aplica somente nome e composição da intenção individual; **não comprova quota de 20 decks**. O teto de 16 KiB é preservado para a representação/documento futuro: o JSON compacto UTF-8 da intenção normalizada atual fica conservadoramente abaixo de 8 KiB (nome até 80 unidades escapáveis, no máximo 24 referências, IDs ASCII até 128 e revisões inteiras seguras). Há teste desse extremo com UTF-8 real no harness Node; não se acrescenta cálculo de bytes, Buffer, TextEncoder ou dependência Node/DOM ao domínio. Isso não mede metadados, encoding interno Firestore, payload bruto ou o futuro documento completo, que terão sua própria fronteira.
 
-O parser não exige catálogo, ownership, publicação ou elegibilidade. A futura camada confiável continua responsável por essas conferências ao salvar/editar/admitir; sucesso aqui não é autorização ou recibo de validação. Para conferir um deck completo, extrair explicitamente a projeção `{rulesVersion, contentVersion, entries}`: o rascunho com `name` não é o envelope exato de `validateGameplayDeck` ou do helper de compatibilidade. Ambos permanecem inalterados e continuam recusando composições incompletas. Não há tipo de documento Firestore nem contrato de mutação/concorrência neste incremento.
+O parser não exige catálogo, ownership, publicação ou elegibilidade. A futura camada confiável continua responsável por essas conferências ao salvar/editar/admitir; sucesso aqui não é autorização ou recibo de validação. Para conferir um deck completo, extrair explicitamente a projeção `{rulesVersion, contentVersion, entries}`: o rascunho com `name` não é o envelope exato de `validateGameplayDeck` ou do helper de compatibilidade. Ambos permanecem inalterados e continuam recusando composições incompletas. O incremento original de rascunhos não incluiu metadados; os contratos puros adicionais estão na seção seguinte.
+
+### Recurso pessoal e pedidos de mutação
+
+`PersonalDeckResource` é a projeção serializável `{id, version, draft, createdAt, updatedAt}`. Seu parser compõe `parsePersonalDeckDraft` e retorna estruturas independentes, readonly nos tipos, sem congelar o resultado em runtime. Não é um documento Firestore: `id` será derivado do caminho, UID não integra a projeção, e o futuro adapter converterá o envelope persistido documentado em [Deck Builder](deck-builder.md#modelo-de-decks-pessoais). Não há geração de IDs, timestamps ou versão no parser. IDs reutilizam `contractIdentifier`; nome/slug não geram identidade e o formato não exige UUID.
+
+As datas são strings ISO UTC canônicas `YYYY-MM-DDTHH:mm:ss.sssZ`, anos 0001–9999, precisão de milissegundos. Formato e calendário são conferidos por round-trip; offsets, datas impossíveis, precisão diferente e objetos `Date`/Timestamp não entram no contrato. Exige `createdAt <= updatedAt`, aceitando igualdade. A instância `Date` usada na validação é local e não é retornada; não há leitura de relógio, limite de idade ou certificação de que a data veio do servidor. A conversão futura de Timestamp deverá projetar milissegundos de modo determinístico, sem usar essas datas como token de concorrência.
+
+Os tipos `PersonalDeckCreateRequest`, `PersonalDeckUpdateRequest`, `PersonalDeckRenameRequest`, `PersonalDeckDeleteRequest` e `PersonalDeckDuplicateRequest` correspondem exatamente aos envelopes da tabela da API. Todo payload com `draft` delega ao parser existente; rename compartilha o mesmo helper privado de nome, sem composição fornecida pelo cliente ou catálogo. Duplicate não recebe nome ou draft: a futura operação lê a origem confiável e preserva seu nome, permitido porque nomes repetidos são válidos; não cria sufixo nem copia metadados. A igualdade entre origem e destino é recusada.
+
+| Campo | Significado e fronteira |
+| --- | --- |
+| `version` | Revisão do documento pessoal, inteiro seguro >= 1; só aparece no recurso. A futura criação atribui 1, e o parser apenas preserva o número recebido. |
+| `expectedVersion` / `expectedSourceVersion` | Versão do documento que o cliente leu, inteiro seguro >= 1; nunca a nova versão desejada. |
+| `revision` | Revisão mecânica explícita de cada carta em `draft.entries`, independente da versão do documento. |
+| `rulesVersion` | Versão das regras de gameplay suportadas, atualmente `0.1`. |
+| `contentVersion` | Proveniência da composição, sem comparação automática com catálogo ativo. |
+
+Todos os parsers rejeitam campos extras, símbolos, accessors e metadados/autoridade fora da respectiva fronteira usando o `GameplayContractError` genérico existente. Não existe exceção de conflito ou Firestore neste incremento. `Number.MAX_SAFE_INTEGER` é estruturalmente válido para versões; a futura operação que precisaria incrementá-lo deverá falhar por esgotamento, sem reset ou overflow.
+
+`expectedVersion` sozinho não comprova concorrência: a futura transação deverá comparar a versão armazenada e, quando houver mudança efetiva, incrementar a versão e atribuir data de servidor atomicamente. Aqui não há leitura, comparação persistida, no-op, incremento, conflito, quota, autorização ou CRUD. Os envelopes normalizados atuais de recurso/requests continuam estruturalmente abaixo de 16 KiB pelos limites dos campos; isso não mede payload bruto nem armazenamento Firestore e não adiciona cálculo de bytes ao domínio.
 
 ## Invariantes do snapshot
 
@@ -163,6 +189,8 @@ npm.cmd run test:gameplay
 [Testes de compatibilidade](../tests/gameplay/gameplay-deck-compatibility.test.mjs) e [de tipos da API pessoal](../shared/gameplay/type-tests/deck-compatibility.typecheck.ts) cobrem versões aditivas, mudanças irrelevantes, referências removidas/substituídas/inelegíveis, delegação de tamanho/cópias/posse, contexto adversarial, preservação das entradas e regressão do validador direto. Não são testes de admissão autenticada ou do cap transacional.
 
 [Testes de rascunhos pessoais](../tests/gameplay/personal-deck-drafts.test.mjs) e [de tipos da intenção](../shared/gameplay/type-tests/personal-decks.typecheck.ts) cobrem composição de 0–24, agregação/conflitos, nome/Unicode, limites, ordem canônica, entradas estritas/adversariais, imutabilidade, tamanho normalizado e regressões de Deck Rules/compatibilidade. Não testam persistência, quota por conta ou reconhecimento canônico das referências.
+
+[Testes de recursos/mutações](../tests/gameplay/personal-deck-resources.test.mjs) e [de tipos dessas fronteiras](../shared/gameplay/type-tests/personal-deck-resources.typecheck.ts) cobrem recurso, cinco pedidos, datas UTC/calendário/ordem, versões independentes, campos forjados, entradas hostis e frozen/detached. Não comprovam atomicidade, concorrência real ou origem confiável dos metadados.
 
 ## Fora deste incremento
 

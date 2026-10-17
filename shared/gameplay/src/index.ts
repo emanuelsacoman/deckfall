@@ -10,8 +10,15 @@ export type {
 } from './effects';
 export { parseGameplayDeckList, validateGameplayDeck, GameplayDeckValidationError } from './decks';
 export { validateGameplayDeckAgainstActiveCatalog } from './deck-compatibility';
-export { PERSONAL_DECK_LIMITS, parsePersonalDeckDraft } from './personal-decks';
-export type { PersonalDeckDraft } from './personal-decks';
+export {
+  PERSONAL_DECK_LIMITS, parsePersonalDeckDraft, parsePersonalDeckResource, parsePersonalDeckCreateRequest,
+  parsePersonalDeckUpdateRequest, parsePersonalDeckRenameRequest, parsePersonalDeckDeleteRequest,
+  parsePersonalDeckDuplicateRequest,
+} from './personal-decks';
+export type {
+  PersonalDeckDraft, PersonalDeckResource, PersonalDeckCreateRequest, PersonalDeckUpdateRequest,
+  PersonalDeckRenameRequest, PersonalDeckDeleteRequest, PersonalDeckDuplicateRequest,
+} from './personal-decks';
 export type {
   GameplayDeckEntry, GameplayDeckList, GameplayDeckCatalog, GameplayOwnedCardQuantity,
   GameplayDeckValidationContext, GameplayValidatedDeckEntry, GameplayValidatedDeck, GameplayDeckValidationReason,

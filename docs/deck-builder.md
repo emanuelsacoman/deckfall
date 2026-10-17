@@ -1,16 +1,16 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — COMPATIBILIDADE E RASCUNHOS PUROS IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS PUROS IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
 
 Last reviewed: 2026-10-17
 
-Source of truth for: arquitetura aprovada de persistência, autorização e ciclo de vida de decks pessoais; não descreve funcionalidades implementadas
+Source of truth for: arquitetura aprovada de persistência, autorização e ciclo de vida de decks pessoais, com status dos incrementos puros implementados
 
 ## Escopo e autorização recebida
 
 Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na revisão seguinte da mesma data, **aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com a revisão de compatibilidade descrita neste documento**: a troca da versão ativa não invalida automaticamente referências antigas ainda reconhecidas e elegíveis. As recomendações adotadas abaixo são arquitetura aprovada para v0.1; as alternativas comparativas não foram adotadas. As regras do jogo continuam no [Game Design](game-design.md#preparação-decks-e-acesso--aprovado).
 
-Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, e depois o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), com exportações, testes e documentação. Esses dois contratos pequenos estão implementados e validados. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
+Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais) e o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), com exportações, testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
 
 ## Base atual verificada em modo somente leitura
 
@@ -177,7 +177,7 @@ A referência não precisa de posse ou de um `Card` colecionável artificial. De
 
 ## Operações, concorrência e falhas
 
-**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma futura operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Não se implementa esse serviço nem seu contrato de transporte nesta tarefa.
+**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma futura operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações) estão implementados; serviço, transporte e gravação continuam futuros.
 
 | Operação | Comportamento recomendado |
 | --- | --- |
@@ -238,7 +238,7 @@ A revisão obrigatória de Emanuel foi explícita:
 
 > Nunca substitua automaticamente uma revisão por outra.
 
-Não há decisão de arquitetura aguardando aprovação nesses cinco blocos. Os incrementos puros de compatibilidade e rascunhos foram posteriormente autorizados e validados, conforme as seções abaixo; o hard cap transacional continua sem prova de integração. A autorização não libera deploy, operação remota, implementação do marco inteiro ou avanço ao Battle Engine.
+Não há decisão de arquitetura aguardando aprovação nesses cinco blocos. Os incrementos puros receberam autorizações próprias, conforme as seções abaixo; o hard cap transacional continua sem prova de integração. A autorização não libera deploy, operação remota, implementação do marco inteiro ou avanço ao Battle Engine.
 
 ## Primeiro incremento técnico proposto
 
@@ -292,4 +292,28 @@ Arquivos implementados: [personal-decks.ts](../shared/gameplay/src/personal-deck
 
 `npm.cmd run test:gameplay` passou com **115/115 testes**, incluindo os 79 anteriores e 36 novos, além do build e testes de tipos. Angular/Firebase/Functions/Rules não foram executados; o incremento permanece isolado e não fornece prova do cap transacional de 20 decks. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
 
-**Próximo menor incremento recomendado, não implementado:** definir o contrato puro de mutação/concorrência, separando intenção, recurso e versão esperada, antes de qualquer CRUD/adapters/Firestore. Aguardar nova autorização; encerrar esta tarefa sem implementação adicional.
+## Contrato puro de recurso e mutações
+
+Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autorização de Emanuel para somente tipos, parsers puros, exportações, testes e documentação. A projeção `PersonalDeckResource` contém `{id, version, draft, createdAt, updatedAt}`. Não é o documento Firestore da seção de modelo: não altera seu `schemaVersion` ou campos achatados, não duplica UID e não implementa conversão do caminho ou de Timestamp. O futuro adapter fará essa conversão; aqui só se confere uma projeção recebida, sem comprovar sua origem.
+
+| Pedido | Contrato exato |
+| --- | --- |
+| `PersonalDeckCreateRequest` | `{deckId, draft}` |
+| `PersonalDeckUpdateRequest` | `{deckId, expectedVersion, draft}` |
+| `PersonalDeckRenameRequest` | `{deckId, expectedVersion, name}` |
+| `PersonalDeckDeleteRequest` | `{deckId, expectedVersion}` |
+| `PersonalDeckDuplicateRequest` | `{sourceDeckId, expectedSourceVersion, newDeckId}`; IDs distintos |
+
+Cada tipo tem seu parser `parsePersonalDeck…` exportado em `shared/gameplay`. Todo payload com draft compõe `parsePersonalDeckDraft`, sem regras paralelas. Rename usa o mesmo helper privado de nome e não recebe composição: continua possível preparar o pedido sem catálogo histórico disponível. Duplicate não recebe nome adicional, lista ou metadados: o backend futuro lerá a origem e preservará o nome, já que nomes repetidos são válidos, sem sufixo automático.
+
+Datas são strings ISO UTC canônicas `YYYY-MM-DDTHH:mm:ss.sssZ`, anos 0001–9999, com validação de calendário e `createdAt <= updatedAt`. Não se retorna `Date`, não se lê relógio nem se certifica timestamp de servidor. A projeção adota milissegundos; conversão determinística de Timestamp é responsabilidade futura e não será usada para comparar concorrência.
+
+`version` é inteiro seguro positivo da revisão do documento; é independente de `revision` da carta, `rulesVersion` e `contentVersion`. `expectedVersion`/`expectedSourceVersion` significam a versão lida pelo cliente, não a nova versão desejada. O parser apenas valida e preserva os números recebidos. Não atribui versão inicial, não incrementa o número, não compara com estado persistido e não detecta no-op/conflito. O valor máximo seguro passa estruturalmente; uma futura operação que precise incrementá-lo deverá falhar por esgotamento. Atomicidade dependerá de transação backend, ainda inexistente.
+
+Recurso e pedidos são readonly nos tipos e independentes da entrada, com envelopes exatos e erros estruturais genéricos. Rejeitam UID/ownerUid, autoridade, catálogos e metadados fora da respectiva fronteira; resource não é recibo de autorização. IDs usam o boundary existente, sem geração ou exigência de formato UUID no parser. Os envelopes normalizados atuais continuam estruturalmente abaixo do teto v0.1 de 16 KiB; não se mede payload bruto nem armazenamento Firestore. Não há autenticação, catálogo/propriedade reais, quota de 20, CRUD, adapter, repository, Functions, Rules ou UI.
+
+Fonte: [personal-decks.ts](../shared/gameplay/src/personal-decks.ts), [exportações](../shared/gameplay/src/index.ts), [testes de execução](../tests/gameplay/personal-deck-resources.test.mjs) e [de tipos](../shared/gameplay/type-tests/personal-deck-resources.typecheck.ts). Contrato detalhado em [Gameplay Contract](gameplay-contract.md#recurso-pessoal-e-pedidos-de-mutação); resultados no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Deck Rules e o helper de compatibilidade não são alterados.
+
+`npm.cmd run test:gameplay` passou com **145/145 testes**, incluindo os 115 anteriores e 30 novos, além do build TypeScript e testes de tipos. Suítes Angular/Firebase/Functions/Rules não foram executadas neste incremento isolado. Isso não comprova transações ou o hard cap de 20 decks; o teste concorrente obrigatório continua pendente.
+
+**Próximo menor incremento recomendado, não implementado:** contrato do store backend de decks e dos erros de conflito, sem adapter Firestore, endpoints ou CRUD real. Aguardar nova autorização; encerrar esta tarefa sem implementação adicional. Deck Builder permanece CURRENT e incompleto; persistência não implementada.
