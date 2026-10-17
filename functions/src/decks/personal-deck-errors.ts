@@ -36,7 +36,7 @@ export class PersonalDeckAlreadyExistsError extends PersonalDeckDomainError {
   }
 }
 
-/** A future domain decision based on a transactional bounded read, not a database failure. */
+/** A domain decision based on a transactional bounded read, not a database failure. */
 export class PersonalDeckCapacityError extends PersonalDeckDomainError {
   constructor() {
     super('personal-deck-capacity-exceeded');
