@@ -10,7 +10,7 @@ Source of truth for: direção do produto, ordem dos marcos, dependências e cri
 
 As fases e a ordem abaixo registram o direcionamento explícito do proprietário. Não tornam cada item inevitável nem autorizam implementação automática. A situação presente está em [Project State](project-state.md); regras de jogo e aprovações em [Game Design](game-design.md); autonomia em [AGENTS.md](../AGENTS.md#limites-da-autonomia).
 
-Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada, com a etapa explicitada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. O único milestone em foco é Deck Builder, promovido com autorização explícita de Emanuel em 17/10/2026, somente para definição documental/arquitetural. Indicar trabalho futuro ou promover um marco não aprova suas decisões nem autoriza implementação pendente.
+Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada, com a etapa explicitada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. O único milestone em foco é Deck Builder, com arquitetura aprovada por Emanuel em 17/10/2026 e primeiro incremento técnico ainda aguardando autorização. Indicar trabalho futuro ou promover um marco não autoriza implementação pendente.
 
 Os critérios das fases futuras são alvos de planejamento, a detalhar e confirmar com o proprietário antes de executar cada marco. Não aprovam valores, regras de jogo, desenho de economia ou uma arquitetura futura. Só avance de status com evidência; código placeholder não satisfaz conclusão. Referências apontam para documentos existentes; crie novos contratos somente quando o marco permitir, sem arquivos vazios antecipados.
 
@@ -39,7 +39,7 @@ Fora da fase: regras de batalha, decks funcionais, PvP, economia e progressão.
 
 ## Fase II — Core Game
 
-**Status: IN PROGRESS — design aprovado, Gameplay Contract, Typed Effects e Deck Rules validados; Deck Builder em definição.** Objetivo: chegar a um núcleo jogável verificável antes de multiplayer ou economia. Dependências: fundação e regras de v0.1 aprovadas; demais incrementos seguem a ordem abaixo.
+**Status: IN PROGRESS — design aprovado, Gameplay Contract, Typed Effects e Deck Rules validados; arquitetura de Deck Builder aprovada, código ainda não iniciado.** Objetivo: chegar a um núcleo jogável verificável antes de multiplayer ou economia. Dependências: fundação e regras de v0.1 aprovadas; demais incrementos seguem a ordem abaixo.
 
 Critério de conclusão: design aprovado, contratos/efeitos/regras tipados, decks válidos e motor exercitável em sandbox e treino conforme critérios aprovados. Fora da fase: matchmaking/PvP, recompensas, moedas, loja, monetização e progressão competitiva.
 
@@ -73,13 +73,13 @@ Evidência: [testes de execução](../tests/gameplay/gameplay-deck.test.mjs), [t
 
 **Milestone: CURRENT**
 
-**Status: IN PROGRESS — definição documental e arquitetural.** Objetivo do marco: montar, salvar e reabrir decks pessoais com validação e autorização. Deck Rules está concluído; a proposta do contrato de persistência/autorização e conteúdo canônico está **PROPOSTA / PENDENTE**, em [Deck Builder v0.1](deck-builder.md).
+**Status: IN PROGRESS — arquitetura aprovada; primeiro incremento técnico aguardando autorização.** Objetivo do marco: montar, salvar e reabrir decks pessoais com validação e autorização. Deck Rules está concluído; a arquitetura de persistência/autorização e conteúdo canônico foi **APROVADA por Emanuel em 17/10/2026**, conforme [Deck Builder v0.1](deck-builder.md).
 
-Escopo autorizado por Emanuel em 17/10/2026: inspecionar a arquitetura existente em modo somente leitura, elaborar a proposta e submetê-la à revisão. A promoção a CURRENT foi aprovada; decisões da arquitetura e implementação não foram. Não há UI, persistência real, Functions, Rules, índices, alterações remotas ou integração com partidas neste incremento.
+Emanuel aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com revisão: validar as referências explícitas salvas contra o catálogo ativo, sem invalidar decks por mera diferença da versão histórica ou substituir revisões silenciosamente. Os limites 20/80/16 KiB/64 KiB são aprovados e revisáveis de v0.1. O mecanismo transacional do hard cap continua sujeito a prova específica de integração (19 + duas criações, nunca 21), com parada antes de workaround e proposta de quota/counter backend se não houver garantia. Esta entrega registra as decisões e propõe o primeiro incremento; não inicia código, UI, persistência real, Functions, Rules, índices, alterações remotas ou integração com partidas.
 
 Critério de conclusão futuro do marco: criar, editar, excluir, duplicar e reabrir decks conforme o contrato aprovado, com acesso próprio e casos inválidos/concorrentes cobertos. O documento atual é preparação desse contrato, não evidência de que esse critério foi atendido.
 
-Bloqueio de implementação: revisão explícita de Emanuel das [decisões propostas](deck-builder.md#decisões-que-emanuel-precisa-aprovar) e delimitação de um próximo incremento autorizado. Próxima ação: aguardar essa revisão, sem avançar para código, UI, Firebase ou Battle Engine.
+Próximo incremento proposto: [helper puro de compatibilidade com catálogo ativo e testes](deck-builder.md#primeiro-incremento-técnico-proposto), sem modificar `validateGameplayDeck` ou integrar Firebase. A arquitetura está aprovada; falta autorização explícita de Emanuel para escrever esse incremento. Próxima ação: aguardar essa autorização, sem iniciar o marco inteiro ou avançar ao Battle Engine.
 
 | Próximos itens, na ordem desejada | Status | Objetivo | Dependências | Critério de conclusão | Referência principal |
 | --- | --- | --- | --- | --- | --- |
