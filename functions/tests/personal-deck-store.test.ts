@@ -36,22 +36,18 @@ test('all personal deck domain failures have the same generic message without co
   for (const [ErrorClass] of cases) {
     const error = new ErrorClass();
     assert.equal(error.message, 'Não foi possível concluir a operação de deck pessoal.');
-    assert.deepEqual(Object.getOwnPropertyNames(error).sort(), ['code', 'message', 'name']);
+    assert.deepEqual(Object.getOwnPropertyNames(error).filter(key => key !== 'stack').sort(), ['code', 'message', 'name']);
     assert.deepEqual(Object.getOwnPropertySymbols(error), []);
     assert.equal(error.cause, undefined);
-    const serialized = JSON.parse(JSON.stringify(error)) as Record<string, unknown>;
-    assert.deepEqual(Object.keys(serialized).sort(), ['code', 'name']);
-    assert.equal(serialized['code'], error.code);
-    assert.equal(serialized['name'], error.name);
+    assert.deepEqual(Object.keys(error).sort(), ['code', 'name']);
   }
 });
 
-test('personal deck domain errors expose no internal stack in memory or serialization', () => {
+test('personal deck domain errors preserve native diagnostic stacks without enumerable context', () => {
   for (const [ErrorClass] of cases) {
     const error = new ErrorClass();
-    assert.equal(Object.hasOwn(error, 'stack'), false);
-    assert.equal(error.stack, undefined);
-    assert.equal(Object.hasOwn({ ...error }, 'stack'), false);
-    assert.equal(JSON.stringify(error).includes('stack'), false);
+    assert.equal(typeof error.stack, 'string');
+    assert.ok(error.stack?.includes(error.name));
+    assert.equal(Object.getOwnPropertyDescriptor(error, 'stack')?.enumerable, false);
   }
 });

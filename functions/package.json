@@ -5,11 +5,11 @@
   "main": "lib/index.js",
   "engines": { "node": "22" },
   "scripts": {
-    "build": "npm --prefix .. run build:gameplay && tsc -p tsconfig.json",
+    "build": "npm --prefix .. run build:gameplay && tsc -p tsconfig.json && node scripts/copy-gameplay.cjs production",
     "gcp-build": "",
     "typecheck": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json --noEmit",
-    "test": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json && node --test lib-test/tests/*.test.js",
-    "test:integration": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json && node --test lib-test/tests/initialize-player.emulator.js"
+    "test": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json && node scripts/copy-gameplay.cjs test && node --test lib-test/tests/*.test.js",
+    "test:integration": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json && node scripts/copy-gameplay.cjs test && node --test lib-test/tests/initialize-player.emulator.js"
   },
   "dependencies": {
     "firebase-admin": "14.5.0",

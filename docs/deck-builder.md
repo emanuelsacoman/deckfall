@@ -1,6 +1,6 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS PUROS E PORTA BACKEND IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, PORTA BACKEND E DOMÍNIO DELETE IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
 
 Last reviewed: 2026-10-17
 
@@ -10,7 +10,7 @@ Source of truth for: arquitetura aprovada de persistência, autorização e cicl
 
 Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na revisão seguinte da mesma data, **aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com a revisão de compatibilidade descrita neste documento**: a troca da versão ativa não invalida automaticamente referências antigas ainda reconhecidas e elegíveis. As recomendações adotadas abaixo são arquitetura aprovada para v0.1; as alternativas comparativas não foram adotadas. As regras do jogo continuam no [Game Design](game-design.md#preparação-decks-e-acesso--aprovado).
 
-Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações) e a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), com testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
+Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio) e a [operação de domínio de exclusão](#operação-de-domínio-de-exclusão), com testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
 
 ## Base atual verificada em modo somente leitura
 
@@ -177,7 +177,7 @@ A referência não precisa de posse ou de um `Card` colecionável artificial. De
 
 ## Operações, concorrência e falhas
 
-**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma futura operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações) e a [porta backend](#porta-backend-do-store-e-erros-de-domínio) estão implementados; operações de domínio, adapter, transporte e gravação continuam futuros.
+**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações), a [porta backend](#porta-backend-do-store-e-erros-de-domínio) e o [domínio de exclusão](#operação-de-domínio-de-exclusão) estão implementados; demais operações de domínio, adapter, transporte e gravação real continuam futuros.
 
 | Operação | Comportamento recomendado |
 | --- | --- |
@@ -339,12 +339,42 @@ Todas as leituras `get/list` devem ocorrer antes dos writes no callback. O domí
 | `PersonalDeckAlreadyExistsError` | `personal-deck-already-exists` |
 | `PersonalDeckCapacityError` | `personal-deck-capacity-exceeded` |
 
-Todos derivam de `PersonalDeckDomainError`, com união `PersonalDeckDomainErrorCode`, construtores sem argumentos e mensagem genérica. Não carregam UID, recurso, versões atuais/esperadas, coleção, paths, causa ou stack interna. São distintos de `GameplayContractError`; não há códigos HTTP/Callable ou tradução de exceção Firebase. Capacidade é uma futura decisão do domínio a partir da leitura limitada, não uma falha técnica do banco; a taxonomia não implementa essa decisão nem replica o limite.
+Todos derivam de `PersonalDeckDomainError`, com união `PersonalDeckDomainErrorCode`, construtores sem argumentos e mensagem genérica. Não recebem UID, recurso, versões atuais/esperadas, coleção, paths ou causa como propriedades de contexto. **A stack nativa é preservada para diagnóstico interno**, conforme correção explícita de Emanuel no incremento de delete; ela não será parte do payload público, cujo mapper ainda não foi implementado. São distintos de `GameplayContractError`; não há códigos HTTP/Callable ou tradução de exceção Firebase. Capacidade é uma futura decisão do domínio a partir da leitura limitada, não uma falha técnica do banco; a taxonomia não implementa essa decisão nem replica o limite.
 
-A dependência compartilhada é **somente de tipos**, por declarações geradas em `shared/gameplay/lib`, sem `require` externo no JavaScript da porta. Os scripts em [functions/package.json](../functions/package.json) preparam esse build antes de compilar/testar Functions, preservando `rootDir: src`, `lib/index.js`, dependências e entrypoints. O predeploy local existente continua compilando o pacote; `gcp-build` vazio evita que o build remoto tente acessar arquivos fora de `functions/`, usando o JavaScript pré-compilado. Procedimento e limite dessa validação no [contexto operacional](contexto-operacional-para-ias.md#comandos-de-validação); isso não comprova deploy ou funcionamento remoto.
+A porta permanece dependente **somente de tipos**, encaminhados por [gameplay.d.ts](../functions/src/gameplay.d.ts) às declarações geradas de `shared/gameplay`. O domínio de delete reutiliza o parser em runtime pelo módulo copiado para dentro do artefato Functions, conforme a seção seguinte. Os scripts em [functions/package.json](../functions/package.json) preparam esse build antes de compilar/testar Functions, preservando `rootDir: src`, `lib/index.js`, dependências e entrypoints. O predeploy local existente continua compilando o pacote; `gcp-build` vazio usa o JavaScript pré-compilado. Procedimento e limite dessa validação no [contexto operacional](contexto-operacional-para-ias.md#comandos-de-validação); isso não comprova deploy ou funcionamento remoto.
 
-Validação: `test:gameplay` **145/145**, `test:functions` **74/74** (67 anteriores + sete novos), testes de tipos backend e `build:functions`, todos exit 0. [Testes de erros](../functions/tests/personal-deck-store.test.ts) cobrem taxonomia/payload mínimo; [testes de tipos](../functions/tests/personal-deck-store.typecheck.ts) verificam recurso, UID externo, limite derivado e operações no mesmo callback. Não há store fake ou teste de concorrência simulada. Angular, Rules e emuladores não foram executados.
+Validação original da porta: `test:gameplay` **145/145**, `test:functions` **74/74** (67 anteriores + sete novos), testes de tipos backend e `build:functions`, todos exit 0. [Testes de erros](../functions/tests/personal-deck-store.test.ts) cobrem taxonomia/contexto mínimo e agora preservação de stack interna; [testes de tipos](../functions/tests/personal-deck-store.typecheck.ts) verificam recurso, UID externo, limite derivado e operações no mesmo callback. A porta não implementa store fake ou concorrência; o double acrescentado no incremento seguinte existe somente nos testes de delete. Angular, Rules e emuladores não foram executados.
 
-Estado explícito: **store contract implementado; Firestore adapter NÃO implementado; CRUD de domínio NÃO implementado; Functions/Callables de decks NÃO implementadas; Rules de decks NÃO implementadas; UI NÃO implementada**. Sem queries/transações reais, contador, alteração remota ou deploy.
+Estado explícito: **store contract e domínio delete implementados; Firestore adapter NÃO implementado; create/update/rename/duplicate de domínio NÃO implementados; Functions/Callables de decks NÃO implementadas; Rules de decks NÃO implementadas; UI NÃO implementada**. Sem queries/transações reais, contador, alteração remota ou deploy.
 
-**Próximo menor incremento recomendado, não implementado:** operação de domínio backend de exclusão com versão esperada e store injetado, com testes de domínio, sem adapter, endpoint ou UI. Aguardar nova autorização; encerrar esta tarefa sem implementar essa operação. Deck Builder permanece CURRENT e incompleto.
+## Operação de domínio de exclusão
+
+Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autorização de Emanuel para somente delete e correção da preservação de stack, sem create/update/rename/duplicate ou persistência real. Fonte: [delete-personal-deck.ts](../functions/src/decks/delete-personal-deck.ts).
+
+`deletePersonalDeck(uid: string, request: unknown, store: PersonalDeckStore): Promise<void>` recebe UID já confiável do backend e payload desconhecido separado. Não autentica esse UID nem deriva paths; a futura camada de transporte continua responsável por autenticação/autorização. O retorno não contém recurso, confirmação com dados ou receipt.
+
+1. `parsePersonalDeckDeleteRequest` valida estritamente `{deckId, expectedVersion}` antes de iniciar a transação.
+2. `store.runTransaction(uid, callback)` usa exatamente o UID recebido.
+3. Dentro do mesmo callback, `get(deckId)` retorna recurso ou ausência.
+4. Ausência lança `PersonalDeckNotFoundError`; versão diferente lança `PersonalDeckConflictError`.
+5. Apenas na igualdade estrita de versão ocorre `transaction.delete(deckId)`; a operação aguarda a conclusão de `runTransaction`.
+
+`expectedVersion` é a versão observada pelo cliente, sem incremento, fallback para a atual ou force delete. Um recurso com draft incompleto pode ser excluído: não se consultam catálogo, cartas, publicação, elegibilidade, posse, lista ou capacidade. Não há create/replace, relógio, logs de negócio, notificações ou outros efeitos no callback. Request e recurso lido permanecem intactos; falhas de abertura, leitura, enfileiramento ou conclusão do store propagam sem conversão silenciosa. Repetir a chamada após exclusão bem-sucedida pode resultar em not-found; não há promessa de exactly-once.
+
+O módulo compartilhado é reutilizado sem duplicar parser: [gameplay.d.ts](../functions/src/gameplay.d.ts) encaminha declarações e [copy-gameplay.cjs](../functions/scripts/copy-gameplay.cjs) copia o build compartilhado para `functions/lib/gameplay` em produção e `functions/lib-test/src/gameplay` em testes. O domínio importa `../gameplay`; seu runtime fica inteiro no artefato local, sem dependência de caminho fora de `functions/`. Não há mudança de dependências, configs TypeScript, `main`, config Firebase ou entrypoints. Nenhuma Function nova é exposta.
+
+Os [testes de delete](../functions/tests/delete-personal-deck.test.ts) usam store em memória somente no harness; os [testes de tipos](../functions/tests/delete-personal-deck.typecheck.ts) mantêm UID separado, store injetado e retorno void. Isso verifica o fluxo do domínio; não certifica isolamento/atomicidade de Firestore, Rules, autorização autenticada ou exclusão real. Stack preservada continua exclusivamente para diagnóstico interno; não foi criado serializer público ou mapper HTTP/HttpsError.
+
+Validação: **145/145 gameplay**, **88/88 backend** (74 anteriores + 14 novos testes de delete), incluindo testes de tipos, e `build:functions`, todos exit 0. A cópia do artefato `lib` também foi carregada isoladamente, executando parser/delete sem carregar módulos fora dela. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Angular, Rules e emuladores não foram executados; o hard cap e sua prova concorrente continuam pendentes.
+
+| Capacidade | Estado |
+| --- | --- |
+| Store contract | Implementado |
+| Delete domain operation | Implementado e validado com store de teste |
+| Firestore adapter | NÃO implementado |
+| Create / Update / Rename / Duplicate domain | NÃO implementados |
+| Callable Functions de decks | NÃO implementadas |
+| Rules de decks | NÃO implementadas |
+| UI de Deck Builder | NÃO implementada |
+
+**Próximo menor incremento recomendado, não implementado:** domínio de renomeação com versão esperada, store e tempo confiável injetados, sem adapter, Callable ou UI. Aguardar nova autorização; encerrar esta tarefa sem iniciar essa operação. Deck Builder permanece CURRENT e incompleto.

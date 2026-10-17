@@ -4,11 +4,10 @@ export type PersonalDeckDomainErrorCode =
   | 'personal-deck-already-exists'
   | 'personal-deck-capacity-exceeded';
 
-/** Expected domain failures carry no identities, versions, cause, database paths or internal stack. */
+/** No contextual payload; the native stack remains available for internal diagnostics only. */
 export abstract class PersonalDeckDomainError extends Error {
   protected constructor(readonly code: PersonalDeckDomainErrorCode) {
     super('Não foi possível concluir a operação de deck pessoal.');
-    delete this.stack;
   }
 }
 

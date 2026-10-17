@@ -1,4 +1,4 @@
-import type { PERSONAL_DECK_LIMITS, PersonalDeckResource } from '../../../shared/gameplay/lib';
+import type { PERSONAL_DECK_LIMITS, PersonalDeckResource } from '../gameplay';
 
 /** v0.1 bounded read ceiling, derived from the shared limit rather than a second quota constant. */
 export type PersonalDeckReadLimit = typeof PERSONAL_DECK_LIMITS.maxDecks;

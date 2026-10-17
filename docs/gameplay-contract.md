@@ -6,7 +6,7 @@ Last reviewed: 2026-10-17
 
 Source of truth for: API, fronteiras e validação do contrato puro de gameplay implementado
 
-O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado. O módulo TypeScript isolado em [shared/gameplay/src](../shared/gameplay/src) contém constantes, tipos, validação estrutural, catálogo fechado de efeitos/parâmetros/alvos, contratos pessoais de rascunho/recurso/mutação, validação de composição e compatibilidade de decks, invariantes de snapshots e projeção por participante. A porta backend de decks reutiliza apenas suas declarações de tipos; não há import de runtime nas Functions ou no frontend e não oferece partida jogável. A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md); estado e sequência dos marcos permanecem em [Project State](project-state.md) e [roadmap](roadmap.md).
+O [Game Design v0.1](game-design.md#aprovações-registradas) está aprovado. O módulo TypeScript isolado em [shared/gameplay/src](../shared/gameplay/src) contém constantes, tipos, validação estrutural, catálogo fechado de efeitos/parâmetros/alvos, contratos pessoais de rascunho/recurso/mutação, validação de composição e compatibilidade de decks, invariantes de snapshots e projeção por participante. A porta backend reutiliza suas declarações de tipos; o domínio de exclusão usa `parsePersonalDeckDeleteRequest` em runtime por cópia compilada dentro do artefato Functions. O frontend não importa o módulo e não há partida jogável. A decisão de isolamento está no [ADR-0005](decisions/0005-contrato-gameplay-puro.md); estado e sequência dos marcos permanecem em [Project State](project-state.md) e [roadmap](roadmap.md).
 
 ## Fonte e responsabilidade
 
