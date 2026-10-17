@@ -5,7 +5,8 @@ export type PersonalDeckDomainErrorCode =
   | 'personal-deck-capacity-exceeded'
   | 'personal-deck-version-exhausted'
   | 'personal-deck-invalid-time'
-  | 'personal-deck-content';
+  | 'personal-deck-content'
+  | 'personal-deck-content-unavailable';
 
 /** No contextual payload; the native stack remains available for internal diagnostics only. */
 export abstract class PersonalDeckDomainError extends Error {
@@ -65,5 +66,13 @@ export class PersonalDeckContentError extends PersonalDeckDomainError {
   constructor(readonly reason: PersonalDeckContentReason) {
     super('personal-deck-content');
     this.name = 'PersonalDeckContentError';
+  }
+}
+
+/** Missing historical content is distinct from a missing personal deck; no contextual payload. */
+export class PersonalDeckContentUnavailableError extends PersonalDeckDomainError {
+  constructor() {
+    super('personal-deck-content-unavailable');
+    this.name = 'PersonalDeckContentUnavailableError';
   }
 }

@@ -1,6 +1,6 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, DOMÍNIOS DELETE/RENAME, PORTAS BACKEND/CATÁLOGO E VALIDAÇÃO HISTÓRICA IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, DOMÍNIOS DELETE/RENAME/UPDATE, PORTAS BACKEND/CATÁLOGO E VALIDAÇÃO HISTÓRICA IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
 
 Last reviewed: 2026-10-17
 
@@ -10,7 +10,7 @@ Source of truth for: arquitetura aprovada de persistência, autorização e cicl
 
 Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na revisão seguinte da mesma data, **aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com a revisão de compatibilidade descrita neste documento**: a troca da versão ativa não invalida automaticamente referências antigas ainda reconhecidas e elegíveis. As recomendações adotadas abaixo são arquitetura aprovada para v0.1; as alternativas comparativas não foram adotadas. As regras do jogo continuam no [Game Design](game-design.md#preparação-decks-e-acesso--aprovado).
 
-Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), a [exclusão](#operação-de-domínio-de-exclusão), a [renomeação no domínio](#operação-de-domínio-de-renomeação), a [porta de leitura de catálogo versionado](#porta-backend-de-leitura-de-catálogo-versionado) e a [validação pura de referências históricas](#validação-pura-de-referências-históricas), com testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
+Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), a [exclusão](#operação-de-domínio-de-exclusão), a [renomeação no domínio](#operação-de-domínio-de-renomeação), a [porta de leitura de catálogo versionado](#porta-backend-de-leitura-de-catálogo-versionado), a [validação pura de referências históricas](#validação-pura-de-referências-históricas) e a [atualização no domínio](#operação-de-domínio-de-atualização), com testes e documentação. Não foram criados serviços de persistência, UI, Functions/Callables de decks, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
 
 ## Base atual verificada em modo somente leitura
 
@@ -177,7 +177,7 @@ A referência não precisa de posse ou de um `Card` colecionável artificial. De
 
 ## Operações, concorrência e falhas
 
-**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações), a [porta backend](#porta-backend-do-store-e-erros-de-domínio) e os domínios de [exclusão](#operação-de-domínio-de-exclusão) e [renomeação](#operação-de-domínio-de-renomeação) estão implementados; create/update/duplicate de domínio, adapter, transporte e gravação real continuam futuros.
+**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações), a [porta backend](#porta-backend-do-store-e-erros-de-domínio) e os domínios de [exclusão](#operação-de-domínio-de-exclusão), [renomeação](#operação-de-domínio-de-renomeação) e [atualização](#operação-de-domínio-de-atualização) estão implementados; create/duplicate de domínio, adapter, transporte e gravação real continuam futuros.
 
 | Operação | Comportamento recomendado |
 | --- | --- |
@@ -200,7 +200,7 @@ O desenho se apoia no [isolamento serializável do Firestore](https://firebase.g
 
 **Condição de parada determinada por Emanuel:** se esse mecanismo não puder garantir o hard cap nos testes de integração, parar antes de criar qualquer workaround e propor um documento de quota/counter controlado exclusivamente pelo backend. Não aumentar o limite, não aceitar 21 temporariamente e não introduzir contador ou documento auxiliar sem apresentar a revisão ao proprietário. O desenho atual evita essa estrutura adicional; não declara sua ausência como obrigação permanente nem como resultado já demonstrado.
 
-Todas as leituras precedem os writes, incluindo perfil, destino, origem quando houver, catálogo e consulta de capacidade. Transações podem repetir o callback; não disparar eventos externos, notificações ou efeitos de UI de dentro dele. Essas propriedades seguem os [contratos oficiais de transações](https://firebase.google.com/docs/firestore/manage-data/transactions). O limite de documentos não protege por si só contra abuso de invocações; App Check/rate limiting não são capacidades já implementadas no código atual.
+Todas as leituras precedem os writes, incluindo perfil, destino, origem quando houver, catálogo e consulta de capacidade. No domínio update autorizado, o catálogo histórico imutável é resolvido/validado **antes de abrir a transação pessoal**, sem I/O de catálogo dentro do callback. Isso não flexibiliza as leituras consistentes de política ativa, publicação e coleção exigidas na admissão futura de partida. Transações podem repetir o callback; não disparar eventos externos, notificações ou efeitos de UI de dentro dele. Essas propriedades seguem os [contratos oficiais de transações](https://firebase.google.com/docs/firestore/manage-data/transactions). O limite de documentos não protege por si só contra abuso de invocações; App Check/rate limiting não são capacidades já implementadas no código atual.
 
 ## Fronteira com o futuro Battle Engine
 
@@ -341,14 +341,15 @@ Todas as leituras `get/list` devem ocorrer antes dos writes no callback. O domí
 | `PersonalDeckVersionExhaustedError` | `personal-deck-version-exhausted` |
 | `PersonalDeckClockError` | `personal-deck-invalid-time` |
 | `PersonalDeckContentError` | `personal-deck-content` |
+| `PersonalDeckContentUnavailableError` | `personal-deck-content-unavailable` |
 
-Todos derivam de `PersonalDeckDomainError`, com união `PersonalDeckDomainErrorCode` e mensagem genérica. Os seis erros originais têm construtores sem argumentos; `PersonalDeckContentError` recebe apenas o motivo estável descrito na [validação histórica](#validação-pura-de-referências-históricas). Não recebem UID, recurso, versões atuais/esperadas, coleção, paths ou causa como propriedades de contexto. **A stack nativa é preservada para diagnóstico interno**, conforme correção explícita de Emanuel no incremento de delete; ela não será parte do payload público, cujo mapper ainda não foi implementado. São distintos de `GameplayContractError`; não há códigos HTTP/Callable ou tradução de exceção Firebase. Capacidade é uma futura decisão do domínio a partir da leitura limitada, não uma falha técnica do banco; a taxonomia não implementa essa decisão nem replica o limite.
+Todos derivam de `PersonalDeckDomainError`, com união `PersonalDeckDomainErrorCode` e mensagem genérica. Os construtores não recebem argumentos, exceto `PersonalDeckContentError`, que recebe apenas o motivo estável descrito na [validação histórica](#validação-pura-de-referências-históricas). Não recebem UID, recurso, versões atuais/esperadas, coleção, paths ou causa como propriedades de contexto. **A stack nativa é preservada para diagnóstico interno**, conforme correção explícita de Emanuel no incremento de delete; ela não será parte do payload público, cujo mapper ainda não foi implementado. São distintos de `GameplayContractError`; não há códigos HTTP/Callable ou tradução de exceção Firebase. Capacidade é uma futura decisão do domínio a partir da leitura limitada, não uma falha técnica do banco; a taxonomia não implementa essa decisão nem replica o limite. Ausência de catálogo histórico tem erro próprio, distinto de ausência do deck pessoal.
 
 A porta permanece dependente **somente de tipos**, encaminhados por [gameplay.d.ts](../functions/src/gameplay.d.ts) às declarações geradas de `shared/gameplay`. O domínio de delete reutiliza o parser em runtime pelo módulo copiado para dentro do artefato Functions, conforme a seção seguinte. Os scripts em [functions/package.json](../functions/package.json) preparam esse build antes de compilar/testar Functions, preservando `rootDir: src`, `lib/index.js`, dependências e entrypoints. O predeploy local existente continua compilando o pacote; `gcp-build` vazio usa o JavaScript pré-compilado. Procedimento e limite dessa validação no [contexto operacional](contexto-operacional-para-ias.md#comandos-de-validação); isso não comprova deploy ou funcionamento remoto.
 
 Validação original da porta: `test:gameplay` **145/145**, `test:functions` **74/74** (67 anteriores + sete novos), testes de tipos backend e `build:functions`, todos exit 0. [Testes de erros](../functions/tests/personal-deck-store.test.ts) cobrem taxonomia/contexto mínimo e agora preservação de stack interna; [testes de tipos](../functions/tests/personal-deck-store.typecheck.ts) verificam recurso, UID externo, limite derivado e operações no mesmo callback. A porta não implementa store fake ou concorrência; doubles existem somente nos testes de delete/rename. Angular, Rules e emuladores não foram executados.
 
-Estado explícito: **store contract e domínios delete/rename implementados; Firestore adapter NÃO implementado; create/update/duplicate de domínio NÃO implementados; Functions/Callables de decks NÃO implementadas; Rules de decks NÃO implementadas; UI NÃO implementada**. Sem queries/transações reais, contador, alteração remota ou deploy.
+Estado explícito: **store contract e domínios delete/rename/update implementados; Firestore adapter NÃO implementado; create/duplicate de domínio NÃO implementados; Functions/Callables de decks NÃO implementadas; Rules de decks NÃO implementadas; UI NÃO implementada**. Sem queries/transações reais, contador, alteração remota ou deploy.
 
 ## Operação de domínio de exclusão
 
@@ -405,13 +406,13 @@ Validação: **145/145 gameplay**, **119/119 backend** (88 anteriores + 29 de re
 
 Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autorização de Emanuel para somente a interface backend de leitura por versão explícita. Fonte: [personal-deck-catalog.ts](../functions/src/decks/personal-deck-catalog.ts).
 
-`PersonalDeckCatalogReader` oferece somente `get(contentVersion: string): Promise<GameplayDeckCatalog | null>`. Reutiliza diretamente `GameplayDeckCatalog` de `shared/gameplay`, por importação apenas de tipos, sem segundo schema, parser, erro ou implementação de leitura. O catálogo é global e não recebe UID, draft completo ou contexto pessoal; autenticação/autorização pertence à operação ou endpoint que futuramente consumir a porta.
+`PersonalDeckCatalogReader` oferece somente `get(contentVersion: string): Promise<GameplayDeckCatalog | null>`. Reutiliza diretamente `GameplayDeckCatalog` de `shared/gameplay`, por importação apenas de tipos, sem segundo schema, parser, erro ou implementação de leitura. O catálogo é global e não recebe UID, draft completo ou contexto pessoal; autenticação/autorização pertence à integração/endpoint confiável, ainda não implementado.
 
-`null` significa exclusivamente catálogo inexistente. Catálogo presente malformado, versão divergente da solicitada ou falha de infraestrutura deve rejeitar a Promise; não pode ser ocultado como ausência. Validar profundamente o futuro documento `gameplayContentVersions/{contentVersion}`, conferir a versão e converter somente conteúdo canônico são obrigações do adapter futuro, ainda **não implementadas**. Nenhuma exceção de conteúdo indisponível foi antecipada; o domínio consumidor decidirá como tratar ausência.
+`null` significa exclusivamente catálogo inexistente. Catálogo presente malformado, versão divergente da solicitada ou falha de infraestrutura deve rejeitar a Promise; não pode ser ocultado como ausência. Validar profundamente o futuro documento `gameplayContentVersions/{contentVersion}`, conferir a versão e converter somente conteúdo canônico são obrigações do adapter futuro, ainda **não implementadas**. A porta não define exceção própria de ausência; o domínio update converte null em `PersonalDeckContentUnavailableError`.
 
 A projeção retorna o contrato readonly já existente, incluindo cards, definições e efeitos; isso não congela objetos em runtime nem comprova a fidelidade de um adapter. A porta não verifica tamanho do deck, posse, publicação/status de `Card` ou elegibilidade adicional: preserva o valor `eligible` presente no catálogo. Não altera revisões, não migra proveniência, não filtra por jogador e não decide admissão de partida.
 
-Não há active config, fallback para catálogo ativo, writes, ativação ou provisionamento. A porta ainda não é consumida por create/update/duplicate, que continuam ausentes; delete/rename permanecem sem consulta de catálogo. `gameplayContentVersions` e `gameplayConfig/active` reais, adapters, Callable, Rules e UI continuam não implementados.
+Não há active config, fallback para catálogo ativo, writes, ativação ou provisionamento. A porta é consumida pelo domínio update antes da transação pessoal; create/duplicate continuam ausentes e delete/rename permanecem sem consulta de catálogo. `gameplayContentVersions` e `gameplayConfig/active` reais, adapters, Callable, Rules e UI continuam não implementados.
 
 [Testes de tipos](../functions/tests/personal-deck-catalog.typecheck.ts) verificam assinatura exata, retorno compartilhado ou null, versão explícita, ausência de UID/draft/contexto pessoal/write/ativação e readonly aninhado. Não foi criado banco fake, teste de leitura real ou novo teste de execução. `test:gameplay` **145/145**, backend **119/119**, testes de tipos e `build:functions` passaram, exit 0; as contagens de execução ficaram inalteradas. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Sem alteração de runtime, dependências, configuração, dados remotos ou deploy.
 
@@ -443,7 +444,7 @@ Cobertura em [31 testes de execução](../functions/tests/validate-personal-deck
 | Rename domain | ✅ |
 | Canonical catalog read port | ✅ Interface, sem reader concreto |
 | Historical draft reference check | ✅ Helper puro |
-| Update domain | ❌ |
+| Update domain | ✅ Domínio com portas injetadas |
 | Create domain | ❌ |
 | Duplicate domain | ❌ |
 | Firestore adapters | ❌ |
@@ -451,4 +452,41 @@ Cobertura em [31 testes de execução](../functions/tests/validate-personal-deck
 | Rules de decks | ❌ |
 | UI | ❌ |
 
-**Próximo menor incremento recomendado, não implementado:** operação de domínio update, reutilizando parsers, validação histórica, store, clock e porta de catálogo, com precondição de versão e sem adapter, Callable ou UI. Exige nova autorização de escopo; nenhuma operação update foi iniciada. Deck Builder permanece o único CURRENT e está incompleto. O hard cap de 20 decks e o teste 19 + duas criações continuam pendentes para a futura persistência. Não houve Firebase, consulta real, deploy ou alteração remota neste incremento.
+O estado atual completo está no quadro acima; a operação update foi autorizada e implementada no incremento seguinte, descrito abaixo. O helper histórico permanece puro e separado do reader.
+
+## Operação de domínio de atualização
+
+Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, com autorização de Emanuel exclusivamente para UPDATE, erro mínimo de catálogo indisponível, testes e documentação. Fonte: [update-personal-deck.ts](../functions/src/decks/update-personal-deck.ts).
+
+```ts
+updatePersonalDeck(
+  uid: string,
+  request: unknown,
+  store: PersonalDeckStore,
+  catalogReader: PersonalDeckCatalogReader,
+  clock: PersonalDeckClock,
+): Promise<PersonalDeckResource>
+```
+
+O UID e as portas são dependências confiáveis do backend; a operação não autentica nem autoriza esse argumento por conta própria. A sequência é estrita:
+
+1. `parsePersonalDeckUpdateRequest(request)` valida e normaliza antes de reader, store ou clock.
+2. `catalogReader.get(draft.contentVersion)` resolve uma vez a versão histórica explícita. `null` gera `PersonalDeckContentUnavailableError`, sem abrir transação; falhas do reader propagam intactas.
+3. `validatePersonalDeckDraftReferences` valida o draft contra esse catálogo antes da transação, sem duplicar regras ou usar `validateGameplayDeck`.
+4. `store.runTransaction(uid)` faz get do destino, distingue ausência, compara `expectedVersion` e só então decide no-op ou substituição.
+
+Resolver conteúdo antes do callback é compatível com o contrato imutável por versão e foi explicitamente autorizado. Replays não repetem a leitura de catálogo nem fazem I/O externo dentro da transação. O store continua obrigado a devolver recursos estruturalmente validados e normalizados. Dentro do callback, a operação usa somente get e, se necessário, replace; não consulta list, create, delete, capacidade, coleção ou `Card`.
+
+O no-op compara explicitamente `name`, `rulesVersion`, `contentVersion` e entradas canônicas por `cardId/revision/quantity`. Linhas repetidas e ordem bruta do request já foram normalizadas pelo parser. Igualdade retorna cópia independente do recurso atual, sem version + 1, alteração de data, clock ou replace. Mesmo em no-op, request, catálogo, referências, existência e versão esperada precisam passar; não há bypass de conteúdo ou conflito.
+
+Uma alteração efetiva substitui o draft completo solicitado, preserva `id` e `createdAt`, calcula `stored.version + 1` e usa tempo confiável. Alterar explicitamente `contentVersion` ou uma revisão é permitido quando o request inteiro é reconhecido pelo catálogo solicitado; não há migração automática. Draft vazio/parcial/completo e carta com `eligible: false` podem ser salvos nesse nível. Não há conferência de ownership, publicação, aptidão para batalha ou catálogo ativo.
+
+A política de clock é a mesma do rename: consulta lazy, no máximo uma vez por chamada lógica, depois das validações, conflito, no-op e esgotamento. Versão máxima com mudança gera `PersonalDeckVersionExhaustedError`; no-op na máxima continua permitido. Timestamp é validado pelo parser de recurso e deve respeitar `createdAt <= newUpdatedAt` e `newUpdatedAt >= stored.updatedAt`; igualdade temporal é permitida. Falha/tempo inválido ou regressivo gera `PersonalDeckClockError`, sem clamp ou reajuste.
+
+Cada replay relê o recurso, verifica novamente a versão esperada e recalcula a partir dessa leitura, reutilizando o instante já obtido. Não incrementa um candidato anterior nem avança clock para acomodar contenção. Se a nova tentativa observar outra versão, falha com conflito; se observar o mesmo draft solicitado, retorna no-op. O adapter futuro deve descartar writes de tentativas abortadas; os doubles locais só exercitam o contrato, sem comprovar transações reais.
+
+O candidato é validado/copiado por `parsePersonalDeckResource`, e uma segunda cópia separa o retorno do objeto enfileirado em replace. Request, recurso original, draft de trabalho, write e resultado não compartilham estruturas mutáveis perigosas. Falhas do store propagam intactas. Erros existentes permanecem distintos: `GameplayContractError`, `PersonalDeckContentError`, `PersonalDeckNotFoundError`, `PersonalDeckConflictError`, `PersonalDeckVersionExhaustedError` e `PersonalDeckClockError`. O novo `PersonalDeckContentUnavailableError` tem código `personal-deck-content-unavailable`, mensagem genérica, stack interna e nenhum identificador, versão, path ou causa anexados.
+
+Cobertura em [55 testes runtime](../functions/tests/update-personal-deck.test.ts) e [testes de tipos](../functions/tests/update-personal-deck.typecheck.ts): ordem de I/O, normalização, catálogo/referências, 0–24 e inelegibilidade, no-op, edições explícitas, versões/clock, falhas, frozen/aliases e replays sobre a segunda leitura. `test:gameplay` **145/145**, backend **205/205**, testes de tipos e `build:functions` passaram, exit 0; evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Angular, Rules e emuladores não foram executados, pois esses caminhos não mudaram. Sem dependências/build novos, adapter, catálogo real, active config, Firebase, Callable/mapper, Rules, Angular/UI, Battle Engine, deploy ou alteração remota.
+
+**Próximo menor incremento recomendado, não implementado:** operação de domínio create, reutilizando portas/parsers existentes, reconhecimento histórico e leitura limitada de capacidade, sem adapter ou transporte. Exige nova autorização de escopo; create/duplicate permanecem ausentes. Deck Builder continua o único CURRENT e está incompleto. O hard cap de 20 decks e sua prova específica de integração (19 + duas criações, nunca 21) continuam pendentes; testes de domínio não comprovam essa garantia nem autorizam workaround.

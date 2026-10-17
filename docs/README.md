@@ -30,7 +30,7 @@ O [README do projeto](../README.md) apresenta o Deckfall. Agentes começam em [A
 | [Lore Bible](lore/README.md) | Cânone, mundo, eras, regiões, facções, personagens, mistérios e workflow narrativo de cartas; sem mecânicas automáticas |
 | [Starter Wave 01](content/starter-wave-01.md) | Manifesto das 12 identidades iniciais, perfis aprovados, lore, prompts e controle de criação/arte/publicação; composição futura sem alterar o StarterPack atual |
 | [Gameplay Contract](gameplay-contract.md) | API pura: tipos, efeitos/alvos, validação de decks, invariantes e projeção, ainda sem executor/motor/integração |
-| [Deck Builder v0.1](deck-builder.md) | Arquitetura APROVADA em 17/10/2026; contratos, portas de store/catálogo, domínios delete/rename e validação pura de referências históricas implementados; marco CURRENT incompleto, sem adapter, create/update/duplicate, persistência ou UI |
+| [Deck Builder v0.1](deck-builder.md) | Arquitetura APROVADA em 17/10/2026; contratos, portas de store/catálogo, domínios delete/rename/update e validação pura de referências históricas implementados; marco CURRENT incompleto, sem adapters, create/duplicate, persistência real ou UI |
 | [Editor de cartas](editor-de-cartas.md) | Canvas próprio, Konva, bindings, templates, histórico e exportação |
 | [Coleção do jogador](colecao.md) | Propriedade, gestão administrativa, PNG publicado e reparo de previews |
 | [Player Bootstrap](player-bootstrap.md) | Entrada em `/game`, preparação e concessão única de pack lacrado |
