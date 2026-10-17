@@ -1,6 +1,6 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, PORTA BACKEND E DOMÍNIO DELETE IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, PORTA BACKEND E DOMÍNIOS DELETE/RENAME IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
 
 Last reviewed: 2026-10-17
 
@@ -10,7 +10,7 @@ Source of truth for: arquitetura aprovada de persistência, autorização e cicl
 
 Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na revisão seguinte da mesma data, **aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com a revisão de compatibilidade descrita neste documento**: a troca da versão ativa não invalida automaticamente referências antigas ainda reconhecidas e elegíveis. As recomendações adotadas abaixo são arquitetura aprovada para v0.1; as alternativas comparativas não foram adotadas. As regras do jogo continuam no [Game Design](game-design.md#preparação-decks-e-acesso--aprovado).
 
-Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio) e a [operação de domínio de exclusão](#operação-de-domínio-de-exclusão), com testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
+Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), a [exclusão](#operação-de-domínio-de-exclusão) e a [renomeação no domínio](#operação-de-domínio-de-renomeação), com testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
 
 ## Base atual verificada em modo somente leitura
 
@@ -177,7 +177,7 @@ A referência não precisa de posse ou de um `Card` colecionável artificial. De
 
 ## Operações, concorrência e falhas
 
-**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações), a [porta backend](#porta-backend-do-store-e-erros-de-domínio) e o [domínio de exclusão](#operação-de-domínio-de-exclusão) estão implementados; demais operações de domínio, adapter, transporte e gravação real continuam futuros.
+**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações), a [porta backend](#porta-backend-do-store-e-erros-de-domínio) e os domínios de [exclusão](#operação-de-domínio-de-exclusão) e [renomeação](#operação-de-domínio-de-renomeação) estão implementados; create/update/duplicate de domínio, adapter, transporte e gravação real continuam futuros.
 
 | Operação | Comportamento recomendado |
 | --- | --- |
@@ -338,14 +338,16 @@ Todas as leituras `get/list` devem ocorrer antes dos writes no callback. O domí
 | `PersonalDeckNotFoundError` | `personal-deck-not-found` |
 | `PersonalDeckAlreadyExistsError` | `personal-deck-already-exists` |
 | `PersonalDeckCapacityError` | `personal-deck-capacity-exceeded` |
+| `PersonalDeckVersionExhaustedError` | `personal-deck-version-exhausted` |
+| `PersonalDeckClockError` | `personal-deck-invalid-time` |
 
 Todos derivam de `PersonalDeckDomainError`, com união `PersonalDeckDomainErrorCode`, construtores sem argumentos e mensagem genérica. Não recebem UID, recurso, versões atuais/esperadas, coleção, paths ou causa como propriedades de contexto. **A stack nativa é preservada para diagnóstico interno**, conforme correção explícita de Emanuel no incremento de delete; ela não será parte do payload público, cujo mapper ainda não foi implementado. São distintos de `GameplayContractError`; não há códigos HTTP/Callable ou tradução de exceção Firebase. Capacidade é uma futura decisão do domínio a partir da leitura limitada, não uma falha técnica do banco; a taxonomia não implementa essa decisão nem replica o limite.
 
 A porta permanece dependente **somente de tipos**, encaminhados por [gameplay.d.ts](../functions/src/gameplay.d.ts) às declarações geradas de `shared/gameplay`. O domínio de delete reutiliza o parser em runtime pelo módulo copiado para dentro do artefato Functions, conforme a seção seguinte. Os scripts em [functions/package.json](../functions/package.json) preparam esse build antes de compilar/testar Functions, preservando `rootDir: src`, `lib/index.js`, dependências e entrypoints. O predeploy local existente continua compilando o pacote; `gcp-build` vazio usa o JavaScript pré-compilado. Procedimento e limite dessa validação no [contexto operacional](contexto-operacional-para-ias.md#comandos-de-validação); isso não comprova deploy ou funcionamento remoto.
 
-Validação original da porta: `test:gameplay` **145/145**, `test:functions` **74/74** (67 anteriores + sete novos), testes de tipos backend e `build:functions`, todos exit 0. [Testes de erros](../functions/tests/personal-deck-store.test.ts) cobrem taxonomia/contexto mínimo e agora preservação de stack interna; [testes de tipos](../functions/tests/personal-deck-store.typecheck.ts) verificam recurso, UID externo, limite derivado e operações no mesmo callback. A porta não implementa store fake ou concorrência; o double acrescentado no incremento seguinte existe somente nos testes de delete. Angular, Rules e emuladores não foram executados.
+Validação original da porta: `test:gameplay` **145/145**, `test:functions` **74/74** (67 anteriores + sete novos), testes de tipos backend e `build:functions`, todos exit 0. [Testes de erros](../functions/tests/personal-deck-store.test.ts) cobrem taxonomia/contexto mínimo e agora preservação de stack interna; [testes de tipos](../functions/tests/personal-deck-store.typecheck.ts) verificam recurso, UID externo, limite derivado e operações no mesmo callback. A porta não implementa store fake ou concorrência; doubles existem somente nos testes de delete/rename. Angular, Rules e emuladores não foram executados.
 
-Estado explícito: **store contract e domínio delete implementados; Firestore adapter NÃO implementado; create/update/rename/duplicate de domínio NÃO implementados; Functions/Callables de decks NÃO implementadas; Rules de decks NÃO implementadas; UI NÃO implementada**. Sem queries/transações reais, contador, alteração remota ou deploy.
+Estado explícito: **store contract e domínios delete/rename implementados; Firestore adapter NÃO implementado; create/update/duplicate de domínio NÃO implementados; Functions/Callables de decks NÃO implementadas; Rules de decks NÃO implementadas; UI NÃO implementada**. Sem queries/transações reais, contador, alteração remota ou deploy.
 
 ## Operação de domínio de exclusão
 
@@ -371,10 +373,29 @@ Validação: **145/145 gameplay**, **88/88 backend** (74 anteriores + 14 novos t
 | --- | --- |
 | Store contract | Implementado |
 | Delete domain operation | Implementado e validado com store de teste |
+| Rename domain operation | Implementado com store e clock injetados |
 | Firestore adapter | NÃO implementado |
-| Create / Update / Rename / Duplicate domain | NÃO implementados |
+| Create / Update / Duplicate domain | NÃO implementados |
 | Callable Functions de decks | NÃO implementadas |
 | Rules de decks | NÃO implementadas |
 | UI de Deck Builder | NÃO implementada |
 
-**Próximo menor incremento recomendado, não implementado:** domínio de renomeação com versão esperada, store e tempo confiável injetados, sem adapter, Callable ou UI. Aguardar nova autorização; encerrar esta tarefa sem iniciar essa operação. Deck Builder permanece CURRENT e incompleto.
+## Operação de domínio de renomeação
+
+Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autorização de Emanuel para somente rename, porta de tempo e erros necessários; sem create/update/duplicate, adapter ou transporte. Fontes: [rename-personal-deck.ts](../functions/src/decks/rename-personal-deck.ts) e [personal-deck-clock.ts](../functions/src/decks/personal-deck-clock.ts).
+
+`renamePersonalDeck(uid: string, request: unknown, store: PersonalDeckStore, clock: PersonalDeckClock): Promise<PersonalDeckResource>` recebe UID e clock confiáveis do backend. O cliente escolhe somente `{deckId, expectedVersion, name}`, validado primeiro por `parsePersonalDeckRenameRequest`, antes de iniciar transação ou consultar tempo. Nenhuma autenticação ou nova Callable foi implementada.
+
+No mesmo callback de `runTransaction(uid)`, a operação lê o recurso e distingue ausência (`PersonalDeckNotFoundError`) de versão observada diferente (`PersonalDeckConflictError`). Só depois compara o nome normalizado com o atual. Igualdade é no-op: retorna cópia independente, sem `replace`, incremento, alteração de data ou leitura do clock. No-op não contorna conflito e é permitido mesmo quando a versão já é `Number.MAX_SAFE_INTEGER`.
+
+Uma mudança efetiva preserva ID, `createdAt`, regras, proveniência, referências, revisões, quantidades e ordem canônica; altera somente `draft.name`, `version + 1` e `updatedAt`. Usa apenas `replace`, nunca list/create/delete. A porta exige recursos previamente validados e normalizados por `parsePersonalDeckResource`; o mesmo parser valida e copia o candidato, sem catálogo, propriedade ou migração mecânica. Resultado, recurso original e objeto enfileirado para persistência ficam independentes, inclusive em no-op.
+
+`PersonalDeckClock` oferece somente `now(): string`: ISO UTC canônico com milissegundos, anos 0001–9999, sem `Date.now()` ou Firebase no domínio. A leitura é lazy, somente depois de detectar mudança e descartar esgotamento. Uma chamada lógica obtém o tempo no máximo uma vez e reutiliza o valor em todos os replays. Cada tentativa relê o recurso, compara novamente `expectedVersion` e calcula a partir dessa leitura, sem mutar estado de tentativa anterior ou adotar versão nova silenciosamente.
+
+O candidato precisa satisfazer `createdAt <= updatedAt` pelo parser e `updatedAt novo >= updatedAt armazenado`. Igualdade temporal é permitida. Se o tempo memoizado regredir em relação ao recurso de um replay, falha; não recalibra o relógio, não usa `max(old, now)` e não ajusta data silenciosamente. Falha/valor inválido do clock ou regressão lançam `PersonalDeckClockError`, uma falha backend distinta de payload inválido do cliente. Em mudança efetiva, versão máxima lança `PersonalDeckVersionExhaustedError`, sem overflow ou reset. Os novos erros mantêm código estável, mensagem genérica, stack interna e nenhum contexto sensível; não há mapper HTTP/HttpsError.
+
+Falhas de abertura, get, replace ou conclusão do store propagam sem conversão. Não há logs de negócio, notificações ou serviços externos no callback. Clock e store usados pelos [testes de rename](../functions/tests/rename-personal-deck.test.ts) são doubles locais determinísticos; os [testes de tipos](../functions/tests/rename-personal-deck.typecheck.ts) verificam assinatura, dependências, resultado e erros. Isso não comprova atomicidade de Firestore ou persistência real.
+
+Validação: **145/145 gameplay**, **119/119 backend** (88 anteriores + 29 de rename + dois dos novos erros), testes de tipos e `build:functions`, todos exit 0. Cobertura inclui no-op com versão máxima, esgotamento real, limites/calendário do clock, regressão em replay, ausência de alias com o write e propagação de falhas do store. Logs no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Angular, Rules e emuladores não foram executados; o hard cap e sua prova concorrente continuam pendentes.
+
+**Próximo menor incremento recomendado, não implementado:** contrato backend de leitura do catálogo canônico para as futuras validações de create/update, sem adapter, operação CRUD ou provisionamento de conteúdo. Aguardar nova autorização; encerrar esta tarefa sem iniciar esse contrato. Deck Builder permanece CURRENT e incompleto.

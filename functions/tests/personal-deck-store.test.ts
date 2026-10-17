@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  PersonalDeckAlreadyExistsError, PersonalDeckCapacityError, PersonalDeckConflictError,
-  PersonalDeckDomainError, PersonalDeckNotFoundError,
+  PersonalDeckAlreadyExistsError, PersonalDeckCapacityError, PersonalDeckClockError, PersonalDeckConflictError,
+  PersonalDeckDomainError, PersonalDeckNotFoundError, PersonalDeckVersionExhaustedError,
 } from '../src/decks/personal-deck-errors';
 
 const cases = [
@@ -10,6 +10,8 @@ const cases = [
   [PersonalDeckNotFoundError, 'personal-deck-not-found', 'PersonalDeckNotFoundError'],
   [PersonalDeckAlreadyExistsError, 'personal-deck-already-exists', 'PersonalDeckAlreadyExistsError'],
   [PersonalDeckCapacityError, 'personal-deck-capacity-exceeded', 'PersonalDeckCapacityError'],
+  [PersonalDeckVersionExhaustedError, 'personal-deck-version-exhausted', 'PersonalDeckVersionExhaustedError'],
+  [PersonalDeckClockError, 'personal-deck-invalid-time', 'PersonalDeckClockError'],
 ] as const;
 
 for (const [ErrorClass, code, name] of cases) {

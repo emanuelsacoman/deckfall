@@ -2,7 +2,9 @@ export type PersonalDeckDomainErrorCode =
   | 'personal-deck-conflict'
   | 'personal-deck-not-found'
   | 'personal-deck-already-exists'
-  | 'personal-deck-capacity-exceeded';
+  | 'personal-deck-capacity-exceeded'
+  | 'personal-deck-version-exhausted'
+  | 'personal-deck-invalid-time';
 
 /** No contextual payload; the native stack remains available for internal diagnostics only. */
 export abstract class PersonalDeckDomainError extends Error {
@@ -37,5 +39,20 @@ export class PersonalDeckCapacityError extends PersonalDeckDomainError {
   constructor() {
     super('personal-deck-capacity-exceeded');
     this.name = 'PersonalDeckCapacityError';
+  }
+}
+
+export class PersonalDeckVersionExhaustedError extends PersonalDeckDomainError {
+  constructor() {
+    super('personal-deck-version-exhausted');
+    this.name = 'PersonalDeckVersionExhaustedError';
+  }
+}
+
+/** Invalid or regressive trusted time is a backend failure, never a client contract error. */
+export class PersonalDeckClockError extends PersonalDeckDomainError {
+  constructor() {
+    super('personal-deck-invalid-time');
+    this.name = 'PersonalDeckClockError';
   }
 }

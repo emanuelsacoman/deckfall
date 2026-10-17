@@ -10,7 +10,7 @@ Source of truth for: direção do produto, ordem dos marcos, dependências e cri
 
 As fases e a ordem abaixo registram o direcionamento explícito do proprietário. Não tornam cada item inevitável nem autorizam implementação automática. A situação presente está em [Project State](project-state.md); regras de jogo e aprovações em [Game Design](game-design.md); autonomia em [AGENTS.md](../AGENTS.md#limites-da-autonomia).
 
-Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada, com a etapa explicitada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. O único milestone em foco é Deck Builder: arquitetura aprovada, contratos puros, porta backend e domínio delete autorizados e validados em 17/10/2026. O marco não está concluído; indicar trabalho futuro ou promover um marco não autoriza implementação adicional.
+Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada, com a etapa explicitada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. O único milestone em foco é Deck Builder: arquitetura aprovada, contratos puros, porta backend e domínios delete/rename autorizados e validados em 17/10/2026. O marco não está concluído; indicar trabalho futuro ou promover um marco não autoriza implementação adicional.
 
 Os critérios das fases futuras são alvos de planejamento, a detalhar e confirmar com o proprietário antes de executar cada marco. Não aprovam valores, regras de jogo, desenho de economia ou uma arquitetura futura. Só avance de status com evidência; código placeholder não satisfaz conclusão. Referências apontam para documentos existentes; crie novos contratos somente quando o marco permitir, sem arquivos vazios antecipados.
 
@@ -39,7 +39,7 @@ Fora da fase: regras de batalha, decks funcionais, PvP, economia e progressão.
 
 ## Fase II — Core Game
 
-**Status: IN PROGRESS — design aprovado, Gameplay Contract, Typed Effects e Deck Rules validados; contratos, porta backend e domínio delete de Deck Builder validados, sem persistência.** Objetivo: chegar a um núcleo jogável verificável antes de multiplayer ou economia. Dependências: fundação e regras de v0.1 aprovadas; demais incrementos seguem a ordem abaixo.
+**Status: IN PROGRESS — design aprovado, Gameplay Contract, Typed Effects e Deck Rules validados; contratos, porta backend e domínios delete/rename de Deck Builder validados, sem persistência.** Objetivo: chegar a um núcleo jogável verificável antes de multiplayer ou economia. Dependências: fundação e regras de v0.1 aprovadas; demais incrementos seguem a ordem abaixo.
 
 Critério de conclusão: design aprovado, contratos/efeitos/regras tipados, decks válidos e motor exercitável em sandbox e treino conforme critérios aprovados. Fora da fase: matchmaking/PvP, recompensas, moedas, loja, monetização e progressão competitiva.
 
@@ -73,7 +73,7 @@ Evidência: [testes de execução](../tests/gameplay/gameplay-deck.test.mjs), [t
 
 **Milestone: CURRENT**
 
-**Status: IN PROGRESS — contratos puros, porta backend, erros e domínio delete implementados e validados; marco incompleto.** Objetivo do marco: montar, salvar e reabrir decks pessoais com validação e autorização. Deck Rules está concluído; a arquitetura de persistência/autorização e conteúdo canônico foi **APROVADA por Emanuel em 17/10/2026**, conforme [Deck Builder v0.1](deck-builder.md).
+**Status: IN PROGRESS — contratos puros, porta backend, erros e domínios delete/rename implementados e validados; marco incompleto.** Objetivo do marco: montar, salvar e reabrir decks pessoais com validação e autorização. Deck Rules está concluído; a arquitetura de persistência/autorização e conteúdo canônico foi **APROVADA por Emanuel em 17/10/2026**, conforme [Deck Builder v0.1](deck-builder.md).
 
 Emanuel aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com revisão: validar as referências explícitas salvas contra o catálogo ativo, sem invalidar decks por mera diferença da versão histórica ou substituir revisões silenciosamente. Os limites 20/80/16 KiB/64 KiB são aprovados e revisáveis de v0.1. O mecanismo transacional do hard cap continua sujeito a prova específica de integração (19 + duas criações, nunca 21), com parada antes de workaround e proposta de quota/counter backend se não houver garantia.
 
@@ -87,9 +87,11 @@ O incremento da [porta backend e erros](deck-builder.md#porta-backend-do-store-e
 
 O incremento de [domínio delete](deck-builder.md#operação-de-domínio-de-exclusão) implementou somente exclusão por versão esperada e corrigiu a preservação da stack interna dos erros. Parser antes da transação; get/not-found/comparação/conflict/delete no mesmo callback, com UID confiável separado. Build Functions, testes de tipos, **88/88 backend** (14 novos) e **145/145 gameplay** passaram; o artefato compilado também foi carregado isoladamente. Store em memória existe somente nos testes; não há adapter, exclusão real, Callable, Rules ou UI. [Evidência](contexto-operacional-para-ias.md#validação-disponível).
 
+O incremento de [domínio rename](deck-builder.md#operação-de-domínio-de-renomeação) implementou somente renomeação com no-op, clock injetado estável em retries e erros de esgotamento/tempo. Preserva a composição, verifica versão em cada tentativa e não grava em no-op ou tempo regressivo. Build Functions, testes de tipos, **119/119 backend** (29 de rename + dois de erros novos) e **145/145 gameplay** passaram. Sem create/update/duplicate, catálogo, adapter ou persistência real. [Evidência](contexto-operacional-para-ias.md#validação-disponível).
+
 Critério de conclusão futuro do marco: criar, editar, excluir, duplicar e reabrir decks conforme o contrato aprovado, com acesso próprio e casos inválidos/concorrentes cobertos. O documento atual é preparação desse contrato, não evidência de que esse critério foi atendido.
 
-Próximo menor incremento recomendado: domínio de renomeação com versão esperada, store e tempo confiável injetados, sem adapter, Callable ou UI. Ele não foi iniciado e precisa de autorização própria. Encerrar esta tarefa após delete validado; não implementar o marco inteiro nem avançar ao Battle Engine.
+Próximo menor incremento recomendado: contrato backend de leitura do catálogo canônico para futuras validações de create/update, sem adapter, operação CRUD ou provisionamento de conteúdo. Ele não foi iniciado e precisa de autorização própria. Encerrar esta tarefa após rename validado; não implementar o marco inteiro nem avançar ao Battle Engine.
 
 | Próximos itens, na ordem desejada | Status | Objetivo | Dependências | Critério de conclusão | Referência principal |
 | --- | --- | --- | --- | --- | --- |

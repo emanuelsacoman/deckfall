@@ -6,7 +6,8 @@ export type PersonalDeckReadLimit = typeof PERSONAL_DECK_LIMITS.maxDecks;
 /**
  * One trusted UID's resources in the transaction's consistent view.
  * Complete every get/list before queuing writes. Do not retain this handle after the callback.
- * The future adapter validates/converts stored data; malformed resources must fail, not disappear
+ * The future adapter returns resources validated and normalized by parsePersonalDeckResource.
+ * Malformed resources must fail, not disappear
  * from listings or capacity checks. No catalog, ownership, version increment or no-op decisions.
  */
 export interface PersonalDeckStoreTransaction {
