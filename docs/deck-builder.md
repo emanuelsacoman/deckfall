@@ -1,6 +1,6 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, PORTA BACKEND E DOMÍNIOS DELETE/RENAME IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, DOMÍNIOS DELETE/RENAME E PORTAS BACKEND/CATÁLOGO IMPLEMENTADOS; PERSISTÊNCIA NÃO IMPLEMENTADA**
 
 Last reviewed: 2026-10-17
 
@@ -10,7 +10,7 @@ Source of truth for: arquitetura aprovada de persistência, autorização e cicl
 
 Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na revisão seguinte da mesma data, **aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com a revisão de compatibilidade descrita neste documento**: a troca da versão ativa não invalida automaticamente referências antigas ainda reconhecidas e elegíveis. As recomendações adotadas abaixo são arquitetura aprovada para v0.1; as alternativas comparativas não foram adotadas. As regras do jogo continuam no [Game Design](game-design.md#preparação-decks-e-acesso--aprovado).
 
-Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), a [exclusão](#operação-de-domínio-de-exclusão) e a [renomeação no domínio](#operação-de-domínio-de-renomeação), com testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
+Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), a [exclusão](#operação-de-domínio-de-exclusão), a [renomeação no domínio](#operação-de-domínio-de-renomeação) e a [porta de leitura de catálogo versionado](#porta-backend-de-leitura-de-catálogo-versionado), com testes e documentação. Não foram criados serviços de persistência, UI, Functions, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
 
 ## Base atual verificada em modo somente leitura
 
@@ -374,7 +374,9 @@ Validação: **145/145 gameplay**, **88/88 backend** (74 anteriores + 14 novos t
 | Store contract | Implementado |
 | Delete domain operation | Implementado e validado com store de teste |
 | Rename domain operation | Implementado com store e clock injetados |
-| Firestore adapter | NÃO implementado |
+| Canonical catalog read port | Implementado, somente interface por versão explícita |
+| Firestore deck adapter | NÃO implementado |
+| Firestore catalog adapter | NÃO implementado |
 | Create / Update / Duplicate domain | NÃO implementados |
 | Callable Functions de decks | NÃO implementadas |
 | Rules de decks | NÃO implementadas |
@@ -398,4 +400,18 @@ Falhas de abertura, get, replace ou conclusão do store propagam sem conversão.
 
 Validação: **145/145 gameplay**, **119/119 backend** (88 anteriores + 29 de rename + dois dos novos erros), testes de tipos e `build:functions`, todos exit 0. Cobertura inclui no-op com versão máxima, esgotamento real, limites/calendário do clock, regressão em replay, ausência de alias com o write e propagação de falhas do store. Logs no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Angular, Rules e emuladores não foram executados; o hard cap e sua prova concorrente continuam pendentes.
 
-**Próximo menor incremento recomendado, não implementado:** contrato backend de leitura do catálogo canônico para as futuras validações de create/update, sem adapter, operação CRUD ou provisionamento de conteúdo. Aguardar nova autorização; encerrar esta tarefa sem iniciar esse contrato. Deck Builder permanece CURRENT e incompleto.
+## Porta backend de leitura de catálogo versionado
+
+Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autorização de Emanuel para somente a interface backend de leitura por versão explícita. Fonte: [personal-deck-catalog.ts](../functions/src/decks/personal-deck-catalog.ts).
+
+`PersonalDeckCatalogReader` oferece somente `get(contentVersion: string): Promise<GameplayDeckCatalog | null>`. Reutiliza diretamente `GameplayDeckCatalog` de `shared/gameplay`, por importação apenas de tipos, sem segundo schema, parser, erro ou implementação de leitura. O catálogo é global e não recebe UID, draft completo ou contexto pessoal; autenticação/autorização pertence à operação ou endpoint que futuramente consumir a porta.
+
+`null` significa exclusivamente catálogo inexistente. Catálogo presente malformado, versão divergente da solicitada ou falha de infraestrutura deve rejeitar a Promise; não pode ser ocultado como ausência. Validar profundamente o futuro documento `gameplayContentVersions/{contentVersion}`, conferir a versão e converter somente conteúdo canônico são obrigações do adapter futuro, ainda **não implementadas**. Nenhuma exceção de conteúdo indisponível foi antecipada; o domínio consumidor decidirá como tratar ausência.
+
+A projeção retorna o contrato readonly já existente, incluindo cards, definições e efeitos; isso não congela objetos em runtime nem comprova a fidelidade de um adapter. A porta não verifica tamanho do deck, posse, publicação/status de `Card` ou elegibilidade adicional: preserva o valor `eligible` presente no catálogo. Não altera revisões, não migra proveniência, não filtra por jogador e não decide admissão de partida.
+
+Não há active config, fallback para catálogo ativo, writes, ativação ou provisionamento. A porta ainda não é consumida por create/update/duplicate, que continuam ausentes; delete/rename permanecem sem consulta de catálogo. `gameplayContentVersions` e `gameplayConfig/active` reais, adapters, Callable, Rules e UI continuam não implementados.
+
+[Testes de tipos](../functions/tests/personal-deck-catalog.typecheck.ts) verificam assinatura exata, retorno compartilhado ou null, versão explícita, ausência de UID/draft/contexto pessoal/write/ativação e readonly aninhado. Não foi criado banco fake, teste de leitura real ou novo teste de execução. `test:gameplay` **145/145**, backend **119/119**, testes de tipos e `build:functions` passaram, exit 0; as contagens de execução ficaram inalteradas. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Sem alteração de runtime, dependências, configuração, dados remotos ou deploy.
+
+**Próximo menor incremento recomendado, não implementado:** validação pura backend das referências de um rascunho contra catálogo histórico confiável, preparando create/update sem CRUD, adapter ou admissão. Aguardar nova autorização; encerrar esta tarefa sem iniciar esse validador. Deck Builder permanece CURRENT e incompleto.
