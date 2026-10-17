@@ -2,7 +2,7 @@
 
 Status: Active
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-17
 
 Source of truth for: direção do produto, ordem dos marcos, dependências e critérios de conclusão
 
@@ -10,7 +10,7 @@ Source of truth for: direção do produto, ordem dos marcos, dependências e cri
 
 As fases e a ordem abaixo registram o direcionamento explícito do proprietário. Não tornam cada item inevitável nem autorizam implementação automática. A situação presente está em [Project State](project-state.md); regras de jogo e aprovações em [Game Design](game-design.md); autonomia em [AGENTS.md](../AGENTS.md#limites-da-autonomia).
 
-Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. A marca do único milestone em foco aparece na seção Deck Rules. Ela é independente do status e foi mantida nesse marco concluído a pedido do proprietário, sem promover o seguinte nesta tarefa. Indicar trabalho futuro não inicia sua implementação nem autoriza decisões pendentes.
+Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada, com a etapa explicitada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. O único milestone em foco é Deck Builder, promovido com autorização explícita de Emanuel em 17/10/2026, somente para definição documental/arquitetural. Indicar trabalho futuro ou promover um marco não aprova suas decisões nem autoriza implementação pendente.
 
 Os critérios das fases futuras são alvos de planejamento, a detalhar e confirmar com o proprietário antes de executar cada marco. Não aprovam valores, regras de jogo, desenho de economia ou uma arquitetura futura. Só avance de status com evidência; código placeholder não satisfaz conclusão. Referências apontam para documentos existentes; crie novos contratos somente quando o marco permitir, sem arquivos vazios antecipados.
 
@@ -39,7 +39,7 @@ Fora da fase: regras de batalha, decks funcionais, PvP, economia e progressão.
 
 ## Fase II — Core Game
 
-**Status: IN PROGRESS — design aprovado, Gameplay Contract, Typed Effects e Deck Rules validados.** Objetivo: chegar a um núcleo jogável verificável antes de multiplayer ou economia. Dependências: fundação e regras de v0.1 aprovadas; demais incrementos seguem a ordem abaixo.
+**Status: IN PROGRESS — design aprovado, Gameplay Contract, Typed Effects e Deck Rules validados; Deck Builder em definição.** Objetivo: chegar a um núcleo jogável verificável antes de multiplayer ou economia. Dependências: fundação e regras de v0.1 aprovadas; demais incrementos seguem a ordem abaixo.
 
 Critério de conclusão: design aprovado, contratos/efeitos/regras tipados, decks válidos e motor exercitável em sandbox e treino conforme critérios aprovados. Fora da fase: matchmaking/PvP, recompensas, moedas, loja, monetização e progressão competitiva.
 
@@ -65,15 +65,24 @@ Referências: [Game Design](game-design.md) e [contrato](gameplay-contract.md). 
 
 ### Deck Rules
 
-**Milestone: CURRENT**
-
 **Status: DONE.** Objetivo: validar composição de decks conforme regras aprovadas. Dependências atendidas: Typed Effects e Game Design v0.1. Critério de conclusão atendido: validador puro testado para 24 cartas, até duas cópias agregadas por identidade, elegibilidade/revisão canônica e quantidades pessoais em contexto confiável. Referência de treino é distinguida e exige composição exatamente igual à referência confiável, sem propriedade ou concessão. Referências: [Game Design](game-design.md), [contrato/API](gameplay-contract.md#deck-rules-e-contexto-confiável) e [coleção](colecao.md).
 
-Evidência: [testes de execução](../tests/gameplay/gameplay-deck.test.mjs), [testes de tipos](../shared/gameplay/type-tests/decks.typecheck.ts) e [validação local](contexto-operacional-para-ias.md#validação-disponível). Não foram criados Deck Builder, writes de propriedade, persistência de decks ou Battle Engine; não há integração com frontend/Functions. O marco fica em foco mesmo concluído, conforme a instrução de não avançar nesta tarefa. A promoção do próximo marco está fora deste escopo.
+Evidência: [testes de execução](../tests/gameplay/gameplay-deck.test.mjs), [testes de tipos](../shared/gameplay/type-tests/decks.typecheck.ts) e [validação local](contexto-operacional-para-ias.md#validação-disponível). Não foram criados Deck Builder, writes de propriedade, persistência de decks ou Battle Engine; não há integração com frontend/Functions.
+
+### Deck Builder
+
+**Milestone: CURRENT**
+
+**Status: IN PROGRESS — definição documental e arquitetural.** Objetivo do marco: montar, salvar e reabrir decks pessoais com validação e autorização. Deck Rules está concluído; a proposta do contrato de persistência/autorização e conteúdo canônico está **PROPOSTA / PENDENTE**, em [Deck Builder v0.1](deck-builder.md).
+
+Escopo autorizado por Emanuel em 17/10/2026: inspecionar a arquitetura existente em modo somente leitura, elaborar a proposta e submetê-la à revisão. A promoção a CURRENT foi aprovada; decisões da arquitetura e implementação não foram. Não há UI, persistência real, Functions, Rules, índices, alterações remotas ou integração com partidas neste incremento.
+
+Critério de conclusão futuro do marco: criar, editar, excluir, duplicar e reabrir decks conforme o contrato aprovado, com acesso próprio e casos inválidos/concorrentes cobertos. O documento atual é preparação desse contrato, não evidência de que esse critério foi atendido.
+
+Bloqueio de implementação: revisão explícita de Emanuel das [decisões propostas](deck-builder.md#decisões-que-emanuel-precisa-aprovar) e delimitação de um próximo incremento autorizado. Próxima ação: aguardar essa revisão, sem avançar para código, UI, Firebase ou Battle Engine.
 
 | Próximos itens, na ordem desejada | Status | Objetivo | Dependências | Critério de conclusão | Referência principal |
 | --- | --- | --- | --- | --- | --- |
-| Deck Builder | PLANNED | Montar/salvar decks válidos | Deck Rules e contrato de persistência/autorização revisado | Criar, editar e reabrir decks com validação; acesso e casos inválidos cobertos | [Game Design](game-design.md), [modelo Firestore](modelo-dados-firestore.md) |
 | Battle Engine | PLANNED | Resolver ações e estado do combate | Marcos anteriores e resolução aprovada | Transições/ações legais, término e efeitos testados com execução reproduzível | [Game Design](game-design.md), [ADR-0001](decisions/0001-autoridade-backend.md) |
 | Battle Sandbox | PLANNED | Inspecionar cenários do motor | Battle Engine | Carregar cenário, executar ações e observar resultado/erros sem conceder valor | [Game Design](game-design.md) |
 | Training Bot | PLANNED | Permitir treino no escopo acordado | Sandbox e ações legais do motor | Bot completa cenários de treino definidos sem bypass das regras | [Game Design](game-design.md) |

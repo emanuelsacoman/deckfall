@@ -70,14 +70,14 @@ Fonte principal: [riscos e dívidas](riscos-e-dividas-tecnicas.md). Permanecem Q
 
 ## Marco atual e continuidade
 
-Deck Rules está concluído e permanece como único marco CURRENT no [roadmap](roadmap.md#deck-rules). Deck Builder continua planejado, sem promoção ou execução; a Lore Bible é um eixo paralelo. Evidências técnicas anteriores estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
+Deck Rules está concluído. **Deck Builder é o único marco CURRENT**, promovido com autorização explícita de Emanuel em 17/10/2026, somente para definição documental/arquitetural. A [proposta de Deck Builder v0.1](deck-builder.md) está **PROPOSTA / PENDENTE**; não há implementação de UI, persistência, Functions, Rules ou integração com partidas. O escopo e a próxima ação estão no [roadmap](roadmap.md#deck-builder). A Lore Bible é um eixo paralelo; evidências técnicas anteriores permanecem no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
 
 ## Owner decisions required
 
-Nenhuma decisão de produto pendente para Deck Rules v0.1 concluído. Mudanças de regras/números, persistência/autorização, economia e multiplayer futuros conservam seus próprios requisitos e limites de aprovação.
+Deck Rules v0.1 não tem decisão pendente. A promoção de Deck Builder e sua definição documental foram autorizadas, mas a arquitetura proposta depende da revisão dos [cinco blocos de decisão](deck-builder.md#decisões-que-emanuel-precisa-aprovar); nenhuma recomendação está aprovada. Implementação permanece bloqueada até a revisão e um próximo incremento autorizado. Mudanças de regras/números, economia e multiplayer futuros conservam seus próprios requisitos e limites de aprovação.
 
 Na lore, a ratificação de HC-01 a HC-06 depende de aprovação explícita de Emanuel; o [registro de cânone](lore/canon.md#hard-canon--proposta--pendente) conserva a pendência. Isso não bloqueia as expansões menores já delegadas, que respeitam a proposta estrutural como limite editorial conservador.
 
 ## Next safe action
 
-Core Game: não há incremento pendente nos critérios atuais de Deck Rules; rever sua continuidade somente em nova solicitação. A melhoria paralela do editor não inicia Deck Builder, persistência ou batalha. Starter Wave 01: em tarefa própria, quando o acesso à UI estiver disponível, conferir homônimos no admin e criar as 12 cartas pelo editor existente como `draft`, sem arte, registrando os IDs reais no manifesto. Publicação e composição do StarterPack dependem das etapas e autorizações próprias; não usar scripts de escrita. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.
+Core Game: aguardar a revisão de Emanuel da proposta de Deck Builder; não implementar código, UI, persistência, Functions, Rules, índices, Battle Engine ou integração com partidas nesta etapa de definição. Starter Wave 01: em tarefa própria, quando o acesso à UI estiver disponível, conferir homônimos no admin e criar as 12 cartas pelo editor existente como `draft`, sem arte, registrando os IDs reais no manifesto. Publicação e composição do StarterPack dependem das etapas e autorizações próprias; não usar scripts de escrita. A manutenção operacional pendente está em [riscos](riscos-e-dividas-tecnicas.md) e não autoriza deploy.
