@@ -14,6 +14,7 @@
     "build:functions": "npm --prefix functions run build",
     "test:functions": "npm --prefix functions test",
     "test:functions:emulator": "npm --prefix functions run build && firebase emulators:exec --only auth,firestore,functions --project demo-cardgame \"npm --prefix functions run test:integration\"",
+    "test:decks:emulator": "firebase emulators:exec --only firestore --project demo-cardgame \"npm --prefix functions run test:decks:integration\"",
     "emulators:start": "npm --prefix functions run build && firebase emulators:start --only auth,firestore,storage,functions --project demo-cardgame",
     "setup": "node setup-structure.js"
   },

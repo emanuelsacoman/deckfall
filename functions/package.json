@@ -9,7 +9,8 @@
     "gcp-build": "",
     "typecheck": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json --noEmit",
     "test": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json && node scripts/copy-gameplay.cjs test && node --test lib-test/tests/*.test.js",
-    "test:integration": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json && node scripts/copy-gameplay.cjs test && node --test lib-test/tests/initialize-player.emulator.js"
+    "test:integration": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json && node scripts/copy-gameplay.cjs test && node --test lib-test/tests/initialize-player.emulator.js",
+    "test:decks:integration": "npm --prefix .. run build:gameplay && tsc -p tsconfig.test.json && node scripts/copy-gameplay.cjs test && node --test lib-test/tests/firestore-personal-deck-store.emulator.js"
   },
   "dependencies": {
     "firebase-admin": "14.5.0",

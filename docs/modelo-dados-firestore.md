@@ -2,7 +2,7 @@
 
 As Rules privilegiam autorização, status, timestamps, quantidade/faixas numéricas dos atributos e envelope do canvas, mantendo o limite de avaliação do Firestore. Limites de textos, chaves/rótulos/IDs de atributos, metadados visuais e propriedades profundas são verificados pelos validators do cliente antes de gravar ou reconstruir o editor; não são uma promessa de validação exaustiva pelo servidor.
 
-Contratos ficam em `model/interfaces`. IDs pertencem ao caminho e são acrescentados na leitura; não precisam ser duplicados no documento. Timestamps persistidos são de servidor. Não armazenar File, Blob, Base64, URLs de download, nós Konva, listeners ou histórico no Firestore.
+Contratos frontend ficam em `model/interfaces`; decks pessoais reutilizam os contratos puros compartilhados, conforme abaixo. IDs pertencem ao caminho e são acrescentados na leitura; não precisam ser duplicados no documento. Timestamps persistidos são de servidor. Não armazenar File, Blob, Base64, URLs de download, nós Konva, listeners ou histórico no Firestore.
 
 ## `users/{uid}`
 
@@ -29,6 +29,23 @@ Member com perfil válido lê/lista apenas a própria coleção; admin lê cole�
 `PlayerOwnedCard` é uma junção local com `card: Card | null`, nunca persistida. Carta retirada/excluída ou negada pode permanecer como propriedade indisponível, sem exposição dos dados protegidos. Cadastro/bootstrap não gravam entradas: `initializePlayer` concede um Starter Pack lacrado e `openPack` soma cartas em transação, conforme [pacotes](pacotes.md). O Admin SDK ignora Rules; a operação repete validação de perfil, carta, quantidade e datas no servidor. A gestão manual administrativa permanece pelo contrato atual. Veja [coleção](colecao.md) para transações, concorrência e imagens publicadas.
 
 Antes de somar uma entrada existente na abertura, o backend exige os três campos exatos, datas Timestamp e `firstAcquiredAt <= lastAcquiredAt <= relógio do backend`. Datas futuras, fora de ordem ou soma acima de 9999 impedem toda a abertura, mantendo o pacote lacrado. Não há varredura de entradas fora do conteúdo do pack.
+
+## `users/{uid}/decks/{deckId}`
+
+Persistência backend isolada em [firestore-personal-deck-store.ts](../functions/src/decks/firestore-personal-deck-store.ts), sem endpoint ou integração ao aplicativo. A fonte do contrato e das regras de ciclo de vida continua em [Deck Builder](deck-builder.md#modelo-de-decks-pessoais). UID confiável e ID validado pertencem exclusivamente ao caminho; o documento é plano, sem `draft`, `id` ou `uid` persistidos.
+
+| Campo persistido | Representação |
+| --- | --- |
+| `schemaVersion` | Inteiro fixo 1; schemas desconhecidos são recusados, sem migração |
+| `name`, `rulesVersion`, `contentVersion`, `entries` | Campos do `PersonalDeckDraft` normalizado pelo parser compartilhado |
+| `version` | Versão positiva segura do recurso; decidida pelo domínio |
+| `createdAt`, `updatedAt` | `Timestamp` do Admin SDK com precisão exata de milissegundos |
+
+Somente esses oito campos são aceitos. Na leitura, o adapter deriva `id` do documento, converte os Timestamps para ISO UTC e chama `parsePersonalDeckResource`; metadados inválidos, datas fora do contrato, campos extras e precisão submilissegundo são recusados. Na escrita, o mesmo parser valida a projeção antes de converter os instantes confiáveis dos domínios por `Timestamp.fromMillis`, sem `serverTimestamp()`. O limite de 16 KiB é medido pelo JSON normalizado em UTF-8 com datas ISO, conforme [o contrato](deck-builder.md#composição-salva-e-limites); não mede o armazenamento interno do Firestore.
+
+`get` retorna null somente para ausência; `list(20)` consulta a subcoleção na transação e valida todos os documentos retornados, sem filtro que esconda corrupção ou migração automática. `create` usa a precondição real de inexistência. `replace` exige presença confirmada por get/list na mesma tentativa e usa set completo, sem merge; as leituras transacionais impedem transformar uma exclusão concorrente em upsert. `delete` também exige presença confirmada. Leituras precisam terminar antes de enfileirar writes; falhas abortam a unidade inteira.
+
+Não há match de decks nas Rules atuais: o fallback continua negando leitura e escrita pelo SDK cliente, inclusive admin. Admin SDK ignora Rules; o adapter espera UID previamente autenticado/autorizado pelo futuro chamador e não valida perfil por conta própria. Nenhum documento de produção foi criado ou migrado. A [evidência concorrente](deck-builder.md#limite-de-20-sob-concorrência) é local ao emulador e não certifica produção.
 
 ## `players/{uid}`
 

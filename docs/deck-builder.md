@@ -1,20 +1,22 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, DOMÍNIOS CREATE/DELETE/RENAME/UPDATE/DUPLICATE, PORTAS BACKEND/CATÁLOGO E VALIDAÇÃO HISTÓRICA IMPLEMENTADOS; MARCO CURRENT E INCOMPLETO; PERSISTÊNCIA NÃO IMPLEMENTADA**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, CINCO DOMÍNIOS E ADAPTER FIRESTORE DE DECKS ISOLADO IMPLEMENTADOS; CAPACIDADE EXERCITADA NO EMULADOR; MARCO CURRENT E INCOMPLETO**
 
 Last reviewed: 2026-10-29
 
-Source of truth for: arquitetura aprovada de persistência, autorização e ciclo de vida de decks pessoais, com status dos incrementos puros implementados
+Source of truth for: arquitetura aprovada de persistência, autorização e ciclo de vida de decks pessoais, contratos e status dos incrementos implementados
 
 ## Escopo e autorização recebida
 
 Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na revisão seguinte da mesma data, **aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com a revisão de compatibilidade descrita neste documento**: a troca da versão ativa não invalida automaticamente referências antigas ainda reconhecidas e elegíveis. As recomendações adotadas abaixo são arquitetura aprovada para v0.1; as alternativas comparativas não foram adotadas. As regras do jogo continuam no [Game Design](game-design.md#preparação-decks-e-acesso--aprovado).
 
-Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), a [exclusão](#operação-de-domínio-de-exclusão), a [renomeação no domínio](#operação-de-domínio-de-renomeação), a [porta de leitura de catálogo versionado](#porta-backend-de-leitura-de-catálogo-versionado), a [validação pura de referências históricas](#validação-pura-de-referências-históricas) e a [atualização no domínio](#operação-de-domínio-de-atualização), com testes e documentação. Não foram criados serviços de persistência, UI, Functions/Callables de decks, Rules, índices, documentos Firestore ou dados remotos; não há deploy, persistência real, catálogo cadastrado, integração com partidas ou Battle Engine. Schemas existentes permanecem intactos e Deck Builder continua CURRENT, sem conclusão do marco.
+Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), a [exclusão](#operação-de-domínio-de-exclusão), a [renomeação no domínio](#operação-de-domínio-de-renomeação), a [porta de leitura de catálogo versionado](#porta-backend-de-leitura-de-catálogo-versionado), a [validação pura de referências históricas](#validação-pura-de-referências-históricas) e a [atualização no domínio](#operação-de-domínio-de-atualização), com testes e documentação. Esses incrementos preservaram schemas existentes e não incluíram persistência, catálogo cadastrado, transporte ou dados remotos.
+
+Em 29/10/2026, Emanuel autorizou exclusivamente o [adapter Firestore de decks e integração no emulador](#adapter-firestore-isolado), sem alterar a porta pública. A implementação permanece isolada no backend, sem catálogo remoto, Callables/endpoints, autenticação de transporte, Rules, UI, provisionamento, migração, Battle Engine ou deploy. Deck Builder continua CURRENT e INCOMPLETO.
 
 ## Base atual verificada em modo somente leitura
 
-Emanuel também autorizou exclusivamente a [criação no domínio](#operação-de-domínio-de-criação) e, em 29/10/2026, a [duplicação no domínio](#operação-de-domínio-de-duplicação), cada uma com testes e documentação. Os incrementos não implementam adapters ou persistência real e não comprovam o hard cap concorrente.
+Emanuel também autorizou exclusivamente a [criação no domínio](#operação-de-domínio-de-criação) e, em 29/10/2026, a [duplicação no domínio](#operação-de-domínio-de-duplicação), cada uma com testes e documentação. Os testes com doubles desses incrementos não comprovam persistência nem isolamento reais; a evidência posterior do adapter fica em [capacidade concorrente](#limite-de-20-sob-concorrência).
 
 | Fato observado no repositório | Consequência para a arquitetura | Evidência principal |
 | --- | --- | --- |
@@ -23,10 +25,10 @@ Emanuel também autorizou exclusivamente a [criação no domínio](#operação-d
 | `Card` tem status `draft/published/archived`, dados/editor/canvas e datas; não possui revisão nem perfil canônico de batalha. | Publicação, `updatedAt`, raridade ou atributos genéricos não tornam uma carta elegível para gameplay. | [Card](../src/app/model/interfaces/Cards/card.ts), [cartas](cartas.md) |
 | Deck Rules recebe composição e contexto confiável separados; verifica 24 cartas, duas cópias por identidade, revisão/elegibilidade e posse ou referência exata. | Reutilizar o validador, sem aceitar contexto confiável enviado pelo cliente. | [implementação](../shared/gameplay/src/decks.ts), [contrato](gameplay-contract.md#deck-rules-e-contexto-confiável), [testes](../tests/gameplay/gameplay-deck.test.mjs) |
 | `initializePlayer` e `openPack` autenticam e validam no backend, com transação e erros limitados. Admin SDK ignora Rules. | Repetir autorização e validação no serviço de decks; Rules sozinhas não protegem uma Callable. | [Callables](../functions/src/index.ts), [abertura](../functions/src/open-pack.ts), [ADR-0001](decisions/0001-autoridade-backend.md) |
-| O adapter do bootstrap oferece `get(path)` e `set(path)`; não oferece consulta de coleção, create ou delete. | Uma futura persistência de decks precisa de fronteira própria, sem transformar bootstrap em serviço de decks. | [adapter](../functions/src/firestore-bootstrap-store.ts), [contrato do store](../functions/src/pack-domain.ts) |
+| O adapter do bootstrap oferece `get(path)` e `set(path)`; não oferece consulta de coleção, create ou delete. | Decks usam adapter e porta próprios, sem transformar bootstrap em serviço de decks. | [adapter bootstrap](../functions/src/firestore-bootstrap-store.ts), [adapter decks](../functions/src/decks/firestore-personal-deck-store.ts) |
 | `/game/decks` é placeholder; não existe match de decks nas Rules, e o fallback nega acesso. Gameplay ainda é módulo isolado. | A arquitetura aprovada ainda precisa de implementação; não há permissão ou endpoint existente a reutilizar como atalho. | [placeholder](../src/app/view/game/decks/decks.component.ts), [Rules](../firestore.rules), [ADR-0005](decisions/0005-contrato-gameplay-puro.md) |
 
-Essa inspeção não conferiu produção. Resultados locais de runtime continuam identificados por incremento e data no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível); não comprovam persistência ou funcionamento remoto.
+Essa inspeção não conferiu produção. Resultados locais de runtime continuam identificados por incremento e data no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível); não comprovam funcionamento remoto.
 
 ## Decisões aprovadas e alternativas não adotadas
 
@@ -179,7 +181,7 @@ A referência não precisa de posse ou de um `Card` colecionável artificial. De
 
 ## Operações, concorrência e falhas
 
-**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações), a [porta backend](#porta-backend-do-store-e-erros-de-domínio) e os domínios de [criação](#operação-de-domínio-de-criação), [exclusão](#operação-de-domínio-de-exclusão), [renomeação](#operação-de-domínio-de-renomeação), [atualização](#operação-de-domínio-de-atualização) e [duplicação](#operação-de-domínio-de-duplicação) estão implementados; adapters, transporte e gravação real continuam futuros.
+**APROVADO — 17/10/2026.** Mutação explícita por serviço backend; sem autosave remoto presumido. Uma operação tem parser estrito, domínio testável e adapter próprio; componentes apenas orquestram serviços tipados. Os [pedidos puros](#contrato-puro-de-recurso-e-mutações), a [porta backend](#porta-backend-do-store-e-erros-de-domínio), os cinco domínios e o [adapter Firestore de decks isolado](#adapter-firestore-isolado) estão implementados. Adapter de catálogo e transporte continuam futuros.
 
 | Operação | Comportamento recomendado |
 | --- | --- |
@@ -196,9 +198,13 @@ Se o commit ocorrer e sua resposta se perder, reler o mesmo documento para confe
 
 ### Limite de 20 sob concorrência
 
-**APROVADO; DECISÃO DE CAPACIDADE IMPLEMENTADA NOS DOMÍNIOS CREATE E DUPLICATE; HARD CAP CONCORRENTE AINDA NÃO COMPROVADO.** O futuro adapter deverá consultar até 20 documentos da subcoleção **dentro da mesma transação server read-write** que verifica ausência e cria o destino; se já houver 20, recusar. Os domínios já solicitam get/list/create pelo contrato transacional; não executam essa query real. Duplicate relê também a origem nessa transação. Edição não altera a contagem; exclusão libera capacidade após commit. Não consultar a quantidade fora da transação nem usar cache, aggregate externo, `deckCount` fornecido pelo cliente ou lock local.
+**APROVADO; IMPLEMENTADO E EXERCITADO NO EMULADOR; SEM PROVA FORMAL DE PRODUÇÃO.** O adapter consulta até 20 documentos da subcoleção **dentro da mesma transação server read-write** que verifica ausência e cria o destino; se já houver 20, o domínio recusa. Create/duplicate solicitam get/list/create, e o adapter executa a query real sem filtro de elegibilidade ou campos opcionais. Duplicate relê também a origem nessa transação. Edição não altera a contagem; exclusão libera capacidade após commit. Não consultar a quantidade fora da transação nem usar cache, aggregate externo, `deckCount` fornecido pelo cliente ou lock local.
 
-O desenho se apoia no [isolamento serializável do Firestore](https://firebase.google.com/docs/firestore/transaction-data-contention#serializable_isolation) e no suporte a leitura de query pelo [SDK servidor em transação](https://cloud.google.com/nodejs/docs/reference/firestore/latest/firestore/transaction). A aprovação não substitui prova em integração. O teste específico obrigatório é **19 decks + duas criações simultâneas para o mesmo usuário**, com destinos distintos e tentativas válidas: no cenário controlado, uma confirma, a outra é recusada pelo limite e restam 20; o resultado final **nunca pode deixar 21**. Cobrir também coleção inicialmente vazia, 20 existentes, duplicação, exclusão e retries concorrentes.
+O desenho se apoia no [isolamento serializável do Firestore](https://firebase.google.com/docs/firestore/transaction-data-contention#serializable_isolation) e no suporte a leitura de query pelo [SDK servidor em transação](https://cloud.google.com/nodejs/docs/reference/firestore/latest/firestore/transaction). A aprovação não substitui evidência de integração. O teste específico obrigatório é **19 decks + duas criações simultâneas para o mesmo usuário**, com destinos distintos e tentativas válidas: no cenário controlado, uma confirma, a outra é recusada pelo limite e restam 20; o resultado final **nunca pode deixar 21**.
+
+Na execução de 29/10/2026 com Firestore Emulator **1.19.8**, cinco rodadas independentes de create/create e cinco de create/duplicate começaram com 19 documentos. Em todas as dez, uma chamada confirmou, a outra terminou com `PersonalDeckCapacityError` e a consulta direta final contou **20**. Não houve erro final de contenção/timeout nem estado final com 21. Algumas tentativas observaram ambas 19 e o retry perdedor releu 20; outras já serializaram as leituras em 19/20. O emulador registrou timeouts internos de locks recuperados pelos retries do SDK, sem serem confundidos com recusas por capacidade. A origem de duplicate permaneceu intacta. Cobertura e comandos estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
+
+Esse resultado é evidência local repetida, **não uma garantia formal de produção**. O [Firestore Emulator não reproduz integralmente o comportamento transacional de produção](https://firebase.google.com/docs/emulator-suite/connect_firestore#how_the_cloud_firestore_emulator_differs_from_production), inclusive contenção e duração de locks; não foi auditada configuração concorrente do banco remoto.
 
 **Condição de parada determinada por Emanuel:** se esse mecanismo não puder garantir o hard cap nos testes de integração, parar antes de criar qualquer workaround e propor um documento de quota/counter controlado exclusivamente pelo backend. Não aumentar o limite, não aceitar 21 temporariamente e não introduzir contador ou documento auxiliar sem apresentar a revisão ao proprietário. O desenho atual evita essa estrutura adicional; não declara sua ausência como obrigação permanente nem como resultado já demonstrado.
 
@@ -232,7 +238,7 @@ Esta lista é planejamento **PENDENTE**, não autorização para executar nesta 
 2. **Intenção salva — APROVADO:** composições de 0–24 cartas reconhecidas, até duas cópias por identidade, inclusive sem posse/elegibilidade atuais; conferir legalidade e propriedade completas novamente antes de qualquer partida.
 3. **Conteúdo canônico — APROVADO:** versões imutáveis novas em Firestore com ponteiro ativo confiável e `cardId` colecionável igual ao ID atual da carta/coleção, sem alterar seus schemas. Envelope de conteúdo de até 64 KiB para v0.1.
 4. **Ciclo de vida e treino — APROVADO COM REVISÃO:** preservar as referências `{cardId, revision, quantity}` e validá-las contra o catálogo ativo, independentemente da igualdade da proveniência histórica. Adição compatível de conteúdo não exige migração. Referência ausente, revisão substituída ou inelegibilidade exige reparo explícito; nunca substituir revisão automaticamente. Publicação/posse atuais condicionam uso pessoal; referências de treino são permitidas pelo catálogo independentemente da coleção/publicação visual. Snapshots iniciados permanecem fixos.
-5. **Limites e concorrência — APROVADO, COM PROVA TÉCNICA PENDENTE:** limites v0.1 revisáveis de 20 decks, nome até 80, envelope de deck até 16 KiB e conteúdo até 64 KiB; versão inteira, create-if-absent e reconciliação de respostas incertas. Query na transação pode seguir para implementação autorizada, mas só é comprovada após testes específicos, inclusive 19 + duas criações, nunca 21. Se falhar a garantia, parar e propor quota/counter exclusivamente backend antes de qualquer workaround.
+5. **Limites e concorrência — APROVADO, COM EVIDÊNCIA LOCAL NO EMULADOR:** limites v0.1 revisáveis de 20 decks, nome até 80, envelope de deck até 16 KiB e conteúdo até 64 KiB; versão inteira, create-if-absent e reconciliação de respostas incertas. Os testes específicos de 19 + duas operações terminaram com 20 nas dez rodadas, sem prova formal de produção. Se falhar o mecanismo, parar e propor quota/counter exclusivamente backend antes de qualquer workaround.
 
 A revisão obrigatória de Emanuel foi explícita:
 
@@ -240,7 +246,7 @@ A revisão obrigatória de Emanuel foi explícita:
 
 > Nunca substitua automaticamente uma revisão por outra.
 
-Não há decisão de arquitetura aguardando aprovação nesses cinco blocos. Os incrementos puros receberam autorizações próprias, conforme as seções abaixo; o hard cap transacional continua sem prova de integração. A autorização não libera deploy, operação remota, implementação do marco inteiro ou avanço ao Battle Engine.
+Não há decisão de arquitetura aguardando aprovação nesses cinco blocos. Os incrementos receberam autorizações próprias, conforme as seções abaixo; a capacidade transacional possui evidência local no emulador, com a limitação de produção explicitada acima. A autorização não libera deploy, operação remota, implementação do marco inteiro ou avanço ao Battle Engine.
 
 ## Primeiro incremento técnico proposto
 
@@ -296,7 +302,7 @@ Arquivos implementados: [personal-decks.ts](../shared/gameplay/src/personal-deck
 
 ## Contrato puro de recurso e mutações
 
-Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autorização de Emanuel para somente tipos, parsers puros, exportações, testes e documentação. A projeção `PersonalDeckResource` contém `{id, version, draft, createdAt, updatedAt}`. Não é o documento Firestore da seção de modelo: não altera seu `schemaVersion` ou campos achatados, não duplica UID e não implementa conversão do caminho ou de Timestamp. O futuro adapter fará essa conversão; aqui só se confere uma projeção recebida, sem comprovar sua origem.
+Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autorização de Emanuel para somente tipos, parsers puros, exportações, testes e documentação. A projeção `PersonalDeckResource` contém `{id, version, draft, createdAt, updatedAt}`. Não é o documento Firestore da seção de modelo: não altera seu `schemaVersion` ou campos achatados, não duplica UID e não implementa conversão do caminho ou de Timestamp. A conversão pertence ao [adapter isolado](#adapter-firestore-isolado); aqui só se confere uma projeção recebida, sem comprovar sua origem.
 
 | Pedido | Contrato exato |
 | --- | --- |
@@ -328,11 +334,11 @@ Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autori
 | `PersonalDeckStoreTransaction` | `get(deckId)` retorna recurso ou `null`; `list(limit)` retorna recursos readonly; `create(resource)`, `replace(resource)` e `delete(deckId)` enfileiram operações distintas. |
 | `PersonalDeckReadLimit` | Derivado de `typeof PERSONAL_DECK_LIMITS.maxDecks`, atualmente 20; parâmetro obrigatório da lista, sem opção ilimitada ou paginação antecipada. |
 
-O UID é argumento backend, previamente derivado de autenticação/autorização; não integra draft, recurso, request ou documento. A porta não autentica esse argumento. O futuro adapter deverá manter o escopo do titular, traduzir dados persistidos para a projeção existente e recusar documentos malformados, sem ocultá-los de uma lista/contagem de capacidade.
+O UID é argumento backend, previamente derivado de autenticação/autorização; não integra draft, recurso, request ou documento. A porta não autentica esse argumento. O [adapter isolado](#adapter-firestore-isolado) mantém o escopo do titular, traduz dados persistidos para a projeção existente e recusa documentos malformados, sem ocultá-los de uma lista/contagem de capacidade.
 
-`create` significa create-if-absent: destino existente deve falhar, inclusive no commit, sem overwrite ou geração de outro ID. `replace` exige recurso previamente lido como existente e substitui sua representação completa, sem criar ou fazer merge. `delete` recebe somente ID previamente lido como existente, sem transformar ausência em sucesso. As precondições são obrigações do domínio/adapter futuros; a interface sozinha não as executa.
+`create` significa create-if-absent: destino existente deve falhar, inclusive no commit, sem overwrite ou geração de outro ID. `replace` exige recurso previamente lido como existente e substitui sua representação completa, sem criar ou fazer merge. `delete` recebe somente ID previamente lido como existente, sem transformar ausência em sucesso. As precondições são obrigações do domínio/adapter; a interface sozinha não as executa.
 
-Todas as leituras `get/list` devem ocorrer antes dos writes no callback. Delete/rename/update comparam a versão esperada; rename/update decidem incremento, timestamps e no-op. Create lê destino e `list(PERSONAL_DECK_LIMITS.maxDecks)` na mesma unidade antes de decidir capacidade e enfileirar `create`; duplicate relê primeiro a origem e compara versão/draft descobertos. A lista deve devolver no máximo o limite, ou todos os recursos se houver menos, sem filtrar por composição ou elegibilidade. O adapter futuro deverá confirmar todas as escritas atomicamente, abortar todas em falha e poder repetir o callback em contenção; callbacks não poderão produzir efeitos externos. A decisão de domínio tem cobertura local com doubles, sem implementação ou comprovação de atomicidade/hard cap reais. **19 decks + duas criações simultâneas, nunca 21**, continua sendo prova de integração obrigatória, com a condição de parada aprovada antes de workaround.
+Todas as leituras `get/list` devem ocorrer antes dos writes no callback. Delete/rename/update comparam a versão esperada; rename/update decidem incremento, timestamps e no-op. Create lê destino e `list(PERSONAL_DECK_LIMITS.maxDecks)` na mesma unidade antes de decidir capacidade e enfileirar `create`; duplicate relê primeiro a origem e compara versão/draft descobertos. A lista devolve no máximo o limite, ou todos os recursos se houver menos, sem filtrar por composição ou elegibilidade. O adapter confirma todas as escritas atomicamente, aborta todas em falha e pode repetir o callback em contenção; callbacks não podem produzir efeitos externos. Os doubles exercitam decisões de domínio; a [integração no emulador](#adapter-firestore-isolado) exercita a persistência real. A condição de parada aprovada permanece, sem extrapolar a evidência local para prova formal de produção.
 
 | Erro | Código estável |
 | --- | --- |
@@ -351,7 +357,7 @@ A porta permanece dependente **somente de tipos**, encaminhados por [gameplay.d.
 
 Validação original da porta: `test:gameplay` **145/145**, `test:functions` **74/74** (67 anteriores + sete novos), testes de tipos backend e `build:functions`, todos exit 0. [Testes de erros](../functions/tests/personal-deck-store.test.ts) cobrem taxonomia/contexto mínimo e agora preservação de stack interna; [testes de tipos](../functions/tests/personal-deck-store.typecheck.ts) verificam recurso, UID externo, limite derivado e operações no mesmo callback. A porta não implementa store fake ou concorrência; os doubles ficam nos testes dos domínios. Angular, Rules e emuladores não foram executados nessa etapa.
 
-Estado explícito: **store contract e domínios create/delete/rename/update/duplicate implementados; Firestore adapters NÃO implementados; hard cap concorrente NÃO comprovado; Functions/Callables de decks NÃO implementadas; Rules de decks NÃO implementadas; UI NÃO implementada**. Sem queries/transações reais, contador, alteração remota ou deploy.
+O estado presente das capacidades está no [quadro consolidado](#validação-pura-de-referências-históricas). A porta foi implementada antes da persistência; o [adapter Firestore isolado](#adapter-firestore-isolado) acrescenta transações reais e evidência concorrente no emulador, sem transporte, Rules/UI de decks ou deploy.
 
 ## Operação de domínio de exclusão
 
@@ -373,18 +379,7 @@ Os [testes de delete](../functions/tests/delete-personal-deck.test.ts) usam stor
 
 Validação: **145/145 gameplay**, **88/88 backend** (74 anteriores + 14 novos testes de delete), incluindo testes de tipos, e `build:functions`, todos exit 0. A cópia do artefato `lib` também foi carregada isoladamente, executando parser/delete sem carregar módulos fora dela. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Angular, Rules e emuladores não foram executados; o hard cap e sua prova concorrente continuam pendentes.
 
-| Capacidade | Estado |
-| --- | --- |
-| Store contract | Implementado |
-| Delete domain operation | Implementado e validado com store de teste |
-| Rename domain operation | Implementado com store e clock injetados |
-| Canonical catalog read port | Implementado, somente interface por versão explícita |
-| Firestore deck adapter | NÃO implementado |
-| Firestore catalog adapter | NÃO implementado |
-| Create / Update / Duplicate domain | Implementados com portas injetadas; [estado completo](#validação-pura-de-referências-históricas) |
-| Callable Functions de decks | NÃO implementadas |
-| Rules de decks | NÃO implementadas |
-| UI de Deck Builder | NÃO implementada |
+As capacidades presentes estão no [quadro consolidado](#validação-pura-de-referências-históricas); a evidência original acima se restringe ao incremento de delete.
 
 ## Operação de domínio de renomeação
 
@@ -449,9 +444,9 @@ Cobertura em [31 testes de execução](../functions/tests/validate-personal-deck
 | Update domain | ✅ Domínio com portas injetadas |
 | Create domain | ✅ Domínio com portas injetadas |
 | Duplicate domain | ✅ Domínio com duas fases transacionais e portas injetadas |
-| Firestore deck adapter | ❌ |
+| Firestore deck adapter | ✅ Isolado, sem transporte |
 | Firestore catalog adapter | ❌ |
-| Hard cap concorrente comprovado | ❌ |
+| Capacidade concorrente no emulador | ✅ Dez rodadas 19 → 20; sem prova formal de produção |
 | Callables de decks | ❌ |
 | Rules de decks | ❌ |
 | UI | ❌ |
@@ -517,7 +512,7 @@ Replay relê destino e capacidade, reutiliza o instante já obtido e reconstrói
 
 Cobertura em [48 testes runtime](../functions/tests/create-personal-deck.test.ts) e [testes de tipos](../functions/tests/create-personal-deck.typecheck.ts): ordem, limites 0/18/19/20, rejeição de autoridade, catálogo/referências, clock, falhas intactas, frozen/aliases e replays. `test:gameplay` **145/145**, backend **253/253**, testes de tipos e `build:functions` passaram, exit 0. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Angular, Rules e emuladores não foram executados por ausência de mudanças nesses caminhos.
 
-**NÃO COMPROVADO AINDA: 19 decks + duas criações reais concorrentes → nunca 21.** Os doubles locais exercitam decisões e replays; não substituem o adapter Firestore e o teste obrigatório de integração/emulador. Não há contador ou workaround. Se a query transacional futura não garantir o hard cap, permanece a condição de parar e propor quota/counter exclusivamente backend antes de qualquer alternativa.
+Os doubles desse incremento exercitaram decisões e replays, sem comprovar isolamento real. O [teste posterior de integração/emulador](#limite-de-20-sob-concorrência) repetiu os cenários de 19 decks + duas operações com resultado final 20; não é prova formal de produção. Não há contador ou workaround. Se a query transacional não garantir o hard cap, permanece a condição de parar e propor quota/counter exclusivamente backend antes de qualquer alternativa.
 
 Esse incremento de create não incluiu duplicate, adapters de deck/catálogo, fonte real de conteúdo, active config, Firebase, Callable/mapper, Rules, Angular/UI, Battle Engine, deploy ou alteração remota. Duplicate foi autorizado e implementado separadamente, conforme a seção seguinte. **Deck Builder continua o único CURRENT e está INCOMPLETO.**
 
@@ -556,6 +551,28 @@ Cada retry da fase 2 relê origem, destino e capacidade, revalida as precondiç�
 
 Cobertura em [51 testes de execução](../functions/tests/duplicate-personal-deck.test.ts) e [testes de tipos](../functions/tests/duplicate-personal-deck.typecheck.ts): sucesso, falhas/precondições, referências históricas, drafts vazios/parciais/completos, `eligible: false`, capacidade 0/19/20, versão máxima da origem, clock, propagação de erros, frozen/aliases e retries nas duas fases. `test:gameplay` **145/145**, backend **304/304**, testes de tipos e `build:functions` passaram, exit 0. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Angular, Rules e emuladores não foram executados, pois esses caminhos não mudaram.
 
-**O hard cap real de 20 decks continua NÃO COMPROVADO.** A prova de 19 decks + duas criações válidas simultâneas, jamais 21, depende de adapter Firestore e integração/emulador. Se a garantia falhar, permanece a condição de parar antes de workaround e propor quota/counter backend ao proprietário.
+Os testes desse incremento usaram doubles e não comprovaram isolamento real. A evidência posterior de 19 decks + duas criações válidas simultâneas no emulador está em [capacidade concorrente](#limite-de-20-sob-concorrência), sem prova formal de produção. Se o mecanismo falhar, permanece a condição de parar antes de workaround e propor quota/counter backend ao proprietário.
 
-Sem adapter Firebase, Callable/mapper, Rules, Angular/UI, catálogo remoto, contador, Battle Engine ou deploy. **Deck Builder permanece o único CURRENT e está INCOMPLETO.** Próximo menor incremento recomendado, não iniciado: adapter Firestore de decks isolado e teste em emulador da query transacional de capacidade, sem transporte/UI; exige escopo e autorização próprios.
+O incremento de domínio duplicate não incluiu adapter Firebase, Callable/mapper, Rules, Angular/UI, catálogo remoto, contador, Battle Engine ou deploy. O adapter foi autorizado em incremento separado, abaixo. **Deck Builder permanece o único CURRENT e está INCOMPLETO.**
+
+## Adapter Firestore isolado
+
+Status deste incremento: **IMPLEMENTADO E VALIDADO LOCALMENTE em 29/10/2026**, com escopo autorizado exclusivamente para `PersonalDeckStore` real e testes de integração no emulador. Fonte: [firestore-personal-deck-store.ts](../functions/src/decks/firestore-personal-deck-store.ts); [testes de integração](../functions/tests/firestore-personal-deck-store.emulator.ts) e [testes de tipos](../functions/tests/firestore-personal-deck-store.typecheck.ts). A interface pública do store não mudou.
+
+`createFirestorePersonalDeckStore(firestore: Firestore): PersonalDeckStore` recebe a instância Admin SDK por injeção. `runTransaction(uid, callback)` valida o segmento de UID confiável e constrói exclusivamente `users/{uid}/decks`; IDs de documento reutilizam o parser compartilhado e recusam segmentos reservados/paths arbitrários. O adapter não autentica o UID nem consulta perfil, coleção, publicação ou catálogo. Não há exportação de endpoint em `index.ts`.
+
+O documento persistido contém exatamente os oito campos planos do [modelo aprovado](#modelo-de-decks-pessoais), com `schemaVersion: 1`. UID e deckId pertencem ao caminho. A leitura valida o envelope e converte suas datas para ISO UTC antes de chamar `parsePersonalDeckResource`; a escrita chama o mesmo parser e converte os instantes do domínio com `Timestamp.fromMillis`. Timestamps com precisão submilissegundo são recusados para impedir perda de informação. Não há `serverTimestamp()`, migração ou segundo contrato de deck. O JSON normalizado com datas ISO respeita o limite compartilhado de 16 KiB.
+
+| Operação do adapter | Semântica |
+| --- | --- |
+| `get(deckId)` | Leitura transacional; recurso validado ou null somente para documento ausente |
+| `list(20)` | Query limitada da mesma subcoleção, dentro da transação, sem filtros; valida cada documento retornado e não esconde corrupção |
+| `create(resource)` | `transaction.create` com precondição real de destino inexistente no commit |
+| `replace(resource)` | Presença validada por get/list na mesma tentativa; `transaction.set` completo, sem merge, protegido pelas leituras transacionais contra upsert concorrente |
+| `delete(deckId)` | Presença validada por get/list na mesma tentativa antes de enfileirar a exclusão |
+
+Cada retry recebe um handle novo e confirmações de presença vazias. Todas as leituras precisam terminar antes de qualquer write. O handle deixa de ser utilizável ao concluir o callback; writes com leituras pendentes, leitura após write ou uso após o callback falham. Uma falha do adapter invalida a tentativa mesmo se o callback tentar capturá-la, e callbacks que falham abortam todos os writes enfileirados. Erros do SDK propagam para o chamador, sem tradução para ausência ou recusa de negócio.
+
+Versionamento, no-op, referências históricas e capacidade continuam nos domínios; o store não decide essas políticas. Os testes integrados injetam catálogo fake e clock determinístico, mantendo o store, as transações e as consultas finais reais no emulador. A cobertura inclui os cinco domínios, isolamento de UIDs, ausência, destino existente/precondição de create, datas/versões, no-op confirmado por `updateTime`, replace/delete sem upsert, rollback, reexecução concorrente, corrupção e limites 0/19/20. A suíte real passou com **44/44**; gameplay **145/145**, backend **304/304**, typecheck explícito e build Functions também passaram, exit 0. Resultados completos e condições de execução ficam no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível); a evidência prioritária de capacidade está [acima](#limite-de-20-sob-concorrência).
+
+Nenhuma Callable, autenticação de transporte, Rules, UI, Angular service, catálogo remoto, conteúdo, contador, migração, partida ou deploy foi acrescentado. As Rules continuam negando acesso cliente a decks. Encerrar após este incremento; o próximo candidato pequeno é o adapter histórico de `PersonalDeckCatalogReader`, a delimitar e autorizar separadamente, sem provisionamento implícito.
