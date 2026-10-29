@@ -2,7 +2,7 @@
 
 Status: Active
 
-Last reviewed: 2026-10-17
+Last reviewed: 2026-10-29
 
 Source of truth for: mapa da documentação e localização da fonte principal de cada assunto
 
@@ -29,8 +29,8 @@ O [README do projeto](../README.md) apresenta o Deckfall. Agentes começam em [A
 | [Cartas](cartas.md) | Contrato atual de dados, arte, assets e CRUD |
 | [Lore Bible](lore/README.md) | Cânone, mundo, eras, regiões, facções, personagens, mistérios e workflow narrativo de cartas; sem mecânicas automáticas |
 | [Starter Wave 01](content/starter-wave-01.md) | Manifesto das 12 identidades iniciais, perfis aprovados, lore, prompts e controle de criação/arte/publicação; composição futura sem alterar o StarterPack atual |
-| [Gameplay Contract](gameplay-contract.md) | API pura: tipos, efeitos/alvos, validação de decks, invariantes e projeção, ainda sem executor/motor/integração |
-| [Deck Builder v0.1](deck-builder.md) | Arquitetura APROVADA em 17/10/2026; contratos, portas de store/catálogo, domínios create/delete/rename/update e validação pura de referências históricas implementados; marco CURRENT incompleto, sem duplicate, adapters, prova do hard cap concorrente, persistência real ou UI |
+| [Gameplay Contract](gameplay-contract.md) | API pura: tipos, efeitos/alvos, validação de decks, invariantes e projeção; parsers reutilizados pelo backend, sem executor/motor/frontend |
+| [Deck Builder v0.1](deck-builder.md) | Arquitetura APROVADA em 17/10/2026; contratos, portas de store/catálogo, domínios create/delete/rename/update/duplicate e validação pura de referências históricas implementados; duplicate usa duas fases transacionais; marco CURRENT INCOMPLETO, sem adapters, prova do hard cap concorrente, persistência real ou UI |
 | [Editor de cartas](editor-de-cartas.md) | Canvas próprio, Konva, bindings, templates, histórico e exportação |
 | [Coleção do jogador](colecao.md) | Propriedade, gestão administrativa, PNG publicado e reparo de previews |
 | [Player Bootstrap](player-bootstrap.md) | Entrada em `/game`, preparação e concessão única de pack lacrado |

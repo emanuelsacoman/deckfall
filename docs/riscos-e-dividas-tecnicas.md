@@ -2,7 +2,7 @@
 
 Status: Active
 
-Last reviewed: 2026-10-15
+Last reviewed: 2026-10-29
 
 Source of truth for: riscos existentes, limites técnicos e pendências de validação externa
 
@@ -52,15 +52,17 @@ Assets de outro proprietário são copiados pelo serviço antes da gravação fi
 
 ## Área do jogador
 
-O Game Design v0.1 foi aprovado e o [Gameplay Contract](gameplay-contract.md) está implementado em `shared/gameplay`, ainda sem integração no frontend/Functions. Há catálogo fechado de efeitos/parâmetros e helper de destinatários, além de formato e invariantes de snapshots. Não autenticam, autorizam, executam comandos ou comprovam legalidade completa de uma jogada. O contexto do ator deve ser derivado no servidor, nunca de uma posição enviada pelo cliente. Tipos readonly não são uma barreira de segurança em runtime.
+O Game Design v0.1 foi aprovado e o [Gameplay Contract](gameplay-contract.md) está implementado em `shared/gameplay`. Os domínios backend de decks reutilizam os parsers pelo runtime compilado dentro do artefato Functions; o frontend ainda não importa o módulo. Há catálogo fechado de efeitos/parâmetros e helper de destinatários, além de formato e invariantes de snapshots. Não autenticam, autorizam, executam comandos ou comprovam legalidade completa de uma jogada. O contexto do ator deve ser derivado no servidor, nunca de uma posição enviada pelo cliente. Tipos readonly não são uma barreira de segurança em runtime.
 
 O helper de efeitos exige snapshot previamente validado, seat confiável e efeito da definição canônica. Seu retorno valida existência/lado/Vida do destinatário; não verifica fase/turno/custo/término e não executa dano, cura ou compra. Receber um efeito estruturalmente válido do cliente não prova que a carta jogada o possui. Limites e casos estão em [Gameplay Contract](gameplay-contract.md#efeitos-tipados-e-alvos).
 
 O validador puro de [Deck Rules](gameplay-contract.md#deck-rules-e-contexto-confiável) confere composição, revisão/elegibilidade e quantidades pessoais ou igualdade com referência de treino a partir do contexto recebido. Essa validação não prova a origem/atualidade do contexto nem autentica seu titular. A futura integração deve fornecer catálogo/propriedade/referência confiáveis; não aceitar esses dados ou a escolha de contexto de treino como autoridade do payload do cliente. O retorno não é um recibo de autorização e não concede inventário.
 
-A conservação de 24 instâncias no snapshot continua sem substituir o validador específico de deck. Deck Builder e Battle Engine permanecem futuros; não há consulta de coleção, persistência de decks ou instâncias de partida criadas por Deck Rules. A integração deve preservar o módulo puro e resolver seu consumo pelos builds separados sem importar Angular/Firebase/Admin SDK nele. Não converter `Card`/atributos atuais nem preencher o pool de referência automaticamente. Duração e balanceamento aprovados como metas ainda precisam de playtest; novos efeitos/parâmetros dependem de revisão do design/conteúdo.
+A conservação de 24 instâncias no snapshot continua sem substituir o validador específico de deck. Deck Builder é CURRENT e INCOMPLETO: contratos, portas e domínios create/update/rename/delete/duplicate existem com dependências injetadas, sem adapters, persistência real, Callables, Rules ou UI de decks. Battle Engine permanece futuro; não há consulta de coleção ou instâncias de partida criadas por Deck Rules. Preservar o módulo puro sem importar Angular/Firebase/Admin SDK nele; o empacotamento compartilhado atual já é consumido pelo backend e não prova deploy. Não converter `Card`/atributos atuais nem preencher o pool de referência automaticamente. Duração e balanceamento aprovados como metas ainda precisam de playtest; novos efeitos/parâmetros dependem de revisão do design/conteúdo.
 
-A área do jogador oferece perfil/navegação, coleção persistida, Starter Pack único lacrado e abertura/reveal decididos pelo backend. A gestão manual administrativa e a consulta pelo titular permanecem. Decks e modos de jogo continuam placeholders: não há deck builder, treino funcional, partidas, PvP, loja, packs compráveis/aleatórios ou economia.
+Create/duplicate decidem capacidade pela listagem limitada solicitada dentro do contrato transacional, mas os doubles locais não comprovam o hard cap de 20. **19 decks + duas criações reais simultâneas, jamais 21, continua pendente** de adapter Firestore e testes de integração/emulador, incluindo duplicação. Retries e descarte de writes no fake exercitam o domínio, sem demonstrar isolamento real. Se a garantia falhar, parar antes de workaround e propor quota/counter exclusivamente backend, conforme [condição aprovada](deck-builder.md#limite-de-20-sob-concorrência).
+
+A área do jogador oferece perfil/navegação, coleção persistida, Starter Pack único lacrado e abertura/reveal decididos pelo backend. A gestão manual administrativa e a consulta pelo titular permanecem. Decks e modos de jogo continuam placeholders: não há Deck Builder integrado, treino funcional, partidas, PvP, loja, packs compráveis/aleatórios ou economia.
 
 Artes/assets editáveis do Storage continuam acessíveis somente a admin. O jogador baixa exclusivamente a representação achatada em `published-cards/{cardId}/preview.png`, por `getBlob` sujeito a perfil válido e carta publicada. Não se usa `getDownloadURL` nem se libera acesso aos originais. A imagem exige CORS e integração Rules Storage → Firestore; validação local não confirma essas permissões/configuração remotas.
 
