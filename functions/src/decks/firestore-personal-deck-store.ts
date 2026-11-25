@@ -1,28 +1,13 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import type { DocumentData, Firestore, QueryDocumentSnapshot, DocumentSnapshot } from 'firebase-admin/firestore';
-import { GameplayContractError, PERSONAL_DECK_LIMITS, parsePersonalDeckDeleteRequest, parsePersonalDeckResource } from '../gameplay';
+import { GameplayContractError, PERSONAL_DECK_LIMITS, parsePersonalDeckResource } from '../gameplay';
 import type { PersonalDeckResource } from '../gameplay';
 import type { PersonalDeckStore, PersonalDeckStoreTransaction } from './personal-deck-store';
+import { personalDeckOwnerUid as userSegment, personalDeckId as deckSegment } from './personal-deck-identifiers';
 
 const documentFields = [
   'schemaVersion', 'name', 'version', 'rulesVersion', 'contentVersion', 'entries', 'createdAt', 'updatedAt',
 ] as const;
-
-/** Validate path segments without restricting trusted Auth UIDs to gameplay identifiers. */
-function userSegment(uid: string): string {
-  if (typeof uid !== 'string' || !uid || uid.includes('/') || uid === '.' || uid === '..' ||
-      /^__.*__$/.test(uid) || Buffer.byteLength(uid, 'utf8') > 1500 || Buffer.from(uid, 'utf8').toString('utf8') !== uid) {
-    throw new GameplayContractError();
-  }
-  return uid;
-}
-
-function deckSegment(deckId: string): string {
-  // Reuse the existing strict identifier boundary; the constant is not a version decision.
-  const parsed = parsePersonalDeckDeleteRequest({ deckId, expectedVersion: 1 });
-  if (/^__.*__$/.test(parsed.deckId)) throw new GameplayContractError();
-  return parsed.deckId;
-}
 
 function timestampIso(value: unknown): string {
   if (!(value instanceof Timestamp) || value.nanoseconds % 1_000_000 !== 0) throw new GameplayContractError();

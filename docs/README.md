@@ -30,7 +30,7 @@ O [README do projeto](../README.md) apresenta o Deckfall. Agentes começam em [A
 | [Lore Bible](lore/README.md) | Cânone, mundo, eras, regiões, facções, personagens, mistérios e workflow narrativo de cartas; sem mecânicas automáticas |
 | [Starter Wave 01](content/starter-wave-01.md) | Manifesto das 12 identidades iniciais, perfis aprovados, lore, prompts e controle de criação/arte/publicação; composição futura sem alterar o StarterPack atual |
 | [Gameplay Contract](gameplay-contract.md) | API pura: tipos, efeitos/alvos, validação de decks, invariantes e projeção; parsers reutilizados pelo backend, sem executor/motor/frontend |
-| [Deck Builder v0.1](deck-builder.md) | Arquitetura APROVADA; contratos, cinco domínios e adapters Firestore isolados de decks e catálogo histórico; schema com referências de treino aprovado; integração no emulador, sem prova formal de produção; marco CURRENT INCOMPLETO, sem conteúdo provisionado, transporte, Rules ou UI de decks |
+| [Deck Builder v0.1](deck-builder.md) | Arquitetura APROVADA; contratos, cinco domínios, adapters Firestore e get/list internos próprios com contexto/perfil; integração no emulador, sem prova de Firebase Auth/Rules nesse fluxo; marco CURRENT INCOMPLETO, sem conteúdo provisionado, transporte, Rules ou UI de decks |
 | [Editor de cartas](editor-de-cartas.md) | Canvas próprio, Konva, bindings, templates, histórico e exportação |
 | [Coleção do jogador](colecao.md) | Propriedade, gestão administrativa, PNG publicado e reparo de previews |
 | [Player Bootstrap](player-bootstrap.md) | Entrada em `/game`, preparação e concessão única de pack lacrado |

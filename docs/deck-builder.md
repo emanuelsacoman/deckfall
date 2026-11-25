@@ -18,6 +18,8 @@ Em 25/11/2026, Emanuel autorizou exclusivamente o [adapter histórico de catálo
 
 Na mesma data, autorizou separadamente somente a [ampliação da integração de Update e Duplicate](#integração-real-de-update-e-duplicate) com os dois adapters reais. Esse trabalho altera testes e documentação, sem mudar domínios, portas ou schemas.
 
+Também em 25/11/2026, autorizou somente os [contratos e operações internas de leitura/listagem própria](#leitura-interna-de-decks-próprios), sem transporte, Rules ou Angular. A leitura cliente aprovada continua direta no Firestore, dependente de Rules futuras; não foi substituída por Callables.
+
 ## Base atual verificada em modo somente leitura
 
 Emanuel também autorizou exclusivamente a [criação no domínio](#operação-de-domínio-de-criação) e, em 29/10/2026, a [duplicação no domínio](#operação-de-domínio-de-duplicação), cada uma com testes e documentação. Os testes com doubles desses incrementos não comprovam persistência nem isolamento reais; a evidência posterior do adapter fica em [capacidade concorrente](#limite-de-20-sob-concorrência).
@@ -78,7 +80,7 @@ Limite v0.1 aprovado de **16 KiB** para o pedido de mutação e para a represent
 
 Os limites **20 decks por conta, nome até 80 caracteres, envelope de deck até 16 KiB e envelope de conteúdo até 64 KiB** foram explicitamente aprovados por Emanuel para **v0.1**. São limites revisáveis desta versão, não invariantes permanentes do produto nem números a acrescentar às regras imutáveis de batalha. Uma revisão futura deve ser deliberada, documentada e testada.
 
-Listar apenas a subcoleção própria, com consulta limitada, e ordenar localmente até 20 decks por atualização e ID como desempate. Não há necessidade inicial de consulta global, índice composto ou contador em `users`/`players`. Nenhum índice está sendo criado nesta proposta.
+Listar apenas a subcoleção própria, com consulta limitada, e ordenar localmente até 20 decks por atualização e ID como desempate. As [leituras internas](#leitura-interna-de-decks-próprios) concretizam essa ordenação com `updatedAt` decrescente e ID crescente em comparação lexical ASCII. Não há necessidade inicial de consulta global, índice composto ou contador em `users`/`players`. Nenhum índice está sendo criado.
 
 ## Ownership e autorização
 
@@ -624,4 +626,48 @@ Após sucesso, os testes conferem o documento plano/Timestamps por leitura diret
 
 A suíte anterior do store permanece com catálogo fake e store real; os testes unitários de domínio continuam usando doubles, incluindo cenários de replay/retries. A evidência nova com ambos os adapters reais não substitui essa classificação nem comprova a garantia concorrente em produção. Totais, comandos e logs executados ficam no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
 
-**Deck Builder permanece o único CURRENT e INCOMPLETO.** Encerrar após esse incremento. Próximo candidato pequeno, mediante autorização própria: delimitar o contrato da camada backend autenticada de leitura/listagem própria de decks, sem implementar transporte, Rules, UI ou provisionamento neste trabalho.
+Os contratos de leitura/listagem própria foram autorizados em incremento separado, abaixo; os domínios Update/Duplicate permanecem inalterados.
+
+## Leitura interna de decks próprios
+
+Implementação isolada em [read-own-personal-decks.ts](../functions/src/decks/read-own-personal-decks.ts), autorizada em 25/11/2026. Não há endpoint, Callable, integração Angular nem alteração das Rules.
+
+### Canais e responsabilidades
+
+| Camada | Responsabilidade e situação |
+| --- | --- |
+| Firebase Authentication | Autenticar a identidade do cliente. As novas funções não verificam tokens, sessão Firebase, revogação ou credenciais. |
+| Perfil Firestore | A política existente exige `users/{uid}` com `role == roleId` em `member/admin`. Nome, contato, e-mail, bootstrap e posse não concedem autorização. |
+| Cliente Angular futuro | Continua prevista leitura direta do próprio caminho via SDK Firestore, protegida por get/list próprios nas Rules. Hoje o fallback ainda nega acesso a decks, inclusive admin. Nenhuma Callable de leitura foi introduzida. |
+| Operação interna backend | Usa a porta de store existente, cujo adapter Admin SDK ignora Rules; por isso exige contexto confiável e perfil antes da leitura. Não constitui o canal exposto ao Angular. |
+
+O canal cliente já está aprovado; não há decisão arquitetural bloqueante sobre substituí-lo. As operações internas são preparação para callers privilegiados autorizados, sem publicar uma alternativa de transporte.
+
+### API interna e identidade
+
+```ts
+getOwnPersonalDeck(context, request, store, profiles): Promise<PersonalDeckResource | null>
+listOwnPersonalDecks(context, request, store, profiles): Promise<readonly PersonalDeckResource[]>
+```
+
+`PersonalDeckReadContext` contém somente `auth?: {uid} | null`, reutilizando a projeção de `PlayerRequest['auth']`. O caller confiável deve projetar apenas o UID de um contexto **já autenticado**, nunca construir essa autoridade com `request.data`, UID arbitrário ou e-mail. Nem o tipo estrutural nem um objeto `{auth: {uid}}` comprovam autenticação; um contexto forjado não se torna confiável por passar no parser. Não há factory que autentique uma string, verificador de JWT ou integração Firebase Auth neste incremento.
+
+O pedido Get contém exatamente `{deckId}` (`GetOwnPersonalDeckRequest`). List recebe exatamente `{}` (`ListOwnPersonalDecksRequest`), sem filtro, limite, caminho ou proprietário escolhidos pelo cliente. Campos extras, símbolos, getters, propriedades ocultas e IDs inválidos são recusados antes de I/O. Contexto e sua projeção `auth` também exigem propriedades próprias de dados e nenhum campo adicional; um futuro caller deve projetar `{auth: {uid}}`, sem passar o token ou o objeto completo da sessão.
+
+UID e deckId são capturados antes do primeiro await. As validações de segmentos já existentes no store foram extraídas para [personal-deck-identifiers.ts](../functions/src/decks/personal-deck-identifiers.ts), sem alterar sua semântica, incluindo UIDs Unicode/pontuação e recusa de paths, segmentos reservados e UTF-8 inválido. Não se impôs o identificador ASCII de carta/conteúdo ao UID; o contrato público do store e seus domínios CRUD não mudaram.
+
+### Perfil, ausência e integridade
+
+`PersonalDeckProfileReader` oferece somente `get(uid): Promise<Readonly<Record<string, unknown>> | null>`, representando uma leitura confiável de `users/{uid}`. Não aceita caminho e não tem writes, bootstrap ou implementação Firebase nova. O caller fornece a porta; não pode obter os papéis do payload ou de uma projeção client-side como autoridade.
+
+As operações leem apenas propriedades próprias de dados de `role` e `roleId`, sem executar getters, e reutilizam `validateUser` de [pack-domain.ts](../functions/src/pack-domain.ts). Perfis mínimos antigos continuam válidos. Sessão ausente usa `PlayerBootstrapError` com `unauthenticated`; contexto/UID inválido ou perfil ausente/inválido usa `permission-denied`. Estrutura de pedido/recurso inválida usa `GameplayContractError`, conforme os parsers de decks existentes. Falhas das portas propagam, sem serem convertidas para ausência ou permissão negada fictícia. Nenhum perfil é criado ou reparado automaticamente.
+
+Após autorizar o perfil, Get executa somente `transaction.get(deckId)` em `store.runTransaction(uid, ...)`; null significa recurso ausente no caminho próprio. Valida o retorno por `parsePersonalDeckResource` e exige ID coincidente. List executa somente `transaction.list(PERSONAL_DECK_LIMITS.maxDecks)`, recusa respostas acima do teto, arrays malformados ou IDs duplicados e valida cada recurso. Ordena uma cópia por atualização decrescente e ID ASCII crescente; não ordena o array de origem nem usa locale. Corrupção não é ocultada ou removida da lista.
+
+Member e admin seguem o mesmo isolamento por UID, sem leitura administrativa cruzada. O retorno contém apenas `PersonalDeckResource` independente e readonly nos tipos, sem perfil, definições mecânicas, ownership, assets ou recibos de batalha. Não consulta catálogo histórico/ativo, coleção ou publicação: um deck salvo continua legível mesmo com referências historicamente indisponíveis. Não grava, incrementa versão ou altera datas.
+
+A leitura do perfil precede a transação de decks; não há garantia de revogação atômica entre as duas portas. Uma futura integração deve tratar a origem/autenticidade do contexto e a consulta real do perfil sem extrapolar esta validação interna para enforcement cliente ou produção. Limitação registrada em [riscos](riscos-e-dividas-tecnicas.md#área-do-jogador).
+
+[Testes unitários](../functions/tests/read-own-personal-decks.test.ts) usam doubles de ambas as portas para autorização, isolamento, limites, ordenação, corrupção, propagação de falhas e ausência de mutações. [Testes de tipos](../functions/tests/read-own-personal-decks.typecheck.ts) verificam contratos, readonly e ausência de proprietário nos pedidos. Os quatro novos casos da [suíte real de store](../functions/tests/firestore-personal-deck-store.emulator.ts) usam Firestore Emulator com **porta de perfil double**; comprovam caminho/ordenação/integridade e dados/`updateTime` preservados, sem comprovar Firebase Auth, leitura real de perfil ou Rules. Evidências executadas no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
+
+**Deck Builder permanece o único CURRENT e INCOMPLETO.** Encerrar após esse incremento. Próximo candidato pequeno, mediante nova autorização: delimitar get/list próprios nas Security Rules e sua matriz de testes, mantendo todos os writes cliente negados; nenhuma Rule foi implementada aqui.

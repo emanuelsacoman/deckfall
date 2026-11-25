@@ -62,6 +62,14 @@ O PNG final em `published-cards/{cardId}/preview.png` permite get para member/ad
 
 A tela de usuários atual não identifica o próprio perfil para bloquear o rebaixamento localmente; a tentativa continua sendo recusada pelas Rules. Alterações de papel pedem confirmação. Não há garantia global de último administrador entre várias sessões; recuperação cabe ao proprietário no Console.
 
+## Leituras internas de decks
+
+[Get/list internos de decks próprios](deck-builder.md#leitura-interna-de-decks-próprios) recebem uma projeção de contexto já autenticado por um caller confiável, separada do pedido. Reutilizam a política `validateUser` de `pack-domain.ts` para `role == roleId` em member/admin, sem e-mail ou exceção administrativa de acesso cruzado. Contexto e perfil são validados antes de acessar o store; ausência de sessão/perfil falha sem writes ou provisionamento.
+
+Essas funções não verificam tokens Firebase nem autenticam um objeto ou string de UID. A porta mínima de perfil permanece injetável e sem adapter Firebase novo; nos testes de store real, essa porta é um double. O perfil é lido antes da transação de decks, sem garantia de revogação atômica. Não há integração Firebase Auth/Rules comprovada para esse fluxo.
+
+O canal Angular aprovado continua sendo leitura direta do próprio Firestore, futuramente autorizada pelas Rules. Hoje o fallback ainda nega acesso cliente a decks. As operações internas privilegiadas não criam Callables, não substituem esse canal e não concedem leitura cliente.
+
 ## Bootstrap do primeiro administrador
 
 Nenhum botão da aplicação promove a primeira conta. Rules de Firestore/Storage e Hosting foram publicados com autorização do proprietário; isso não provisiona administradores nem confirma provedores, domínios OAuth ou métodos de acesso reais.

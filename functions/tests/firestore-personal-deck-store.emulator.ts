@@ -10,12 +10,14 @@ import { deletePersonalDeck } from '../src/decks/delete-personal-deck';
 import { duplicatePersonalDeck } from '../src/decks/duplicate-personal-deck';
 import { renamePersonalDeck } from '../src/decks/rename-personal-deck';
 import { updatePersonalDeck } from '../src/decks/update-personal-deck';
+import { getOwnPersonalDeck, listOwnPersonalDecks } from '../src/decks/read-own-personal-decks';
+import type { PersonalDeckProfileReader } from '../src/decks/read-own-personal-decks';
 import type { PersonalDeckCatalogReader } from '../src/decks/personal-deck-catalog';
 import {
   PersonalDeckAlreadyExistsError, PersonalDeckCapacityError, PersonalDeckConflictError, PersonalDeckNotFoundError,
 } from '../src/decks/personal-deck-errors';
 import type { PersonalDeckReadLimit, PersonalDeckStore, PersonalDeckStoreTransaction } from '../src/decks/personal-deck-store';
-import { PERSONAL_DECK_LIMITS, parsePersonalDeckResource } from '../src/gameplay';
+import { GameplayContractError, PERSONAL_DECK_LIMITS, parsePersonalDeckResource } from '../src/gameplay';
 import type { GameplayDeckCatalog, PersonalDeckDraft, PersonalDeckResource } from '../src/gameplay';
 
 // Validate before initializing the Admin SDK. No credentials, production project, remote host,
@@ -533,4 +535,68 @@ test('trusted UID, document IDs and read ceiling reject paths and invalid segmen
     await assert.rejects(store.runTransaction(uid, tx => tx.list(invalidLimit as PersonalDeckReadLimit)));
   }
   assert.equal((await collection(uid).get()).size, 0);
+});
+
+// These four cases exercise the real deck adapter and internal reads, with a profile-port double.
+// They do not authenticate Firebase clients or test a real users/{uid} profile lookup/Rules.
+function profileDouble(role: 'member' | 'admin', seen: string[] = []): PersonalDeckProfileReader {
+  return { get: async uid => { seen.push(uid); return { role, roleId: role }; } };
+}
+
+async function readSnapshot(uid: string) {
+  return (await collection(uid).get()).docs.map(snapshot => ({
+    id: snapshot.id, data: snapshot.data(), updateTime: snapshot.updateTime,
+  }));
+}
+
+for (const role of ['member', 'admin'] as const) {
+  test(`internal ${role} get/list use the real store and preserve strict own-account isolation without writes`, async () => {
+    const uid = owner();
+    const other = owner();
+    const own = resource('same-id');
+    const privateOther = resource('same-id', { draft: draft({ name: 'Other private deck' }) });
+    await store.runTransaction(uid, async tx => { tx.create(own); });
+    await store.runTransaction(other, async tx => { tx.create(privateOther); tx.create(resource('other-only')); });
+    const before = await readSnapshot(uid);
+    const otherBefore = await readSnapshot(other);
+    const seen: string[] = [];
+    const profiles = profileDouble(role, seen);
+    const context = { auth: { uid } };
+    assert.deepEqual(await getOwnPersonalDeck(context, { deckId: own.id }, store, profiles), own);
+    assert.deepEqual(await listOwnPersonalDecks(context, {}, store, profiles), [own]);
+    assert.equal(await getOwnPersonalDeck(context, { deckId: 'other-only' }, store, profiles), null);
+    await assert.rejects(getOwnPersonalDeck(context, { deckId: own.id, uid: other }, store, profiles), GameplayContractError);
+    await assert.rejects(listOwnPersonalDecks(context, { ownerUid: other }, store, profiles), GameplayContractError);
+    assert.deepEqual(seen, [uid, uid, uid]);
+    assert.deepEqual(await readSnapshot(uid), before);
+    assert.deepEqual(await readSnapshot(other), otherBefore);
+  });
+}
+
+test('internal list reads twenty real resources and sorts updates descending with ASCII ID ties', async () => {
+  const uid = owner();
+  await seed(uid, 18);
+  await store.runTransaction(uid, async tx => {
+    tx.create(resource('z-latest', { updatedAt: laterTime }));
+    tx.create(resource('A-latest', { updatedAt: laterTime }));
+  });
+  const before = await readSnapshot(uid);
+  const result = await listOwnPersonalDecks({ auth: { uid } }, {}, store, profileDouble('member'));
+  assert.equal(result.length, PERSONAL_DECK_LIMITS.maxDecks);
+  assert.deepEqual(result.map(value => value.id),
+    ['A-latest', 'z-latest', ...Array.from({ length: 18 }, (_, index) => `seed-${index}`).sort()]);
+  result.forEach(value => assert.deepEqual(parsePersonalDeckResource(value), value));
+  assert.deepEqual(await readSnapshot(uid), before);
+});
+
+test('internal get/list reject real persisted corruption without hiding or modifying its document', async () => {
+  const uid = owner();
+  await seed(uid, 1);
+  await collection(uid).doc('seed-0').update({ ownerUid: 'forged-extra-field' });
+  const before = await readSnapshot(uid);
+  const context = { auth: { uid } };
+  const profiles = profileDouble('member');
+  await assert.rejects(getOwnPersonalDeck(context, { deckId: 'seed-0' }, store, profiles), GameplayContractError);
+  await assert.rejects(listOwnPersonalDecks(context, {}, store, profiles), GameplayContractError);
+  assert.deepEqual(await readSnapshot(uid), before);
 });

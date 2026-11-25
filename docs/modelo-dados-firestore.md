@@ -47,6 +47,8 @@ Somente esses oito campos são aceitos. Na leitura, o adapter deriva `id` do doc
 
 Não há match de decks nas Rules atuais: o fallback continua negando leitura e escrita pelo SDK cliente, inclusive admin. Admin SDK ignora Rules; o adapter espera UID previamente autenticado/autorizado pelo futuro chamador e não valida perfil por conta própria. Nenhum documento de produção foi criado ou migrado. A [evidência concorrente](deck-builder.md#limite-de-20-sob-concorrência) é local ao emulador e não certifica produção.
 
+As [operações internas de get/list próprios](deck-builder.md#leitura-interna-de-decks-próprios) reutilizam esse adapter e `PersonalDeckResource`, sem novo schema. Exigem contexto fornecido por caller já autenticado e perfil autorizado antes da transação, retornam cópias independentes e ordenam a lista limitada por atualização decrescente/ID ASCII crescente. Não consultam catálogo ou propriedade para abrir um deck salvo. A porta de perfil não recebeu implementação Firebase neste incremento; as Rules atuais continuam negando leitura cliente, cujo canal futuro permanece direto no SDK Firestore.
+
 ## `gameplayContentVersions/{contentVersion}`
 
 Leitura backend isolada por [firestore-personal-deck-catalog.ts](../functions/src/decks/firestore-personal-deck-catalog.ts). A fonte principal do schema de quatro campos, aprovado em 25/11/2026, é o [envelope histórico de Deck Builder](deck-builder.md#envelope-histórico-validado): `schemaVersion: 1`, `catalog`, `trainingReferences` e `createdAt`. Cada referência identificada contém `{referenceId, referenceDeck}`; o array pode ser vazio. Catálogo, referências, igualdade com o ID do documento e limite completo de 64 KiB são conferidos antes de retornar somente o catálogo independente.
