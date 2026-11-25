@@ -1,8 +1,8 @@
 # Deck Builder v0.1 — arquitetura aprovada
 
-Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, CINCO DOMÍNIOS E ADAPTER FIRESTORE DE DECKS ISOLADO IMPLEMENTADOS; CAPACIDADE EXERCITADA NO EMULADOR; MARCO CURRENT E INCOMPLETO**
+Status: **ARQUITETURA APROVADA por Emanuel em 17/10/2026 — CONTRATOS, CINCO DOMÍNIOS E ADAPTERS FIRESTORE ISOLADOS DE DECKS E CATÁLOGO HISTÓRICO IMPLEMENTADOS; MARCO CURRENT E INCOMPLETO**
 
-Last reviewed: 2026-10-29
+Last reviewed: 2026-11-25
 
 Source of truth for: arquitetura aprovada de persistência, autorização e ciclo de vida de decks pessoais, contratos e status dos incrementos implementados
 
@@ -13,6 +13,8 @@ Emanuel autorizou em 17/10/2026 iniciar Deck Builder e promovê-lo a CURRENT. Na
 Após revisar os escopos, Emanuel autorizou o [primeiro incremento técnico](#primeiro-incremento-técnico-proposto), helper puro de compatibilidade, o [contrato puro de rascunhos](#contrato-puro-de-rascunhos-pessoais), o [contrato puro de recurso e mutações](#contrato-puro-de-recurso-e-mutações), a [porta backend do store com erros de domínio](#porta-backend-do-store-e-erros-de-domínio), a [exclusão](#operação-de-domínio-de-exclusão), a [renomeação no domínio](#operação-de-domínio-de-renomeação), a [porta de leitura de catálogo versionado](#porta-backend-de-leitura-de-catálogo-versionado), a [validação pura de referências históricas](#validação-pura-de-referências-históricas) e a [atualização no domínio](#operação-de-domínio-de-atualização), com testes e documentação. Esses incrementos preservaram schemas existentes e não incluíram persistência, catálogo cadastrado, transporte ou dados remotos.
 
 Em 29/10/2026, Emanuel autorizou exclusivamente o [adapter Firestore de decks e integração no emulador](#adapter-firestore-isolado), sem alterar a porta pública. A implementação permanece isolada no backend, sem catálogo remoto, Callables/endpoints, autenticação de transporte, Rules, UI, provisionamento, migração, Battle Engine ou deploy. Deck Builder continua CURRENT e INCOMPLETO.
+
+Em 25/11/2026, Emanuel autorizou exclusivamente o [adapter histórico de catálogo e integração no emulador](#adapter-firestore-de-catálogo-histórico) e aprovou explicitamente a representação persistida das referências de treino descrita abaixo. Esse incremento acrescenta leitura, sem provisionar ou ativar conteúdo, alterar os cinco domínios ou expor transporte.
 
 ## Base atual verificada em modo somente leitura
 
@@ -95,10 +97,12 @@ O cliente pode solicitar `deckId`, nome, composição e versão esperada. Payloa
 
 **APROVADO — 17/10/2026.** Preservar integralmente `Card`, `CardCanvasData`, `users`, `players`, coleção e pacotes. Adicionar, apenas em incremento técnico futuro autorizado, duas estruturas independentes:
 
-| Caminho aprovado, ainda não implementado | Responsabilidade mínima |
+| Caminho aprovado | Responsabilidade mínima |
 | --- | --- |
 | `gameplayContentVersions/{contentVersion}` | Envelope de conteúdo com `schemaVersion`, `catalog` no formato `GameplayDeckCatalog`, referências de treino identificadas e suas composições, e `createdAt` de servidor. A versão do caminho coincide com `catalog.contentVersion`; todas as referências usam suas regras/conteúdo. Documento imutável após criação. |
 | `gameplayConfig/active` | `schemaVersion`, `contentVersion` e `updatedAt` de servidor; aponta para uma versão existente e integralmente validada. Política única de conteúdo permitido para novas admissões. |
+
+A leitura histórica está implementada pelo [adapter isolado](#adapter-firestore-de-catálogo-histórico). Escrita, provisionamento e ativação continuam não implementados; não há conteúdo de produção criado por esse incremento.
 
 O ponteiro não contém perfis duplicados. Publicar uma nova versão e ativá-la exige operação privilegiada explícita, com validação de todas as definições, referências e identidades antes do commit; não é uma capacidade do jogador nem uma nova tela administrativa presumida. Não se reescreve uma versão histórica. Provisionamento/publicação desse conteúdo será um trabalho próprio autorizado, sem seed remoto implícito.
 
@@ -405,11 +409,11 @@ Status deste incremento: **IMPLEMENTADO E VALIDADO em 17/10/2026**, após autori
 
 `PersonalDeckCatalogReader` oferece somente `get(contentVersion: string): Promise<GameplayDeckCatalog | null>`. Reutiliza diretamente `GameplayDeckCatalog` de `shared/gameplay`, por importação apenas de tipos, sem segundo schema, parser, erro ou implementação de leitura. O catálogo é global e não recebe UID, draft completo ou contexto pessoal; autenticação/autorização pertence à integração/endpoint confiável, ainda não implementado.
 
-`null` significa exclusivamente catálogo inexistente. Catálogo presente malformado, versão divergente da solicitada ou falha de infraestrutura deve rejeitar a Promise; não pode ser ocultado como ausência. Validar profundamente o futuro documento `gameplayContentVersions/{contentVersion}`, conferir a versão e converter somente conteúdo canônico são obrigações do adapter futuro, ainda **não implementadas**. A porta não define exceção própria de ausência; o domínio update converte null em `PersonalDeckContentUnavailableError`.
+`null` significa exclusivamente catálogo inexistente. Catálogo presente malformado, versão divergente da solicitada ou falha de infraestrutura deve rejeitar a Promise; não pode ser ocultado como ausência. A validação profunda do documento `gameplayContentVersions/{contentVersion}` e sua projeção são implementadas pelo [adapter histórico](#adapter-firestore-de-catálogo-histórico). A porta não define exceção própria de ausência; create/update/duplicate convertem null em `PersonalDeckContentUnavailableError`.
 
 A projeção retorna o contrato readonly já existente, incluindo cards, definições e efeitos; isso não congela objetos em runtime nem comprova a fidelidade de um adapter. A porta não verifica tamanho do deck, posse, publicação/status de `Card` ou elegibilidade adicional: preserva o valor `eligible` presente no catálogo. Não altera revisões, não migra proveniência, não filtra por jogador e não decide admissão de partida.
 
-Não há active config, fallback para catálogo ativo, writes, ativação ou provisionamento. A porta é consumida pelos domínios create/update antes da transação pessoal e por duplicate entre suas duas fases; delete/rename permanecem sem consulta de catálogo. `gameplayContentVersions` e `gameplayConfig/active` reais, adapters, Callable, Rules e UI continuam não implementados.
+Não há active config, fallback para catálogo ativo, writes, ativação ou provisionamento. A porta é consumida pelos domínios create/update antes da transação pessoal e por duplicate entre suas duas fases; delete/rename permanecem sem consulta de catálogo. Há reader Firestore isolado, sem conteúdo remoto provisionado, `gameplayConfig/active`, Callable, Rules ou UI.
 
 [Testes de tipos](../functions/tests/personal-deck-catalog.typecheck.ts) verificam assinatura exata, retorno compartilhado ou null, versão explícita, ausência de UID/draft/contexto pessoal/write/ativação e readonly aninhado. Não foi criado banco fake, teste de leitura real ou novo teste de execução. `test:gameplay` **145/145**, backend **119/119**, testes de tipos e `build:functions` passaram, exit 0; as contagens de execução ficaram inalteradas. Evidências no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Sem alteração de runtime, dependências, configuração, dados remotos ou deploy.
 
@@ -575,4 +579,29 @@ Cada retry recebe um handle novo e confirmações de presença vazias. Todas as 
 
 Versionamento, no-op, referências históricas e capacidade continuam nos domínios; o store não decide essas políticas. Os testes integrados injetam catálogo fake e clock determinístico, mantendo o store, as transações e as consultas finais reais no emulador. A cobertura inclui os cinco domínios, isolamento de UIDs, ausência, destino existente/precondição de create, datas/versões, no-op confirmado por `updateTime`, replace/delete sem upsert, rollback, reexecução concorrente, corrupção e limites 0/19/20. A suíte real passou com **44/44**; gameplay **145/145**, backend **304/304**, typecheck explícito e build Functions também passaram, exit 0. Resultados completos e condições de execução ficam no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível); a evidência prioritária de capacidade está [acima](#limite-de-20-sob-concorrência).
 
-Nenhuma Callable, autenticação de transporte, Rules, UI, Angular service, catálogo remoto, conteúdo, contador, migração, partida ou deploy foi acrescentado. As Rules continuam negando acesso cliente a decks. Encerrar após este incremento; o próximo candidato pequeno é o adapter histórico de `PersonalDeckCatalogReader`, a delimitar e autorizar separadamente, sem provisionamento implícito.
+Nenhuma Callable, autenticação de transporte, Rules, UI, Angular service, catálogo remoto, conteúdo, contador, migração, partida ou deploy foi acrescentado pelo incremento do store. As Rules continuam negando acesso cliente a decks. O reader histórico foi autorizado separadamente, abaixo.
+
+## Adapter Firestore de catálogo histórico
+
+Status: **IMPLEMENTADO E VALIDADO LOCALMENTE em 25/11/2026**, com autorização de Emanuel exclusivamente para leitura histórica e testes de integração. Factory [createFirestorePersonalDeckCatalogReader](../functions/src/decks/firestore-personal-deck-catalog.ts) recebe `Firestore` do Admin SDK e retorna a porta pública inalterada `PersonalDeckCatalogReader`. O único caminho lido é `gameplayContentVersions/{contentVersion}`; o identificador é validado antes de compor o caminho, inclusive recusando segmentos reservados do Firestore. Não recebe UID e não consulta propriedade, publicação, jogador ou configuração ativa.
+
+### Envelope histórico validado
+
+Representação **APROVADA explicitamente por Emanuel em 25/11/2026**, após identificar que o contrato anterior não especificava os campos das referências. O documento contém exatamente os quatro campos obrigatórios:
+
+| Campo | Representação |
+| --- | --- |
+| `schemaVersion` | Inteiro fixo `1`; sem fallback ou migração de schema desconhecido |
+| `catalog` | `GameplayDeckCatalog`, validado integralmente por `parseGameplayDeckCatalog`; `contentVersion` igual ao ID do documento |
+| `trainingReferences` | Array obrigatório, podendo ser vazio, de objetos exatos `{referenceId, referenceDeck}`; IDs únicos conforme Gameplay Contract e `referenceDeck` no formato `GameplayDeckList` |
+| `createdAt` | `Timestamp` do Admin SDK; strings, números, null e mapas que imitam Timestamp são recusados |
+
+Cada referência passa por `parseGameplayDeckList` e `validateGameplayDeck` com o próprio catálogo e contexto `training-reference`. Isso exige mesmas regras/conteúdo, 24 cartas, até duas cópias por identidade e revisão/elegibilidade canônicas. Nenhuma referência inválida é ignorada: mesmo uma referência não utilizada pelo rascunho pessoal invalida o envelope inteiro. A validação reutiliza Deck Rules sem mudar sua semântica. O reader retorna somente o catálogo; não expõe referência de treino como autoridade pessoal.
+
+O envelope completo normalizado, incluindo todas as referências, deve ter até **65.536 bytes de JSON em UTF-8**, com `createdAt` projetado para ISO UTC em milissegundos somente para medir tamanho. Um Timestamp válido com precisão maior é aceito e permanece intacto no documento; sua data não faz parte do retorno. O catálogo e as listas de referência são projetados pelos parsers, sem alterar definições, revisões, ordem ou `eligible: false`. Não há agregação/substituição silenciosa de definições nem fragmentação para contornar o teto.
+
+Documento ausente retorna `null`. Documento presente inválido rejeita com os erros existentes de contrato/Deck Rules; falhas do SDK propagam sem captura ou conversão para ausência. O retorno é uma projeção aninhada independente, readonly nos tipos e sem congelamento obrigatório em runtime. Leituras repetidas e alterações pelo consumidor não alteram a origem ou outras projeções.
+
+[Testes de integração](../functions/tests/firestore-personal-deck-catalog.emulator.ts) usam exclusivamente o Firestore Emulator e `demo-cardgame`, com fixtures por execução e limpeza somente dos próprios documentos. Incluem os limites exatos 65.536/65.537 bytes, falha RPC real por recurso de banco inválido, independência de retornos e `createPersonalDeck` + store + reader reais: conteúdo válido permite salvar; ausência, corrupção, referência de treino inválida ou falha RPC impedem qualquer gravação. [Testes de tipos](../functions/tests/firestore-personal-deck-catalog.typecheck.ts) verificam a factory, assinatura, ausência de UID/writes e readonly aninhado. Resultados executados estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível).
+
+Sem alterações em `shared/gameplay`, sem escrita/ativação de catálogo, active config, endpoints, Rules, Angular, migração, contador, conteúdo real, Battle Engine ou deploy. **Deck Builder permanece o único CURRENT e INCOMPLETO.** Encerrar após esse incremento. Próximo candidato pequeno, mediante autorização própria: ampliar a integração de update/duplicate com reader e store reais, sem transporte ou provisionamento implícitos.

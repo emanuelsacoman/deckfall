@@ -2,7 +2,7 @@
 
 Status: Active
 
-Last reviewed: 2026-10-29
+Last reviewed: 2026-11-25
 
 Source of truth for: direção do produto, ordem dos marcos, dependências e critérios de conclusão
 
@@ -10,7 +10,7 @@ Source of truth for: direção do produto, ordem dos marcos, dependências e cri
 
 As fases e a ordem abaixo registram o direcionamento explícito do proprietário. Não tornam cada item inevitável nem autorizam implementação automática. A situação presente está em [Project State](project-state.md); regras de jogo e aprovações em [Game Design](game-design.md); autonomia em [AGENTS.md](../AGENTS.md#limites-da-autonomia).
 
-Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada, com a etapa explicitada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. O único milestone em foco é Deck Builder: arquitetura aprovada, contratos puros, portas de store/catálogo, cinco domínios, validação histórica e adapter Firestore de decks isolado implementados. O marco permanece INCOMPLETO; resultados locais por incremento estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Indicar trabalho futuro ou promover um marco não autoriza implementação adicional.
+Status: **DONE** = critérios atendidos com evidência (aprovação explícita para design; implementação e validação local para código); **IN PROGRESS** = execução iniciada, com a etapa explicitada; **BLOCKED** = depende de decisão/requisito ainda ausente; **PLANNED** = próximo trabalho ou direção futura, ainda sem execução. O único milestone em foco é Deck Builder: arquitetura aprovada, contratos puros, portas de store/catálogo, cinco domínios, validação histórica e adapters Firestore isolados de decks e catálogo histórico implementados. O marco permanece INCOMPLETO; resultados locais por incremento estão no [contexto operacional](contexto-operacional-para-ias.md#validação-disponível). Indicar trabalho futuro ou promover um marco não autoriza implementação adicional.
 
 Os critérios das fases futuras são alvos de planejamento, a detalhar e confirmar com o proprietário antes de executar cada marco. Não aprovam valores, regras de jogo, desenho de economia ou uma arquitetura futura. Só avance de status com evidência; código placeholder não satisfaz conclusão. Referências apontam para documentos existentes; crie novos contratos somente quando o marco permitir, sem arquivos vazios antecipados.
 
@@ -73,7 +73,7 @@ Evidência: [testes de execução](../tests/gameplay/gameplay-deck.test.mjs), [t
 
 **Milestone: CURRENT**
 
-**Status: IN PROGRESS — contratos puros, portas, cinco domínios, validação histórica e adapter Firestore de decks isolado implementados; capacidade exercitada no emulador; marco INCOMPLETO.** Objetivo do marco: montar, salvar e reabrir decks pessoais com validação e autorização. Deck Rules está concluído; a arquitetura de persistência/autorização e conteúdo canônico foi **APROVADA por Emanuel em 17/10/2026**, conforme [Deck Builder v0.1](deck-builder.md).
+**Status: IN PROGRESS — contratos puros, portas, cinco domínios, validação histórica e adapters Firestore isolados de decks e catálogo histórico implementados; marco INCOMPLETO.** Objetivo do marco: montar, salvar e reabrir decks pessoais com validação e autorização. Deck Rules está concluído; a arquitetura de persistência/autorização e conteúdo canônico foi **APROVADA por Emanuel em 17/10/2026**, conforme [Deck Builder v0.1](deck-builder.md).
 
 Emanuel aprovou os blocos 1, 2, 3 e 5 e o bloco 4 com revisão: validar as referências explícitas salvas contra o catálogo ativo, sem invalidar decks por mera diferença da versão histórica ou substituir revisões silenciosamente. Os limites 20/80/16 KiB/64 KiB são aprovados e revisáveis de v0.1. A capacidade transacional possui evidência repetida no emulador (19 + duas operações, final 20), sem prova formal de produção. Se o mecanismo falhar, mantém-se a parada antes de workaround e proposta de quota/counter backend.
 
@@ -103,7 +103,9 @@ O incremento de [domínio duplicate](deck-builder.md#operação-de-domínio-de-d
 
 O incremento de [adapter Firestore de decks](deck-builder.md#adapter-firestore-isolado), autorizado em 29/10/2026, implementou o store real sem alterar a interface pública: schema plano estrito, Timestamps com round-trip exato em milissegundos, create com precondição de ausência, replace completo e delete com presença confirmada, reads antes de writes e rollback. A suíte usa somente o emulador com catálogo fake injetado. Cinco rodadas create/create e cinco create/duplicate, cada uma partindo de 19 decks, terminaram com uma confirmação, uma recusa por capacidade e 20 documentos; não é prova formal de produção. Não foram criados transporte, autenticação de transporte, Rules, UI ou catálogo remoto. [Evidências e limitações](contexto-operacional-para-ias.md#validação-disponível).
 
-Encerrar após esse incremento. Próximo candidato pequeno: delimitar e autorizar o adapter histórico de `PersonalDeckCatalogReader`, sem provisionamento/ativação de conteúdo, transporte ou UI implícitos. Não implementar o marco inteiro nem avançar ao Battle Engine. A condição de parada antes de workaround de capacidade permanece.
+O incremento do [adapter histórico de catálogo](deck-builder.md#adapter-firestore-de-catálogo-histórico), autorizado em 25/11/2026, implementa somente `createFirestorePersonalDeckCatalogReader` e sua integração no Firestore Emulator. Emanuel aprovou explicitamente a representação das referências de treino no envelope. A leitura valida o documento inteiro e seu limite de 64 KiB, preserva definições/revisões/inelegibilidade e distingue ausência de corrupção/falha SDK. Create integrado com reader e store reais permite conteúdo histórico válido e impede gravação para conteúdo ausente ou inválido. Não há writer, catálogo provisionado, ativação, transporte, Rules, UI ou deploy. [Evidência executada](contexto-operacional-para-ias.md#validação-disponível).
+
+Encerrar após esse incremento. Próximo candidato pequeno, mediante autorização própria: ampliar integração de update/duplicate com reader e store reais no emulador, sem provisionamento/ativação de conteúdo, transporte ou UI implícitos. Não implementar o marco inteiro nem avançar ao Battle Engine. A condição de parada antes de workaround de capacidade permanece.
 
 | Próximos itens, na ordem desejada | Status | Objetivo | Dependências | Critério de conclusão | Referência principal |
 | --- | --- | --- | --- | --- | --- |

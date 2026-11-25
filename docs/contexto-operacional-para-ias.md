@@ -2,7 +2,7 @@
 
 Status: Active
 
-Last reviewed: 2026-10-29
+Last reviewed: 2026-11-25
 
 Source of truth for: ambiente, comandos de desenvolvimento/validação e evidências externas datadas
 
@@ -71,15 +71,18 @@ npm.cmd run build:functions
 npm.cmd run test:functions
 npm.cmd run test:functions:emulator
 npm.cmd run test:decks:emulator
+npm.cmd run test:deck-catalog:emulator
 git diff --check
 git status --short
 ```
 
 Angular/Jasmine/Karma exige Chrome. Rules e integração exigem Java/Firebase CLI compatíveis; backend exige Node.js 22. `test:rules` usa Firestore/Storage em `demo-cardgame`; `test:functions:emulator` compila Functions e usa Auth/Firestore/Functions no mesmo projeto isolado. `test:decks:emulator` inicia somente Firestore em `demo-cardgame` e chama `npm --prefix functions run test:decks:integration`, que compila/testa o store real sem subir Callables. Antes de inicializar Admin SDK, essa suíte exige `FIRESTORE_EMULATOR_HOST` em loopback e `GCLOUD_PROJECT=demo-cardgame`; cada execução gera UIDs isolados e limpa somente os próprios decks. Catálogo e clock são injetados como fixtures, sem catálogos ou credenciais remotas. `test:gameplay` compila o módulo puro, executa testes de tipos e Node Test Runner sem emuladores; a execução registrada usou Node.js 22. Não existe script de lint configurado.
 
+`test:deck-catalog:emulator` também inicia somente Firestore em `demo-cardgame` e chama `npm --prefix functions run test:deck-catalog:integration`. Essa suíte exige os mesmos guards de host/projeto antes do Admin SDK. Cria versões históricas com IDs exclusivos apenas no emulador, testa reader/store/create reais e limpa somente suas versões e decks. As referências de treino são fixtures, sem conteúdo provisionado remotamente. `test:decks:emulator` conserva a suíte anterior com catálogo fake; os comandos devem ser executados separadamente para evitar disputa pela porta 8080.
+
 `shared/gameplay` tem build isolado com TypeScript já instalado na raiz: `build:gameplay` gera JS/CommonJS e declarações em `shared/gameplay/lib`, ignorado pelo Git; `typecheck:gameplay` verifica casos positivos/negativos de tipos sem emitir arquivos. O Angular não importa o módulo nesta etapa, e Functions conserva seu `rootDir: src`. Para validar o contrato, execute explicitamente `test:gameplay`; o build Angular sozinho não o verifica. API e limites estão em [Gameplay Contract](gameplay-contract.md).
 
-As portas backend de decks consomem somente tipos; os cinco domínios, o helper de referências históricas e o adapter Firestore também reutilizam parsers em runtime. `functions/src/gameplay.d.ts` encaminha as declarações geradas e os scripts `build`, `typecheck`, `test`, `test:integration` e `test:decks:integration` em `functions/package.json` executam antes `npm --prefix .. run build:gameplay`. Após o TSC, [copy-gameplay.cjs](../functions/scripts/copy-gameplay.cjs) copia a saída compartilhada inteira para `functions/lib/gameplay` no build e `functions/lib-test/src/gameplay` nos testes. `typecheck` não emite/copia arquivos. Nenhum contrato de deck é duplicado em fonte; o adapter traduz somente o envelope persistido e o runtime publicado fica dentro de `functions/`. Instalar dependências da raiz e de Functions continua necessário; `rootDir`, `outDir`, `main: lib/index.js`, dependências e configs Firebase foram preservados. O frontend continua sem importar gameplay.
+As portas backend de decks consomem somente tipos; os cinco domínios, o helper de referências históricas e os adapters Firestore também reutilizam parsers em runtime. `functions/src/gameplay.d.ts` encaminha as declarações geradas e os scripts `build`, `typecheck`, `test`, `test:integration`, `test:decks:integration` e `test:deck-catalog:integration` em `functions/package.json` executam antes `npm --prefix .. run build:gameplay`. Após o TSC, [copy-gameplay.cjs](../functions/scripts/copy-gameplay.cjs) copia a saída compartilhada inteira para `functions/lib/gameplay` no build e `functions/lib-test/src/gameplay` nos testes. `typecheck` não emite/copia arquivos. Nenhum contrato de deck é duplicado em fonte; os adapters traduzem somente os envelopes persistidos e o runtime publicado fica dentro de `functions/`. Instalar dependências da raiz e de Functions continua necessário; `rootDir`, `outDir`, `main: lib/index.js`, dependências e configs Firebase foram preservados. O frontend continua sem importar gameplay.
 
 O predeploy local existente em `firebase.json` compila Functions antes de um upload autorizado. `functions/package.json` tem `gcp-build` vazio para usar esse `lib/` pré-compilado e impedir recompilação remota dependente de `../shared`/`../package.json`, ausentes no pacote de origem. Essa opção de controle do build é documentada em [Node.js runtime — NPM build script](https://docs.cloud.google.com/run/docs/runtimes/nodejs#npm_build_script). Não publicar fontes sem executar o build local; isso não autoriza deploy nem comprova o pipeline remoto nesta tarefa.
 
@@ -88,6 +91,12 @@ Selecionar verificações pelo impacto real da tarefa, conforme [AGENTS.md](../A
 Falhas `EPERM` ao resolver o perfil Windows ocorreram em execuções anteriores no sandbox. Não são falhas de domínio nem justificam alterar testes/segurança. Inspecionar o erro e seguir a aprovação de execução exigida pelo ambiente; não presumir autorização permanente.
 
 ### Validação disponível
+
+No **incremento do reader histórico de catálogo em 25/11/2026**, `npm.cmd run test:deck-catalog:emulator` passou com **78/78 testes**, exit 0, no Firestore Emulator **1.19.8**, projeto `demo-cardgame`, CLI 15.9.0, Node.js 22.23.3 e Java 21. O [schema de quatro campos e referências de treino](deck-builder.md#envelope-histórico-validado) foi aprovado explicitamente por Emanuel nesta sessão. A suíte verifica envelope estrito, catálogo profundo, versões, duplicatas, definições/efeitos, Timestamps, limites normalizados exatos de **65.536/65.537 bytes**, inelegibilidade preservada, integridade de todas as referências, IDs/paths e independência de retornos/origem. A falha de banco usa um recurso de database inválido no mesmo emulador, com rejeição RPC real `INVALID_ARGUMENT` (código 3); não há mocks de banco. Create/store/reader reais confirmam sucesso histórico e ausência de writes quando o conteúdo está ausente, corrompido, tem referência inválida ou a leitura falha.
+
+`npm.cmd run test:gameplay` passou com **145/145**, `npm.cmd --prefix functions test` com **304/304**, `npm.cmd --prefix functions run typecheck` e `npm.cmd run build:functions` passaram, todos exit 0. A regressão `npm.cmd run test:decks:emulator` também passou com **44/44**, incluindo as dez rodadas concorrentes existentes; sua evidência permanece restrita ao emulador. Os testes de tipos incluem a nova factory e o contrato readonly existente. Logs locais ignorados: `.local-tools/historical-catalog-emulator.log`, `.local-tools/historical-catalog-decks-emulator.log`, `.local-tools/historical-catalog-gameplay-tests.log`, `.local-tools/historical-catalog-backend-tests.log`, `.local-tools/historical-catalog-typecheck.log` e `.local-tools/historical-catalog-build-functions.log`. Angular e Rules não foram executados neste incremento, pois não tiveram mudanças nem novos fluxos expostos. Não houve deploy, operação em produção ou provisionamento de conteúdo; o hard cap continua sem prova formal em produção.
+
+Para executar no sandbox desta máquina, o PATH da sessão incluiu os runtimes portáteis já existentes. A primeira tentativa da CLI parou por `EPERM` ao abrir sua configuração global; foi usado `XDG_CONFIG_HOME` apontando para `.local-tools/firebase-decks-config`. A CLI tentou baixar o emulador 1.20.2 sem rede disponível; a execução final usou `FIRESTORE_EMULATOR_BINARY_PATH` apontando para o JAR **1.19.8 já existente** em `C:/Users/Emanuel Sacoman/.cache/firebase/emulators/cloud-firestore-emulator-v1.19.8.jar`. Essas opções são locais à sessão, sem alterar dependências, configuração Firebase versionada ou runtimes globais. Não substituir o JAR por outro conteúdo usando o mesmo nome.
 
 No **incremento do adapter Firestore de decks em 29/10/2026**, `npm.cmd run test:decks:emulator` passou com **44/44 testes**, exit 0. Store, transações e consultas finais foram reais no **Firestore Emulator 1.19.8**, projeto `demo-cardgame`, com Firebase CLI 15.9.0, Node.js 22.23.3 e Java 21. O catálogo e o clock foram fixtures injetadas. A cobertura inclui os cinco domínios, schema plano, versões/datas e round-trip de milissegundos, isolamento por UID, capacidade 0/19/20, ausência, precondição real de create, replace/delete com presença confirmada, no-op por `updateTime`, rollback, falhas, handles expirados e retries.
 
@@ -139,12 +148,13 @@ Na etapa de Deck Rules, build/testes de gameplay passaram com Node.js 22 portát
 | Verificação | Resultado registrado | Evidência e escopo |
 | --- | --- | --- |
 | Jasmine/Karma | 620/620, Chrome Headless 155 | Editor QoL, 17/10: `.local-tools/editor-qol-angular-tests-complete.log`, exit 0 |
-| Gameplay Contract + Typed Effects + Deck Rules + contratos pessoais | Build, testes de tipos e 145/145 Node Test Runner | Regressão do adapter Firestore, 29/10: `.local-tools/firestore-decks-gameplay-tests.log`, exit 0 |
+| Gameplay Contract + Typed Effects + Deck Rules + contratos pessoais | Build, testes de tipos e 145/145 Node Test Runner | Reader histórico, 25/11: `.local-tools/historical-catalog-gameplay-tests.log`, exit 0 |
 | Build Angular de produção | Aprovado, sem avisos | Editor QoL, 17/10: `.local-tools/editor-qol-build-final.log`, exit 0 |
 | Firestore/Storage Rules | 56/56 em demo-cardgame | Anterior: revisão documental de 15/10, `npm.cmd run test:rules`, exit 0 |
-| Build Functions | Aprovado | Adapter Firestore, 29/10: `.local-tools/firestore-decks-build-functions.log`, exit 0 |
-| Domínio backend + decks | 304/304 e typecheck explícito aprovado | Adapter Firestore, 29/10: `.local-tools/firestore-decks-backend-tests.log` e `.local-tools/firestore-decks-typecheck.log`, exit 0 |
-| Integração store de decks | 44/44 em demo-cardgame; dez rodadas concorrentes com final 20 | Adapter Firestore, 29/10: `.local-tools/firestore-decks-emulator.log`, exit 0; sem prova formal de produção |
+| Build Functions | Aprovado | Reader histórico, 25/11: `.local-tools/historical-catalog-build-functions.log`, exit 0 |
+| Domínio backend + decks | 304/304 e typecheck explícito aprovado | Reader histórico, 25/11: `.local-tools/historical-catalog-backend-tests.log` e `.local-tools/historical-catalog-typecheck.log`, exit 0 |
+| Integração catálogo histórico + create/store reais | 78/78 em demo-cardgame | Reader histórico, 25/11: `.local-tools/historical-catalog-emulator.log`, exit 0 |
+| Integração store de decks | 44/44 em demo-cardgame; dez rodadas concorrentes com final 20 | Regressão reader histórico, 25/11: `.local-tools/historical-catalog-decks-emulator.log`, exit 0; sem prova formal de produção |
 | Integração Callable | 15/15 em demo-cardgame | Anterior: `.local-tools/preview-fix-test-functions-emulator.log` |
 
 A cobertura atual pode ser conferida em specs junto aos serviços/componentes, [functions/tests](../functions/tests) e [tests/rules/cardgame.rules.test.mjs](../tests/rules/cardgame.rules.test.mjs). Inclui concessão/abertura transacionais e idempotentes, versão histórica, concorrência/limites/falhas sem writes parciais, negação de writes de member, reveal/revisão, MIME com SDK instalado, retry/lifecycle de URLs e reparo administrativo. Testes locais não comprovam sessão real em produção.

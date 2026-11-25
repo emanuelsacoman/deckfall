@@ -47,6 +47,12 @@ Somente esses oito campos são aceitos. Na leitura, o adapter deriva `id` do doc
 
 Não há match de decks nas Rules atuais: o fallback continua negando leitura e escrita pelo SDK cliente, inclusive admin. Admin SDK ignora Rules; o adapter espera UID previamente autenticado/autorizado pelo futuro chamador e não valida perfil por conta própria. Nenhum documento de produção foi criado ou migrado. A [evidência concorrente](deck-builder.md#limite-de-20-sob-concorrência) é local ao emulador e não certifica produção.
 
+## `gameplayContentVersions/{contentVersion}`
+
+Leitura backend isolada por [firestore-personal-deck-catalog.ts](../functions/src/decks/firestore-personal-deck-catalog.ts). A fonte principal do schema de quatro campos, aprovado em 25/11/2026, é o [envelope histórico de Deck Builder](deck-builder.md#envelope-histórico-validado): `schemaVersion: 1`, `catalog`, `trainingReferences` e `createdAt`. Cada referência identificada contém `{referenceId, referenceDeck}`; o array pode ser vazio. Catálogo, referências, igualdade com o ID do documento e limite completo de 64 KiB são conferidos antes de retornar somente o catálogo independente.
+
+Não há writer, seed, ativação, migração ou conteúdo de produção criado. `gameplayConfig/active` continua apenas contrato futuro, sem implementação. As Rules não foram alteradas; seu fallback continua negando acesso direto de clientes a esses documentos. O reader privilegiado não consulta UID, coleção, publicação ou configuração pessoal; ausência retorna null, corrupção e erros de banco rejeitam. Datas Timestamp são projetadas para ISO UTC em milissegundos somente para a medida JSON, preservando os dados persistidos.
+
 ## `players/{uid}`
 
 Estado mínimo do jogador, separado de identidade/autorização em `users/{uid}`. O UID vem do caminho; não é duplicado. Não há moedas, XP, nível, placar, deck selecionado ou outros campos de sistemas futuros.
